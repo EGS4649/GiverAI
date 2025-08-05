@@ -6,13 +6,15 @@ from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 import datetime, os
 from passlib.context import CryptContext
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-print("bcrypt available:", pwd_context.has_backend("bcrypt"))
-
 from jose import JWTError, jwt
 import stripe
+import bcrypt
+
+def hash_password(password: str) -> bytes:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+
+def verify_password(plain_password: str, hashed_password: bytes) -> bool:
+    return bcrypt.checkpw(plain_password.encode(), hashed_password)
 
 # ----- DB Setup -----
 DATABASE_URL = "sqlite:///./test.db"
