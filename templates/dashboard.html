@@ -1,0 +1,205 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Giver.ai</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .dashboard-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .welcome-section {
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(0, 255, 255, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    
+    .usage-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .stat-card {
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .stat-number {
+      font-size: 2em;
+      font-weight: bold;
+      color: #00ffff;
+      margin-bottom: 10px;
+    }
+    
+    .stat-label {
+      color: #adc2ff;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 0.9em;
+    }
+    
+    .tweet-generator-section {
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 10px;
+      padding: 30px;
+      margin-bottom: 30px;
+    }
+    
+    .limit-warning {
+      background: rgba(255, 100, 0, 0.2);
+      border: 1px solid #ff6400;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      text-align: center;
+      color: #ff6400;
+    }
+    
+    .regeneration-notice {
+      text-align: center;
+      color: #adc2ff;
+      font-style: italic;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="brand">
+      <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
+    </div>
+    <ul class="nav-links">
+      <li class="dropdown">
+        <a href="#" class="dropbtn">Features ▼</a>
+        <div class="dropdown-content">
+          <a href="/tweetgiver">TweetGiver</a>
+          <a href="#">More Soon...</a>
+        </div>
+      </li>
+      <li><a href="/pricing">Pricing</a></li>
+      <li><a href="/logout">Logout</a></li>
+    </ul>
+  </nav>
+
+  <main class="dashboard-container">
+    <div class="welcome-section">
+      <h1>Welcome back, {{ user.username }}! 🚀</h1>
+      <p style="color: #adc2ff; font-size: 1.1em; margin-top: 15px;">
+        Ready to create some amazing tweets? Your AI-powered content generator awaits!
+      </p>
+    </div>
+
+    <div class="usage-stats">
+      <div class="stat-card">
+        <div class="stat-number">{{ tweets_left }}</div>
+        <div class="stat-label">Tweets Remaining Today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">{{ user.plan|title }}</div>
+        <div class="stat-label">Current Plan</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">{{ tweets_used if tweets_used is defined else 0 }}</div>
+        <div class="stat-label">Tweets Generated Today</div>
+      </div>
+    </div>
+
+    {% if tweets_left == 0 %}
+    <div class="limit-warning">
+      <h3>Daily Limit Reached! 🎯</h3>
+      <p>You've used all your free tweets for today. Your credits will regenerate tomorrow at midnight.</p>
+      <p style="margin-top: 15px;">
+        <a href="/pricing" style="color: #00ffff; text-decoration: underline;">Upgrade to Creator Plan</a> for unlimited tweets!
+      </p>
+    </div>
+    {% endif %}
+
+    <div class="tweet-generator-section">
+      <h2 style="color: #00ffff; margin-bottom: 20px;">🎯 Tweet Generator</h2>
+      
+      {% if error %}
+        <div style="background: rgba(255, 0, 0, 0.2); border: 1px solid #ff4444; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #ff4444; text-align: center;">
+          {{ error }}
+        </div>
+      {% endif %}
+      
+      <form method="post" action="/dashboard">
+        <label>Your job/niche:</label><br />
+        <input type="text" name="job" placeholder="e.g., Digital Marketing Expert, Fitness Coach, Tech Entrepreneur" required {% if tweets_left == 0 %}disabled{% endif %} /><br />
+        <label>Your goal for today's tweets:</label><br />
+        <input type="text" name="goal" placeholder="e.g., Increase engagement, Drive traffic to blog, Build thought leadership" required {% if tweets_left == 0 %}disabled{% endif %} /><br />
+        <label>Number of tweets to generate:</label><br />
+        <select name="tweet_count" {% if tweets_left == 0 %}disabled{% endif %} style="width: 100%; padding: 15px; margin-bottom: 20px; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(0, 255, 255, 0.3); border-radius: 5px; color: #00ffff; font-family: 'Courier New', monospace; font-size: 16px;">
+          {% if tweets_left == 'Unlimited' %}
+            {% for i in range(1, 16) %}
+            <option value="{{ i }}" {% if i == 5 %}selected{% endif %}>{{ i }} tweet{{ 's' if i != 1 else '' }}</option>
+            {% endfor %}
+          {% else %}
+            {% for i in range(1, (tweets_left + 1) if tweets_left > 0 else 1) %}
+            <option value="{{ i }}" {% if i == (5 if tweets_left >= 5 else tweets_left) %}selected{% endif %}>{{ i }} tweet{{ 's' if i != 1 else '' }}</option>
+            {% endfor %}
+            {% if tweets_left == 0 %}
+            <option value="0" selected>No tweets available</option>
+            {% endif %}
+          {% endif %}
+        </select><br />
+        <button type="submit" {% if tweets_left == 0 %}disabled style="opacity: 0.5; cursor: not-allowed;"{% endif %}>
+          {% if tweets_left == 0 %}Limit Reached - Try Tomorrow{% else %}Generate Tweets{% endif %}
+        </button>
+      </form>
+
+      {% if tweets_left != 'Unlimited' and tweets_left > 0 %}
+      <div class="regeneration-notice">
+        💡 Your tweet credits will regenerate tomorrow at midnight
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Generated Tweets -->
+    {% if tweets %}
+      <div style="background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(10px); border: 1px solid rgba(255, 0, 255, 0.3); border-radius: 10px; padding: 30px;">
+        <h2 style="color: #ff00ff;">Generated Tweets:</h2>
+        <ul style="background: none; border: none; padding: 0;">
+          {% for tweet in tweets %}
+          <li>{{ tweet }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-container">
+      <div class="footer-left">
+        <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+      </div>
+      <div class="footer-links">
+        <a href="/tweetgiver">TweetGiver</a> |
+        <a href="/pricing">Pricing</a>
+      </div>
+      <div class="footer-right">
+        &copy; Copyright Giver.ai
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
