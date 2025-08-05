@@ -5,7 +5,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, func, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 import datetime, os
-
+from passlib.hash import bcrypt
+print("bcrypt available:", bcrypt.available())
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 import stripe
