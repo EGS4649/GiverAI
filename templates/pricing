@@ -1,0 +1,330 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Giver.ai - Pricing</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .pricing-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 30px;
+      margin-top: 40px;
+    }
+    
+    .pricing-card {
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(0, 255, 255, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    
+    .pricing-card.featured {
+      border-color: #ff00ff;
+      box-shadow: 0 0 30px rgba(255, 0, 255, 0.3);
+      transform: scale(1.05);
+    }
+    
+    .pricing-card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 20px 40px rgba(0, 255, 255, 0.2);
+    }
+    
+    .plan-header {
+      text-align: center;
+      margin-bottom: 25px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+    }
+    
+    .plan-name {
+      font-size: 1.5em;
+      color: #00ffff;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .plan-price {
+      font-size: 2em;
+      color: #fff;
+      font-weight: bold;
+    }
+    
+    .plan-price .currency {
+      font-size: 0.6em;
+      color: #adc2ff;
+    }
+    
+    .features-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .features-list li {
+      padding: 12px 0;
+      border: none;
+      background: none;
+      margin: 0;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      font-size: 0.95em;
+    }
+    
+    .features-list li:hover {
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .features-list li::before {
+      content: none;
+    }
+    
+    .checkmark {
+      color: #00ff88;
+      margin-right: 10px;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    
+    .crossmark {
+      color: #ff4444;
+      margin-right: 10px;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    
+    .plan-cta {
+      margin-top: 30px;
+      text-align: center;
+    }
+    
+    .plan-button {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(45deg, #00ffff, #ff00ff);
+      border: none;
+      border-radius: 8px;
+      color: #000;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 1em;
+    }
+    
+    .plan-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(0, 255, 255, 0.4);
+    }
+    
+    .featured-badge {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(45deg, #ff00ff, #00ffff);
+      color: #000;
+      padding: 5px 20px;
+      border-radius: 20px;
+      font-size: 0.8em;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    
+    @media (max-width: 768px) {
+      .pricing-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .pricing-card.featured {
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="brand">
+      <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
+    </div>
+    <ul class="nav-links">
+      <li class="dropdown">
+        <a href="#" class="dropbtn">Features ▼</a>
+        <div class="dropdown-content">
+          <a href="/tweetgiver">TweetGiver</a>
+          <a href="#">More Soon...</a>
+        </div>
+      </li>
+      <li><a href="/pricing">Pricing</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>Choose Your Plan</h1>
+    <p class="page-description">Select the perfect plan for your social media content needs</p>
+    
+    {% if error %}
+      <div style="background: rgba(255, 0, 0, 0.2); border: 1px solid #ff4444; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #ff4444; text-align: center;">
+        {{ error }}
+      </div>
+    {% endif %}
+    
+    <div class="pricing-container">
+      <!-- Free Plan -->
+      <div class="pricing-card">
+        <div class="plan-header">
+          <div class="plan-name">Free</div>
+          <div class="plan-price"><span class="currency">$</span>0<span class="currency">/month</span></div>
+        </div>
+        <ul class="features-list">
+          <li><span class="checkmark">✔</span> Up to 15 tweets/day</li>
+          <li><span class="checkmark">✔</span> Basic customization options</li>
+          <li><span class="checkmark">✔</span> Limited 24h tweet history</li>
+          <li><span class="crossmark">✘</span> Export/download tweets</li>
+          <li><span class="crossmark">✘</span> Priority support</li>
+          <li><span class="crossmark">✘</span> Team collaboration</li>
+          <li><span class="crossmark">✘</span> Scheduling & automation</li>
+        </ul>
+        <div class="plan-cta">
+          <a href="/register" style="text-decoration: none;">
+            <button class="plan-button">Start Free Trial</button>
+          </a>
+        </div>
+      </div>
+
+      <!-- Creator Plan -->
+      <div class="pricing-card featured">
+        <div class="featured-badge">Most Popular</div>
+        <div class="plan-header">
+          <div class="plan-name">Creator</div>
+          <div class="plan-price"><span class="currency">$</span>9<span class="currency">/month</span></div>
+        </div>
+        <ul class="features-list">
+          <li><span class="checkmark">✔</span> Unlimited tweet generations</li>
+          <li><span class="checkmark">✔</span> Advanced customization & templates</li>
+          <li><span class="checkmark">✔</span> 60-day tweet history</li>
+          <li><span class="checkmark">✔</span> Export/download tweets</li>
+          <li><span class="checkmark">✔</span> Priority email support</li>
+          <li><span class="crossmark">✘</span> Team collaboration</li>
+          <li><span class="checkmark">✔</span> Limited scheduling</li>
+        </ul>
+        <div class="plan-cta">
+          {% if user %}
+            <!-- User is logged in, allow direct upgrade via Stripe -->
+            <form action="/checkout/creator" method="post" style="margin: 0;">
+              <button class="plan-button" type="submit">Upgrade to Creator</button>
+            </form>
+          {% else %}
+
+          {% if user %}
+            {% if user.plan == 'free' %}
+              <form action="/checkout/creator" method="post" style="margin: 0;">
+                <button class="plan-button" type="submit">Upgrade to Creator</button>
+              </form>
+            {% else %}
+              <button class="plan-button" disabled>You’re already a Creator</button>
+            {% endif %}
+          {% else %}
+            <a href="/register" style="text-decoration: none;">
+              <button class="plan-button" type="button">Start Free Trial</button>
+            </a>
+          {% endif %}
+
+            <!-- User is not logged in, send to register page -->
+            <a href="/register" style="text-decoration: none;">
+              <button class="plan-button" type="button">Start Free Trial</button>
+            </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Small Team Plan -->
+      <div class="pricing-card">
+        <div class="plan-header">
+          <div class="plan-name">Small Team</div>
+          <div class="plan-price"><span class="currency">$</span>25<span class="currency">/month</span></div>
+        </div>
+        <ul class="features-list">
+          <li><span class="checkmark">✔</span> Unlimited tweet generations</li>
+          <li><span class="checkmark">✔</span> Advanced & team settings</li>
+          <li><span class="checkmark">✔</span> 60+ days shared history</li>
+          <li><span class="checkmark">✔</span> Export/download tweets</li>
+          <li><span class="checkmark">✔</span> Priority support</li>
+          <li><span class="checkmark">✔</span> 3-5 team seats</li>
+          <li><span class="checkmark">✔</span> Standard scheduling</li>
+        </ul>
+        <div class="plan-cta">
+          <button class="plan-button">Coming Soon</button>
+        </div>
+      </div>
+
+      <!-- Agency Plan -->
+      <div class="pricing-card">
+        <div class="plan-header">
+          <div class="plan-name">Agency</div>
+          <div class="plan-price"><span class="currency">$</span>69<span class="currency">/month</span></div>
+        </div>
+        <ul class="features-list">
+          <li><span class="checkmark">✔</span> Unlimited tweet generations</li>
+          <li><span class="checkmark">✔</span> Advanced + analytics</li>
+          <li><span class="checkmark">✔</span> 90+ days + analytics</li>
+          <li><span class="checkmark">✔</span> Export/download tweets</li>
+          <li><span class="checkmark">✔</span> Dedicated support</li>
+          <li><span class="checkmark">✔</span> 10-15 team seats</li>
+          <li><span class="checkmark">✔</span> Advanced scheduling</li>
+          <li><span class="checkmark">✔</span> White labeling</li>
+        </ul>
+        <div class="plan-cta">
+          <button class="plan-button">Coming Soon</button>
+        </div>
+      </div>
+
+      <!-- Enterprise Plan -->
+      <div class="pricing-card">
+        <div class="plan-header">
+          <div class="plan-name">Enterprise</div>
+          <div class="plan-price"><span class="currency">$</span>199+<span class="currency">/month</span></div>
+        </div>
+        <ul class="features-list">
+          <li><span class="checkmark">✔</span> Unlimited everything</li>
+          <li><span class="checkmark">✔</span> Fully customizable</li>
+          <li><span class="checkmark">✔</span> Unlimited + archiving</li>
+          <li><span class="checkmark">✔</span> Export/download tweets</li>
+          <li><span class="checkmark">✔</span> 24/7 dedicated support</li>
+          <li><span class="checkmark">✔</span> Unlimited team seats</li>
+          <li><span class="checkmark">✔</span> Custom integrations</li>
+          <li><span class="checkmark">✔</span> API access</li>
+          <li><span class="checkmark">✔</span> Account manager</li>
+        </ul>
+        <div class="plan-cta">
+          <button class="plan-button">Coming Soon</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-container">
+      <div class="footer-left">
+        <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+      </div>
+      <div class="footer-links">
+        <a href="/tweetgiver">TweetGiver</a> |
+        <a href="/pricing">Pricing</a>
+      </div>
+      <div class="footer-right">
+        &copy; Copyright Giver.ai
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
