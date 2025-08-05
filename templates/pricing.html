@@ -216,35 +216,25 @@
           <li><span class="crossmark">✘</span> Team collaboration</li>
           <li><span class="checkmark">✔</span> Limited scheduling</li>
         </ul>
-        <div class="plan-cta">
-          {% if user %}
-            <!-- User is logged in, allow direct upgrade via Stripe -->
-            <form action="/checkout/creator" method="post" style="margin: 0;">
-              <button class="plan-button" type="submit">Upgrade to Creator</button>
-            </form>
-          {% else %}
-
-          {% if user %}
-            {% if user.plan == 'free' %}
-              <form action="/checkout/creator" method="post" style="margin: 0;">
-                <button class="plan-button" type="submit">Upgrade to Creator</button>
-              </form>
-            {% else %}
-              <button class="plan-button" disabled>You’re already a Creator</button>
-            {% endif %}
-          {% else %}
-            <a href="/register" style="text-decoration: none;">
-              <button class="plan-button" type="button">Start Free Trial</button>
-            </a>
-          {% endif %}
-
-            <!-- User is not logged in, send to register page -->
-            <a href="/register" style="text-decoration: none;">
-              <button class="plan-button" type="button">Start Free Trial</button>
-            </a>
-          {% endif %}
-        </div>
-      </div>
+        
+      <div class="plan-cta">
+  {% if user %}
+    {% if user.plan == 'free' %}
+      <!-- User logged in and on Free plan -->
+      <form action="/checkout/creator" method="post" style="margin: 0;">
+        <button class="plan-button" type="submit">Upgrade to Creator</button>
+      </form>
+    {% else %}
+      <!-- User logged in but already Creator or higher -->
+      <button class="plan-button" disabled>You’re already a Creator</button>
+    {% endif %}
+  {% else %}
+    <!-- User not logged in -->
+    <a href="/register" style="text-decoration: none;">
+      <button class="plan-button" type="button">Start Free Trial</button>
+    </a>
+  {% endif %}
+</div>
 
       <!-- Small Team Plan -->
       <div class="pricing-card">
