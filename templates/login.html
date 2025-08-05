@@ -1,0 +1,68 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Giver.ai</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="brand">
+      <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
+    </div>
+    <ul class="nav-links">
+      <li class="dropdown">
+        <a href="#" class="dropbtn">Features ▼</a>
+        <div class="dropdown-content">
+          <a href="/tweetgiver">TweetGiver</a>
+          <a href="#">More Soon...</a>
+        </div>
+      </li>
+      <li><a href="/pricing">Pricing</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <h1>Login to Giver.ai</h1>
+    <p class="page-description">Sign in to access your AI-powered social media tools</p>
+    
+    {% if error %}
+      <div style="background: rgba(255, 0, 0, 0.2); border: 1px solid #ff4444; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #ff4444;">
+        {{ error }}
+      </div>
+    {% endif %}
+    
+    <form method="post" action="/login">
+      <label>Username:</label><br />
+      <input type="text" name="username" placeholder="Enter your username" required /><br />
+      <label>Password:</label><br />
+      <input type="password" name="password" placeholder="Enter your password" required /><br />
+      <button type="submit">Login</button>
+    </form>
+    
+    <hr />
+    <p style="text-align: center; color: #adc2ff;">
+      Don't have an account? <a href="/register" style="color: #00ffff;">Sign up here</a>
+    </p>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-container">
+      <div class="footer-left">
+        <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+      </div>
+      <div class="footer-links">
+        <a href="/tweetgiver">TweetGiver</a> |
+        <a href="/pricing">Pricing</a>
+      </div>
+      <div class="footer-right">
+        &copy; Copyright Giver.ai
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
