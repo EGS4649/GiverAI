@@ -5,9 +5,12 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, func, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 import datetime, os
-from passlib.hash import bcrypt
-print("bcrypt available:", bcrypt.available())
 from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+print("bcrypt available:", pwd_context.has_backend("bcrypt"))
+
 from jose import JWTError, jwt
 import stripe
 
