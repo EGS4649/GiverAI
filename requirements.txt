@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+passlib[bcrypt]
+bcrypt
+sqlalchemy
+stripe
+jose
+...
