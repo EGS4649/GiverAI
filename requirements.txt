@@ -6,3 +6,4 @@ sqlalchemy
 stripe
 python-jose
 openai
+jinja2
