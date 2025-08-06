@@ -7,3 +7,4 @@ stripe
 python-jose
 openai
 jinja2
+python-multipart
