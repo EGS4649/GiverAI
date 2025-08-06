@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, func, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from openai import OpenAI
 import datetime, os
 from passlib.context import CryptContext
 from jose import JWTError, jwt
@@ -96,7 +97,6 @@ def get_current_user(request: Request):
     return user
 
 # ---- FastAPI Setup -----
-from openai import OpenAI
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
