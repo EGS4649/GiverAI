@@ -9,7 +9,11 @@ import datetime, os
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 import stripe
-import bcrypt
+try:
+    import bcrypt
+    print("bcrypt module imported successfully")
+except Exception as e:
+    print("bcrypt import error:", e)
 
 def hash_password(password: str) -> bytes:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt())
