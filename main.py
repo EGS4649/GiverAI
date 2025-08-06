@@ -4,9 +4,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, func, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from sqlalchemy import LargeBinary
 from openai import OpenAI
 import datetime, os
-from passlib.context import CryptContext
 from jose import JWTError, jwt
 import stripe
 try:
@@ -33,7 +33,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    hashed_password = Column(LargeBinary) 
     plan = Column(String, default="free")  # or "creator"
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -57,10 +57,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_your_stripe_secret_key_here")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_your_stripe_publishable_key_here")
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def get_password_hash(password: str) -> bytes:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
-def verify_password(plain, hashed): return pwd_context.verify(plain, hashed)
-def get_password_hash(password): return pwd_context.hash(password)
+def verify_password(plain_password: str, hashed_password: bytes) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password)
 
 def create_access_token(data: dict, expires_delta=None):
     to_encode = data.copy()
