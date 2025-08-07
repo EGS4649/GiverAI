@@ -224,8 +224,8 @@ async def create_checkout_session(request: Request):
                 'quantity': 1,
             }],
             mode='subscription',
-          success_url=request.url_for('checkout_success') + '?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url=request.url_for('pricing'),
+          success_url = request.url_for('checkout_success').include_query_params(session_id='{CHECKOUT_SESSION_ID}')
+cancel_url = request.url_for('pricing')
             customer_email=user.email  # Using user email for payment receipt, etc.
         )
         return RedirectResponse(checkout_session.url, status_code=303)
