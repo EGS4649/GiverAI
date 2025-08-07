@@ -224,7 +224,7 @@ async def create_checkout_session(request: Request):
                 'quantity': 1,
             }],
             mode='subscription',
-            success_url=request.url_for('checkout_success') + '?session_id={CHECKOUT_SESSION_ID}',
+          success_url=request.url_for('checkout_success') + '?session_id={CHECKOUT_SESSION_ID}',
             cancel_url=request.url_for('pricing'),
             customer_email=user.email  # Using user email for payment receipt, etc.
         )
