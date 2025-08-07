@@ -204,59 +204,69 @@ def pricing(request: Request):
 
 @app.post("/checkout/creator")
 async def create_checkout_session(request: Request):
-    # Require login before showing Stripe checkout
+    # Require login to ensure user email known
     try:
         user = get_current_user(request)
     except HTTPException:
         return RedirectResponse("/register", status_code=302)
 
     try:
+        # Use your Stripe price ID here
+        price_id = os.getenv("STRIPE_CREATOR_PRICE_ID")  # Set in your environment variables
+
+        if not price_id:
+            raise Exception("Stripe price ID is not set in environment variables")
+
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': 'Creator Plan - Giver.ai',
-                        'description': 'Unlimited tweet generations, advanced customization, and priority support',
-                    },
-                    'unit_amount': 900,  # $9.00 in cents
-                    'recurring': {
-                        'interval': 'month',
-                    },
-                },
+                'price': price_id,
                 'quantity': 1,
             }],
             mode='subscription',
             success_url=request.url_for('checkout_success') + '?session_id={CHECKOUT_SESSION_ID}',
             cancel_url=request.url_for('pricing'),
-            # Optionally: pass user info here
-            customer_email=user.email
-  # If username is email, else add an `email` field to your User model
+            customer_email=user.email  # Using user email for payment receipt, etc.
         )
         return RedirectResponse(checkout_session.url, status_code=303)
     except Exception as e:
+        # You can add logging here as needed
         return templates.TemplateResponse("pricing.html", {
-            "request": request, 
-            "error": f"Error creating checkout session: {str(e)}"
+            "request": request,
+            "error": f"Error creating checkout session: {str(e)}",
+            "user": user
         })
 
 @app.get("/checkout/success")
 async def checkout_success(request: Request, session_id: str = None):
-    if session_id:
-        try:
-            session = stripe.checkout.Session.retrieve(session_id)
-            # Here you could update the user's plan in your database
-            return templates.TemplateResponse("checkout_success.html", {
-                "request": request,
-                "session": session
-            })
-        except Exception as e:
-            return templates.TemplateResponse("pricing.html", {
-                "request": request,
-                "error": f"Error retrieving session: {str(e)}"
-            })
-    return RedirectResponse("/pricing", status_code=302)
+    if not session_id:
+        return RedirectResponse("/pricing", status_code=302)
+
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+
+        # Optional: Verify session and subscription status here
+        customer_email = session.customer_details.email
+
+        # Update user plan in your DB
+        db = SessionLocal()
+        user = db.query(User).filter(User.email == customer_email).first()
+        if user:
+            user.plan = "creator"
+            db.commit()
+
+        return templates.TemplateResponse("checkout_success.html", {
+            "request": request,
+            "session": session,
+            "user": user,
+        })
+    except Exception as e:
+        return templates.TemplateResponse("pricing.html", {
+            "request": request,
+            "error": f"Error retrieving session: {str(e)}",
+            "user": get_optional_user(request)
+        })
+
 
 async def get_ai_tweets(prompt, count=5):
     try:
