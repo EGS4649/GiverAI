@@ -5,12 +5,18 @@
   box-sizing: border-box;
 }
 
-body {
-  font-family: 'Courier New', monospace;
-  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
-  color: #00ffff;
-  min-height: 100vh;
-  overflow-x: hidden;
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%);
+  z-index: -1;
+  animation: pulse 4s ease-in-out infinite alternate;
 }
 
 /* Animated background */
@@ -63,7 +69,9 @@ body::before {
   list-style: none;
   display: flex;
   gap: 30px;
+  align-items: center;
 }
+
 
 .nav-links a {
   color: #00ffff;
@@ -79,6 +87,22 @@ body::before {
   border: 1px solid #00ffff;
   background: rgba(0, 255, 255, 0.1);
   box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+}
+
+.nav-links .active-link,
+.nav-links a.active-link { 
+  border: 1px solid #ff00ff;
+  background: rgba(255, 0, 255, 0.13);
+  color: #ff00ff;
+  box-shadow: 0 0 15px #ff00ff88;
+  font-weight: bold;
+}
+
+.nav-links a:hover {
+  border: 1px solid #00ffff;
+  background: rgba(0, 255, 255, 0.1);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+  color: #00ffff;
 }
 
 .dropdown {
@@ -110,6 +134,38 @@ body::before {
 
 .dropdown-content a:hover {
   background: rgba(0, 255, 255, 0.2);
+}
+
+.navbar-username, 
+.nav-links .navbar-username,
+.nav-links span.navbar-username {
+  color: #ffd700;
+  font-weight: bold;
+  margin: 0 10px;
+  text-shadow: 0 0 8px #fffa;
+  letter-spacing: .5px;
+}
+
+/* For Already Logged-in Notice (Register Page) */
+.already-logged-in {
+  padding: 30px;
+  border: 1.5px solid #ff00ff;
+  background: rgba(0, 255, 255, 0.07);
+  border-radius: 10px;
+  margin: 40px 0;
+  text-align: center;
+  color: #ff00ff;
+  font-size: 1.1em;
+  box-shadow: 0 2px 30px #ff00ff22;
+}
+.already-logged-in a {
+  color: #00ffff;
+  text-decoration: underline;
+  margin: 0 10px;
+  font-weight: bold;
+}
+.already-logged-in a:hover {
+  color: #ff00ff;
 }
 
 main {
