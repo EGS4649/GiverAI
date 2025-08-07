@@ -101,6 +101,12 @@ def get_current_user(request: Request):
         raise credentials_exception
     return user
 
+def get_optional_user(request: Request):
+    try:
+        return get_current_user(request)
+    except Exception:
+        return None
+
 # ---- FastAPI Setup -----
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -114,11 +120,13 @@ client = OpenAI(
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    user = get_optional_user(request)
+    return templates.TemplateResponse("index.html", {"request": request, "user": user})
 
 @app.get("/register", response_class=HTMLResponse)
 def register(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+    user = get_optional_user(request)
+    return templates.TemplateResponse("register.html", {"request": request, "user": user})
 
 @app.post("/register", response_class=HTMLResponse)
 def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
@@ -155,13 +163,9 @@ def logout():
 
 @app.get("/tweetgiver", response_class=HTMLResponse)
 def tweetgiver(request: Request):
-    user = None
-    try: 
-        user = get_current_user(request)
-        # If user is logged in, redirect to dashboard
+    user = get_optional_user(request)
+    if user:
         return RedirectResponse("/dashboard", status_code=302)
-    except: 
-        pass  # Non-authenticated users can access this page
     return templates.TemplateResponse("tweetgiver.html", {"request": request, "tweets": None, "user": user})
 
 @app.post("/tweetgiver", response_class=HTMLResponse)
@@ -194,14 +198,9 @@ async def generate_tweetgiver(request: Request):
     return response
 
 @app.get("/pricing", response_class=HTMLResponse)
-async def pricing(request: Request):
-    user = None
-    try:
-        user = get_current_user(request)
-    except HTTPException:
-        pass
+def pricing(request: Request):
+    user = get_optional_user(request)
     return templates.TemplateResponse("pricing.html", {"request": request, "user": user})
-
 
 @app.post("/checkout/creator")
 async def create_checkout_session(request: Request):
