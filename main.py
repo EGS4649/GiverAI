@@ -239,26 +239,18 @@ cancel_url = request.url_for('pricing'),
 
 @app.get("/checkout/success")
 async def checkout_success(request: Request, session_id: str = None):
-    if not session_id:
+    if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
+        # You might want to redirect or show a user-friendly message here
         return RedirectResponse("/pricing", status_code=302)
 
     try:
         session = stripe.checkout.Session.retrieve(session_id)
-
-        # Optional: Verify session and subscription status here
-        customer_email = session.customer_details.email
-
-        # Update user plan in your DB
-        db = SessionLocal()
-        user = db.query(User).filter(User.email == customer_email).first()
-        if user:
-            user.plan = "creator"
-            db.commit()
+        # Use session to extract info or update user plan
 
         return templates.TemplateResponse("checkout_success.html", {
             "request": request,
             "session": session,
-            "user": user,
+            "user": get_optional_user(request)
         })
     except Exception as e:
         return templates.TemplateResponse("pricing.html", {
