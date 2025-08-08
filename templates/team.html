@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Team Management - Giver.ai</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <!-- ... same as other pages ... -->
+  </nav>
+
+  <main class="account-container">
+    <h1>Team Management</h1>
+    <p>You have {{ available_seats }} of {{ max_seats }} seats available</p>
+    
+    <div class="team-management">
+      <div class="add-member-form">
+        <h3>Add Team Member</h3>
+        <form method="post" action="/add-team-member">
+          <input type="email" name="email" placeholder="Enter email address" required>
+          <select name="role">
+            <option value="admin">Admin</option>
+            <option value="editor">Editor</option>
+            <option value="viewer">Viewer</option>
+          </select>
+          <button type="submit">Invite to Team</button>
+        </form>
+      </div>
+      
+      <div class="team-members-list">
+        <h3>Current Team Members</h3>
+        <ul>
+          {% for member in team_members %}
+          <li>
+            <div class="member-info">
+              <strong>{{ member.email }}</strong>
+              <span>({{ member.role }})</span>
+            </div>
+            <form method="post" action="/remove-team-member">
+              <input type="hidden" name="email" value="{{ member.email }}">
+              <button type="submit">Remove</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <!-- ... same as other pages ... -->
+  </footer>
+</body>
+</html>
