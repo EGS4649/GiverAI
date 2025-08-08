@@ -256,6 +256,18 @@ def migrate_database():
                 # Wrap SQL in text() construct
                 conn.execute(text("ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'"))
             print("Added plan column to users table")
+            
+     if 'generated_tweets' not in inspector.get_table_names():
+        Base.metadata.tables["generated_tweets"].create(bind=engine)
+        print("Created generated_tweets table")
+    
+    # Add API key column to users
+    if 'users' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        if 'api_key' not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN api_key VARCHAR"))
+            print("Added api_key column to users table")
 
 # Run migrations
 migrate_database()
@@ -562,6 +574,45 @@ async def create_checkout_session(request: Request, plan_type: str):
             "error": f"Error creating checkout session: {str(e)}",
             "user": user
         })
+@app.post("/generate-tweet-api")
+async def generate_tweet_api(
+    request: Request,
+    job: str = Form(...),
+    goal: str = Form(...),
+    api_key: str = Header(None)
+):
+    db = SessionLocal()
+    try:
+        if not api_key:
+            raise HTTPException(status_code=401, detail="API key required")
+        
+        user = db.query(User).filter(User.api_key == api_key).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        
+        features = get_plan_features(user.plan)
+        if not features["api_access"]:
+            raise HTTPException(status_code=403, detail="API access not available for your plan")
+        
+        # Generate tweet using existing logic
+        prompt = f"As a {job}, suggest an engaging tweet to achieve: {goal}."
+        tweets = await get_ai_tweets(prompt, 1)
+        
+        # Save to history
+        if tweets:
+            generated_tweet = GeneratedTweet(
+                user_id=user.id,
+                tweet_text=tweets[0],
+                generated_at=datetime.datetime.utcnow()
+            )
+            db.add(generated_tweet)
+            db.commit()
+            
+            return {"tweet": tweets[0]}
+        
+        return {"error": "Failed to generate tweet"}
+    finally:
+        db.close()
 
 # Update success handler to change user's plan
 @app.get("/checkout/success")
