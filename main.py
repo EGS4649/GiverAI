@@ -2,10 +2,12 @@ from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi import HTTPException, status, Depends
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, func, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import LargeBinary
 from openai import OpenAI
+from pydantic import BaseModel
 import datetime, os
 from jose import JWTError, jwt
 import stripe
@@ -37,6 +39,8 @@ class User(Base):
     plan = Column(String, default="free")  # or "creator"
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    plan = Column(String, default="free")  # Now supports: free, creator, small_team, agency, enterprise
+    stripe_customer_id = Column(String, nullable=True)  
 
 class Usage(Base):
     __tablename__ = "usage"
@@ -45,6 +49,14 @@ class Usage(Base):
     date = Column(String)
     count = Column(Integer, default=0)
     user = relationship("User")
+
+# Account Management Models
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+class EmailChange(BaseModel):
+    new_email: str
 
 Base.metadata.create_all(bind=engine)
 
@@ -160,7 +172,75 @@ def logout():
     response = RedirectResponse("/", status_code=302)
     response.delete_cookie("access_token")
     return response
+    
+# Account Management Routes
+@app.get("/account", response_class=HTMLResponse)
+def account(request: Request, user: User = Depends(get_current_user)):
+    return templates.TemplateResponse("account.html", {"request": request, "user": user})
 
+@app.post("/account/change_password")
+async def change_password(
+    request: Request,
+    data: PasswordChange = Depends(Form(...),
+    user: User = Depends(get_current_user)
+):
+    db = SessionLocal()
+    db_user = db.query(User).filter(User.id == user.id).first()
+    
+    if not verify_password(data.current_password, db_user.hashed_password):
+        return templates.TemplateResponse("account.html", {
+            "request": request,
+            "user": user,
+            "error": "Current password is incorrect"
+        })
+    
+    db_user.hashed_password = get_password_hash(data.new_password)
+    db.commit()
+    return templates.TemplateResponse("account.html", {
+        "request": request,
+        "user": db_user,
+        "success": "Password updated successfully!"
+    })
+
+@app.post("/account/change_email")
+async def change_email(
+    request: Request,
+    data: EmailChange = Depends(Form(...)),
+    user: User = Depends(get_current_user)
+):
+    db = SessionLocal()
+    db_user = db.query(User).filter(User.id == user.id).first()
+    
+    # Check if email already exists
+    if db.query(User).filter(User.email == data.new_email).first():
+        return templates.TemplateResponse("account.html", {
+            "request": request,
+            "user": user,
+            "error": "Email already in use"
+        })
+    
+    db_user.email = data.new_email
+    db.commit()
+    return templates.TemplateResponse("account.html", {
+        "request": request,
+        "user": db_user,
+        "success": "Email updated successfully!"
+    })
+
+@app.post("/account/delete")
+async def delete_account(request: Request, user: User = Depends(get_current_user)):
+    db = SessionLocal()
+    db_user = db.query(User).filter(User.id == user.id).first()
+    
+    # Delete user and their usage
+    db.query(Usage).filter(Usage.user_id == user.id).delete()
+    db.delete(db_user)
+    db.commit()
+    
+    response = RedirectResponse("/", status_code=302)
+    response.delete_cookie("access_token")
+    return response
+    
 @app.get("/tweetgiver", response_class=HTMLResponse)
 def tweetgiver(request: Request):
     user = get_optional_user(request)
