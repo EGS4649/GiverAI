@@ -240,28 +240,16 @@ cancel_url = request.url_for('pricing'),
 @app.get("/checkout/success")
 async def checkout_success(request: Request, session_id: str = None):
     if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
+        # Redirect to pricing or show an informative message
         return RedirectResponse("/pricing", status_code=302)
 
-    db = SessionLocal()
     try:
         session = stripe.checkout.Session.retrieve(session_id)
-        user_email = session.get('customer_email')
-        # Find user by email and upgrade plan
-        user = db.query(User).filter(User.email == user_email).first()
-        if user and user.plan != "creator":
-            user.plan = "creator"
-            db.commit()
-        return templates.TemplateResponse("checkout_success.html", {
-            "request": request,
-            "session": session,
-            "user": user
-        })
+        # Successfully retrieved session, show success page
+        return templates.TemplateResponse("checkout_success.html", {"request": request, "session": session, "user": get_optional_user(request)})
     except Exception as e:
-        return templates.TemplateResponse("pricing.html", {
-            "request": request,
-            "error": f"Error retrieving session: {str(e)}",
-            "user": get_optional_user(request)
-        })
+        # Log or show error
+        return templates.TemplateResponse("pricing.html", {"request": request, "error": f"Error retrieving session: {str(e)}", "user": get_optional_user(request)})
 
 async def get_ai_tweets(prompt, count=5):
     try:
