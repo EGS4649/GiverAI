@@ -189,20 +189,21 @@ def account(request: Request, user: User = Depends(get_current_user)):
 @app.post("/account/change_password")
 async def change_password(
     request: Request,
-    data: PasswordChange = Depends(Form(...),
+    current_password: str = Form(...),  # Fixed: Separate Form fields
+    new_password: str = Form(...),
     user: User = Depends(get_current_user)
 ):
     db = SessionLocal()
     db_user = db.query(User).filter(User.id == user.id).first()
     
-    if not verify_password(data.current_password, db_user.hashed_password):
+    if not verify_password(current_password, db_user.hashed_password):
         return templates.TemplateResponse("account.html", {
             "request": request,
             "user": user,
             "error": "Current password is incorrect"
         })
     
-    db_user.hashed_password = get_password_hash(data.new_password)
+    db_user.hashed_password = get_password_hash(new_password)
     db.commit()
     return templates.TemplateResponse("account.html", {
         "request": request,
