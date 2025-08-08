@@ -44,10 +44,9 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(LargeBinary) 
-    plan = Column(String, default="free")  # or "creator"
+    plan = Column(String, default="free")  # Now supports: free, creator, small_team, agency, enterprise
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    plan = Column(String, default="free")  # Now supports: free, creator, small_team, agency, enterprise
     stripe_customer_id = Column(String, nullable=True)  
 
 class Usage(Base):
@@ -189,7 +188,7 @@ def account(request: Request, user: User = Depends(get_current_user)):
 @app.post("/account/change_password")
 async def change_password(
     request: Request,
-    current_password: str = Form(...),  # Fixed: Separate Form fields
+    current_password: str = Form(...),
     new_password: str = Form(...),
     user: User = Depends(get_current_user)
 ):
@@ -214,21 +213,21 @@ async def change_password(
 @app.post("/account/change_email")
 async def change_email(
     request: Request,
-    data: EmailChange = Depends(Form(...)),
+    new_email: str = Form(...),
     user: User = Depends(get_current_user)
 ):
     db = SessionLocal()
     db_user = db.query(User).filter(User.id == user.id).first()
     
     # Check if email already exists
-    if db.query(User).filter(User.email == data.new_email).first():
+    if db.query(User).filter(User.email == new_email).first():
         return templates.TemplateResponse("account.html", {
             "request": request,
             "user": user,
             "error": "Email already in use"
         })
     
-    db_user.email = data.new_email
+    db_user.email = new_email
     db.commit()
     return templates.TemplateResponse("account.html", {
         "request": request,
@@ -291,41 +290,7 @@ def pricing(request: Request):
     user = get_optional_user(request)
     return templates.TemplateResponse("pricing.html", {"request": request, "user": user})
 
-@app.post("/checkout/creator")
-async def create_checkout_session(request: Request):
-    # Require login to ensure user email known
-    try:
-        user = get_current_user(request)
-    except HTTPException:
-        return RedirectResponse("/register", status_code=302)
-
-    try:
-        # Use your Stripe price ID here
-        price_id = os.getenv("STRIPE_CREATOR_PRICE_ID")  # Set in your environment variables
-
-        if not price_id:
-            raise Exception("Stripe price ID is not set in environment variables")
-
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price': price_id,
-                'quantity': 1,
-            }],
-            mode='subscription',
-          success_url = str(request.url_for('checkout_success')) + "?session_id={CHECKOUT_SESSION_ID}",
-            customer_email=user.email  # Using user email for payment receipt, etc.
-        )
-        return RedirectResponse(checkout_session.url, status_code=303)
-    except Exception as e:
-        # You can add logging here as needed
-        return templates.TemplateResponse("pricing.html", {
-            "request": request,
-            "error": f"Error creating checkout session: {str(e)}",
-            "user": user
-        })
-
-# Create a unified checkout endpoint
+# Unified checkout endpoint for all plans
 @app.post("/checkout/{plan_type}")
 async def create_checkout_session(request: Request, plan_type: str):
     try:
@@ -371,7 +336,7 @@ async def create_checkout_session(request: Request, plan_type: str):
 
 # Update success handler to change user's plan
 @app.get("/checkout/success")
-async def checkout_success(request: Request, session_id: str = None, user: User = Depends(get_current_user)):
+async def checkout_success(request: Request, session_id: str = None):
     if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
         return RedirectResponse("/pricing", status_code=302)
 
@@ -382,38 +347,26 @@ async def checkout_success(request: Request, session_id: str = None, user: User 
         if plan:
             # Update user's plan in database
             db = SessionLocal()
-            db_user = db.query(User).filter(User.id == user.id).first()
-            if db_user:
-                db_user.plan = plan
-                db.commit()
+            user = get_optional_user(request)
+            if user:
+                db_user = db.query(User).filter(User.id == user.id).first()
+                if db_user:
+                    db_user.plan = plan
+                    db.commit()
                 
         return templates.TemplateResponse("checkout_success.html", {
             "request": request,
             "session": session,
-            "user": user,
-            "plan": plan.replace("_", " ").title()
+            "user": get_optional_user(request),
+            "plan": plan.replace("_", " ").title() if plan else "Unknown"
         })
     except Exception as e:
         return templates.TemplateResponse("pricing.html", {
             "request": request,
             "error": f"Error retrieving session: {str(e)}",
-            "user": user
+            "user": get_optional_user(request)
         })
         
-@app.get("/checkout/success")
-async def checkout_success(request: Request, session_id: str = None):
-    if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
-        # Redirect to pricing or show an informative message
-        return RedirectResponse("/pricing", status_code=302)
-
-    try:
-        session = stripe.checkout.Session.retrieve(session_id)
-        # Successfully retrieved session, show success page
-        return templates.TemplateResponse("checkout_success.html", {"request": request, "session": session, "user": get_optional_user(request)})
-    except Exception as e:
-        # Log or show error
-        return templates.TemplateResponse("pricing.html", {"request": request, "error": f"Error retrieving session: {str(e)}", "user": get_optional_user(request)})
-
 async def get_ai_tweets(prompt, count=5):
     try:
         response = client.chat.completions.create(
@@ -459,8 +412,16 @@ def dashboard(request: Request):
     today = str(datetime.date.today())
     usage = db.query(Usage).filter(Usage.user_id==user.id, Usage.date==today).first()
     tweets_used = usage.count if usage else 0
-    tweets_left = max(0, 15 - tweets_used) if user.plan == "free" else 'Unlimited'
-    return templates.TemplateResponse("dashboard.html", {"request": request, "user": user, "tweets_left": tweets_left, "tweets_used": tweets_used})
+    if user.plan == "free":
+        tweets_left = max(0, 15 - tweets_used)
+    else:
+        tweets_left = 'Unlimited'
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "user": user,
+        "tweets_left": tweets_left,
+        "tweets_used": tweets_used
+    })
 
 @app.post("/dashboard", response_class=HTMLResponse)
 async def generate(request: Request):
@@ -484,12 +445,11 @@ async def generate(request: Request):
         db.add(usage)
         db.commit()
 
-    # Calculate tweets left (for 'free' user) or unlimited
- if user.plan in ["free"]:
-    max_allowed = 15
+    # Calculate tweets left
+    if user.plan == "free":
+        max_allowed = 15
         tweets_left = max_allowed - usage.count
         if tweets_left <= 0:
-            # User has no credits left; reject request immediately
             return templates.TemplateResponse("dashboard.html", {
                 "request": request,
                 "user": user,
@@ -497,35 +457,32 @@ async def generate(request: Request):
                 "tweets": [],
                 "error": "Daily limit reached! Upgrade for unlimited tweets."
             })
-
-        # Cap tweet_count to available credits
         if tweet_count > tweets_left:
-            # Optionally show an error or just reduce count
             tweet_count = tweets_left
-   elif user.plan in ["creator", "small_team", "agency", "enterprise"]:
+    else:
         tweets_left = "Unlimited"
-    if not usage:
-        usage = Usage(user_id=user.id, date=today, count=0)
-        db.add(usage)
-        db.commit()
-    usage.count += min(tweet_count, len(tweets))
-    db.commit()
 
     # Build prompt with requested tweet count
     prompt = f"As a {job}, suggest {tweet_count} engaging tweets to achieve: {goal}."
 
     tweets = await get_ai_tweets(prompt, count=tweet_count)
 
-    # Important: Increment usage count by the number of tweets actually generated
-    # To be safe, cap increment by tweet_count and/or number of tweets returned
-    usage.count += min(tweet_count, len(tweets))
+    # Update usage count
+    usage.count += len(tweets)
     db.commit()
+
+    # Calculate remaining tweets for free tier
+    if user.plan == "free":
+        new_tweets_left = max(0, max_allowed - usage.count)
+    else:
+        new_tweets_left = "Unlimited"
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": user,
         "tweets": tweets,
-        "tweets_left": tweets_left - min(tweet_count, len(tweets)) if isinstance(tweets_left, int) else tweets_left,
+        "tweets_left": new_tweets_left,
+        "tweets_used": usage.count,
         "error": None
     })
 
@@ -557,28 +514,6 @@ async def stripe_webhook(request: Request):
                 db.commit()
 
     return {"status": "success"}
-    
-    # Generate tweets
-    prompt = f"As a {job}, suggest engaging tweets to achieve: {goal}."
-    tweets = await get_ai_tweets(prompt, tweet_count)
-    
-    # Update usage - add the actual number of tweets generated
-    usage.count += len(tweets)
-    db.commit()
-    
-    # Calculate remaining tweets
-    new_tweets_used = usage.count
-    tweets_left = max(0, 15 - new_tweets_used) if user.plan == "free" else 'Unlimited'
-    
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request, 
-        "user": user, 
-        "tweets_left": tweets_left,
-        "tweets_used": new_tweets_used,
-        "tweets": tweets
-    })
-
-
 
 if __name__ == "__main__":
     import uvicorn
