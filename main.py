@@ -1,4 +1,19 @@
-import datetime, os
+import datetime
+import os
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from sqlalchemy import LargeBinary
+from openai import OpenAI
+from pydantic import BaseModel
+from jose import JWTError, jwt
+import stripe
+
+# Stripe configuration
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 STRIPE_CREATOR_PRICE_ID = os.getenv("STRIPE_CREATOR_PRICE_ID")
 STRIPE_SMALL_TEAM_PRICE_ID = os.getenv("STRIPE_SMALL_TEAM_PRICE_ID")
@@ -6,19 +21,6 @@ STRIPE_AGENCY_PRICE_ID = os.getenv("STRIPE_AGENCY_PRICE_ID")
 STRIPE_ENTERPRISE_PRICE_ID = os.getenv("STRIPE_ENTERPRISE_PRICE_ID")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi import HTTPException, status, Depends
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, func, ForeignKey
-from sqlalchemy.orm import sessionmaker, declarative_base, relationship
-from sqlalchemy import LargeBinary
-from openai import OpenAI
-from pydantic import BaseModel
-from jose import JWTError, jwt
-import stripe
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 try:
     import bcrypt
     print("bcrypt module imported successfully")
@@ -72,10 +74,6 @@ SECRET_KEY = "your-secret-key-here"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 
-# ----- Stripe Setup -----
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_your_stripe_secret_key_here")
-STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_your_stripe_publishable_key_here")
-
 def get_password_hash(password: str) -> bytes:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
@@ -96,11 +94,12 @@ def get_user(db, username: str):
 
 def authenticate_user(db, username: str, password: str):
     user = get_user(db, username)
-    if not user or not verify_password(password, user.hashed_password): return None
+    if not user or not verify_password(password, user.hashed_password): 
+        return None
     return user
 
 def get_current_user(request: Request):
-     token = request.cookies.get("access_token")
+    token = request.cookies.get("access_token")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -164,9 +163,9 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
     if db.query(User).filter(User.email == email).first():
         return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"})
     user = User(username=username, email=email, hashed_password=get_password_hash(password))
-    db.add(user); db.commit()
+    db.add(user)
+    db.commit()
     return RedirectResponse("/onboarding", status_code=302)
-
 
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
@@ -372,12 +371,15 @@ async def checkout_success(request: Request, session_id: str = None):
         if plan:
             # Update user's plan in database
             db = SessionLocal()
-            user = get_optional_user(request)
-            if user:
-                db_user = db.query(User).filter(User.id == user.id).first()
-                if db_user:
-                    db_user.plan = plan
-                    db.commit()
+            try:
+                user = get_optional_user(request)
+                if user:
+                    db_user = db.query(User).filter(User.id == user.id).first()
+                    if db_user:
+                        db_user.plan = plan
+                        db.commit()
+            finally:
+                db.close()
                 
         return templates.TemplateResponse("checkout_success.html", {
             "request": request,
@@ -415,7 +417,6 @@ async def get_ai_tweets(prompt, count=5):
     except Exception as e:
         return [f"Error: {str(e)}. Please check your OpenAI API key."]
 
-
 @app.get("/register-success", response_class=HTMLResponse)
 def register_success(request: Request):
     return templates.TemplateResponse("register_success.html", {"request": request})
@@ -442,7 +443,10 @@ def dashboard(request: Request):
         ).first()
         
         tweets_used = usage.count if usage else 0
-        tweets_left = 'Unlimited' if user.plan != 'free' else max(0, 15 - tweets_used)
+        if user.plan != 'free':
+            tweets_left = 'Unlimited'
+        else:
+            tweets_left = max(0, 15 - tweets_used)
         
         return templates.TemplateResponse("dashboard.html", {
             "request": request,
@@ -455,66 +459,68 @@ def dashboard(request: Request):
 
 @app.post("/dashboard", response_class=HTMLResponse)
 async def generate(request: Request):
-    user = get_current_user(request)
     db = SessionLocal()
-
-    form = await request.form()
-    job = form.get("job")
-    goal = form.get("goal")
-    tweet_count_str = form.get("tweet_count", "1")
     try:
-        tweet_count = int(tweet_count_str)
-    except ValueError:
-        tweet_count = 1  # fallback to 1 if invalid
+        user = get_current_user(request)
+        form = await request.form()
+        job = form.get("job")
+        goal = form.get("goal")
+        tweet_count_str = form.get("tweet_count", "1")
+        try:
+            tweet_count = int(tweet_count_str)
+        except ValueError:
+            tweet_count = 1  # fallback to 1 if invalid
 
-    # Get usage for today
-    today = str(datetime.date.today())
-    usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
-    if not usage:
-        usage = Usage(user_id=user.id, date=today, count=0)
-        db.add(usage)
+        # Get usage for today
+        today = str(datetime.date.today())
+        usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
+        if not usage:
+            usage = Usage(user_id=user.id, date=today, count=0)
+            db.add(usage)
+            db.commit()
+
+        # Calculate tweets left
+        if user.plan == "free":
+            max_allowed = 15
+            tweets_left = max_allowed - usage.count
+            if tweets_left <= 0:
+                return templates.TemplateResponse("dashboard.html", {
+                    "request": request,
+                    "user": user,
+                    "tweets_left": 0,
+                    "tweets": [],
+                    "error": "Daily limit reached! Upgrade for unlimited tweets."
+                })
+            if tweet_count > tweets_left:
+                tweet_count = tweets_left
+        else:
+            tweets_left = "Unlimited"
+
+        # Build prompt with requested tweet count
+        prompt = f"As a {job}, suggest {tweet_count} engaging tweets to achieve: {goal}."
+
+        tweets = await get_ai_tweets(prompt, count=tweet_count)
+
+        # Update usage count
+        usage.count += len(tweets)
         db.commit()
 
-    # Calculate tweets left
-    if user.plan == "free":
-        max_allowed = 15
-        tweets_left = max_allowed - usage.count
-        if tweets_left <= 0:
-            return templates.TemplateResponse("dashboard.html", {
-                "request": request,
-                "user": user,
-                "tweets_left": 0,
-                "tweets": [],
-                "error": "Daily limit reached! Upgrade for unlimited tweets."
-            })
-        if tweet_count > tweets_left:
-            tweet_count = tweets_left
-    else:
-        tweets_left = "Unlimited"
+        # Calculate remaining tweets for free tier
+        if user.plan == "free":
+            new_tweets_left = max(0, max_allowed - usage.count)
+        else:
+            new_tweets_left = "Unlimited"
 
-    # Build prompt with requested tweet count
-    prompt = f"As a {job}, suggest {tweet_count} engaging tweets to achieve: {goal}."
-
-    tweets = await get_ai_tweets(prompt, count=tweet_count)
-
-    # Update usage count
-    usage.count += len(tweets)
-    db.commit()
-
-    # Calculate remaining tweets for free tier
-    if user.plan == "free":
-        new_tweets_left = max(0, max_allowed - usage.count)
-    else:
-        new_tweets_left = "Unlimited"
-
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "user": user,
-        "tweets": tweets,
-        "tweets_left": new_tweets_left,
-        "tweets_used": usage.count,
-        "error": None
-    })
+        return templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "user": user,
+            "tweets": tweets,
+            "tweets_left": new_tweets_left,
+            "tweets_used": usage.count,
+            "error": None
+        })
+    finally:
+        db.close()
 
 @app.post("/stripe-webhook")
 async def stripe_webhook(request: Request):
@@ -537,11 +543,14 @@ async def stripe_webhook(request: Request):
         user_id = subscription.metadata.get("user_id")
         if user_id:
             db = SessionLocal()
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                # Downgrade to free plan if subscription canceled
-                user.plan = "free"
-                db.commit()
+            try:
+                user = db.query(User).filter(User.id == user_id).first()
+                if user:
+                    # Downgrade to free plan if subscription canceled
+                    user.plan = "free"
+                    db.commit()
+            finally:
+                db.close()
 
     return {"status": "success"}
 
