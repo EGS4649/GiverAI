@@ -151,6 +151,8 @@ Base = declarative_base()
 Base.metadata.create_all(bind=engine)
 
 def migrate_database():
+    from sqlalchemy import text  # Add this import
+    
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
     inspector = inspect(engine)
     
@@ -159,7 +161,8 @@ def migrate_database():
         columns = [col['name'] for col in inspector.get_columns('users')]
         if 'stripe_customer_id' not in columns:
             with engine.begin() as conn:
-                conn.execute("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR")
+                # Wrap SQL in text() construct
+                conn.execute(text("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR"))
             print("Added stripe_customer_id column to users table")
     
     # Check if plan column exists
@@ -167,7 +170,8 @@ def migrate_database():
         columns = [col['name'] for col in inspector.get_columns('users')]
         if 'plan' not in columns:
             with engine.begin() as conn:
-                conn.execute("ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'")
+                # Wrap SQL in text() construct
+                conn.execute(text("ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'"))
             print("Added plan column to users table")
 
 # Run migrations
