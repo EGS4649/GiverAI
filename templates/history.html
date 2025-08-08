@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tweet History - Giver.ai</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <!-- ... same as other pages ... -->
+  </nav>
+
+  <main class="dashboard-container">
+    <h1>Your Tweet History</h1>
+    <p>Showing last {{ features.history_days }} days of generated tweets</p>
+    
+    <div class="history-actions">
+      {% if features.export %}
+      <a href="/export-tweets" class="export-button">Export All Tweets</a>
+      {% endif %}
+    </div>
+    
+    <div class="tweet-history">
+      {% for tweet in tweets %}
+      <div class="tweet-card">
+        <div class="tweet-date">{{ tweet.generated_at.strftime('%Y-%m-%d %H:%M') }}</div>
+        <div class="tweet-content">{{ tweet.tweet_text }}</div>
+        {% if features.export %}
+        <a href="#" class="copy-tweet" data-text="{{ tweet.tweet_text }}">Copy</a>
+        {% endif %}
+      </div>
+      {% else %}
+      <p>No tweets found in your history.</p>
+      {% endfor %}
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <!-- ... same as other pages ... -->
+  </footer>
+  
+  <script>
+    document.querySelectorAll('.copy-tweet').forEach(button => {
+      button.addEventListener('click', function(e) {
+        e.preventDefault();
+        const text = this.getAttribute('data-text');
+        navigator.clipboard.writeText(text).then(() => {
+          this.textContent = 'Copied!';
+          setTimeout(() => {
+            this.textContent = 'Copy';
+          }, 2000);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
