@@ -1,8 +1,10 @@
-# test variables, replace with real after you're done
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 STRIPE_CREATOR_PRICE_ID = os.getenv("STRIPE_CREATOR_PRICE_ID")
 STRIPE_SMALL_TEAM_PRICE_ID = os.getenv("STRIPE_SMALL_TEAM_PRICE_ID")
 STRIPE_AGENCY_PRICE_ID = os.getenv("STRIPE_AGENCY_PRICE_ID")
 STRIPE_ENTERPRISE_PRICE_ID = os.getenv("STRIPE_ENTERPRISE_PRICE_ID")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -482,8 +484,8 @@ async def generate(request: Request):
         db.commit()
 
     # Calculate tweets left (for 'free' user) or unlimited
-    if user.plan.lower() == "free":
-        max_allowed = 15
+ if user.plan in ["free"]:
+    max_allowed = 15
         tweets_left = max_allowed - usage.count
         if tweets_left <= 0:
             # User has no credits left; reject request immediately
@@ -499,9 +501,14 @@ async def generate(request: Request):
         if tweet_count > tweets_left:
             # Optionally show an error or just reduce count
             tweet_count = tweets_left
-    else:
+   elif user.plan in ["creator", "small_team", "agency", "enterprise"]:
         tweets_left = "Unlimited"
-        # No cap for paid users
+    if not usage:
+        usage = Usage(user_id=user.id, date=today, count=0)
+        db.add(usage)
+        db.commit()
+    usage.count += min(tweet_count, len(tweets))
+    db.commit()
 
     # Build prompt with requested tweet count
     prompt = f"As a {job}, suggest {tweet_count} engaging tweets to achieve: {goal}."
@@ -521,6 +528,34 @@ async def generate(request: Request):
         "error": None
     })
 
+@app.post("/stripe-webhook")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get('stripe-signature')
+    event = None
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, os.getenv("STRIPE_WEBHOOK_SECRET")
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400)
+    except stripe.error.SignatureVerificationError as e:
+        raise HTTPException(status_code=400)
+
+    # Handle subscription events
+    if event['type'] == 'customer.subscription.deleted':
+        subscription = event['data']['object']
+        user_id = subscription.metadata.get("user_id")
+        if user_id:
+            db = SessionLocal()
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                # Downgrade to free plan if subscription canceled
+                user.plan = "free"
+                db.commit()
+
+    return {"status": "success"}
     
     # Generate tweets
     prompt = f"As a {job}, suggest engaging tweets to achieve: {goal}."
