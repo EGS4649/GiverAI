@@ -132,6 +132,20 @@
   <div class="stat-number">{{ user.plan|replace('_', ' ')|title }}</div>
   <div class="stat-label">Current Plan</div>
 </div>
+    
+<div class="feature-links">
+  {% if user.plan != 'free' %}
+    <a href="/history" class="feature-button">View Tweet History</a>
+  {% endif %}
+  
+  {% if features.team_seats > 1 %}
+    <a href="/team" class="feature-button">Manage Team</a>
+  {% endif %}
+  
+  {% if features.api_access %}
+    <a href="/api-docs" class="feature-button">API Access</a>
+  {% endif %}
+</div>
 
 <!-- Add upgrade notice for free users -->
 {% if user.plan == 'free' %}
