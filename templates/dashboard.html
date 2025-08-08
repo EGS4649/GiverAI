@@ -121,6 +121,19 @@
         <div class="stat-label">Tweets Generated Today</div>
       </div>
     </div>
+    <div class="stat-card">
+  <div class="stat-number">{{ user.plan|replace('_', ' ')|title }}</div>
+  <div class="stat-label">Current Plan</div>
+</div>
+
+<!-- Add upgrade notice for free users -->
+{% if user.plan == 'free' %}
+<div class="upgrade-notice">
+  <h3>Upgrade for Unlimited Access! 🚀</h3>
+  <p>You're on the Free plan. Upgrade to unlock unlimited tweets and premium features.</p>
+  <a href="/pricing" class="upgrade-button">View Plans</a>
+</div>
+{% endif %}
 
     {% if tweets_left == 0 %}
     <div class="limit-warning">
