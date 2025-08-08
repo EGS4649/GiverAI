@@ -219,24 +219,24 @@
         </ul>
 
       <div class="plan-cta">
-  {% if user %}
-    {% if user.plan == 'free' %}
-      <!-- User logged in and on Free plan -->
-      <form action="/checkout/creator" method="post" style="margin: 0;">
-        <button class="plan-button" type="submit">Upgrade to Creator</button>
-      </form>
-    {% else %}
-      <!-- User logged in but already Creator or higher -->
-      <button class="plan-button" disabled>You’re already a Creator</button>
-    {% endif %}
+        
+{% if user %}
+  {% if user.plan == 'free' %}
+    <form action="/checkout/creator" method="post">
+      <button class="plan-button" type="submit">Upgrade to Creator</button>
+    </form>
+  {% elif user.plan == 'creator' %}
+    <button class="plan-button" disabled>Current Plan</button>
   {% else %}
-    <!-- User not logged in -->
-    <a href="/register" style="text-decoration: none;">
-      <button class="plan-button" type="button">Start Free Trial</button>
-    </a>
+    <form action="/checkout/creator" method="post">
+      <button class="plan-button" type="submit">Switch to Creator</button>
+    </form>
   {% endif %}
-    </div>
-        </div>
+{% else %}
+  <a href="/register">
+    <button class="plan-button">Start Free Trial</button>
+  </a>
+{% endif %}
       
       <!-- Small Team Plan -->
       <div class="pricing-card">
