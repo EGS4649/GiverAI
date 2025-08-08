@@ -5,7 +5,6 @@ STRIPE_SMALL_TEAM_PRICE_ID = os.getenv("STRIPE_SMALL_TEAM_PRICE_ID")
 STRIPE_AGENCY_PRICE_ID = os.getenv("STRIPE_AGENCY_PRICE_ID")
 STRIPE_ENTERPRISE_PRICE_ID = os.getenv("STRIPE_ENTERPRISE_PRICE_ID")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -19,6 +18,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 from jose import JWTError, jwt
 import stripe
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 try:
     import bcrypt
     print("bcrypt module imported successfully")
