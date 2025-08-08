@@ -1,3 +1,9 @@
+# test variables, replace with real after you're done
+STRIPE_CREATOR_PRICE_ID = os.getenv("STRIPE_CREATOR_PRICE_ID")
+STRIPE_SMALL_TEAM_PRICE_ID = os.getenv("STRIPE_SMALL_TEAM_PRICE_ID")
+STRIPE_AGENCY_PRICE_ID = os.getenv("STRIPE_AGENCY_PRICE_ID")
+STRIPE_ENTERPRISE_PRICE_ID = os.getenv("STRIPE_ENTERPRISE_PRICE_ID")
+
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -316,6 +322,81 @@ async def create_checkout_session(request: Request):
             "user": user
         })
 
+# Create a unified checkout endpoint
+@app.post("/checkout/{plan_type}")
+async def create_checkout_session(request: Request, plan_type: str):
+    try:
+        user = get_current_user(request)
+    except HTTPException:
+        return RedirectResponse("/register", status_code=302)
+
+    try:
+        # Map plan types to price IDs
+        price_map = {
+            "creator": STRIPE_CREATOR_PRICE_ID,
+            "small_team": STRIPE_SMALL_TEAM_PRICE_ID,
+            "agency": STRIPE_AGENCY_PRICE_ID,
+            "enterprise": STRIPE_ENTERPRISE_PRICE_ID
+        }
+        
+        price_id = price_map.get(plan_type)
+        if not price_id:
+            raise Exception("Invalid plan type")
+            
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price': price_id,
+                'quantity': 1,
+            }],
+            mode='subscription',
+            success_url=str(request.url_for('checkout_success')) + "?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=str(request.url_for('pricing')),
+            customer_email=user.email,
+            metadata={
+                "user_id": user.id,
+                "plan": plan_type
+            }
+        )
+        return RedirectResponse(checkout_session.url, status_code=303)
+    except Exception as e:
+        return templates.TemplateResponse("pricing.html", {
+            "request": request,
+            "error": f"Error creating checkout session: {str(e)}",
+            "user": user
+        })
+
+# Update success handler to change user's plan
+@app.get("/checkout/success")
+async def checkout_success(request: Request, session_id: str = None, user: User = Depends(get_current_user)):
+    if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
+        return RedirectResponse("/pricing", status_code=302)
+
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        plan = session.metadata.get("plan")
+        
+        if plan:
+            # Update user's plan in database
+            db = SessionLocal()
+            db_user = db.query(User).filter(User.id == user.id).first()
+            if db_user:
+                db_user.plan = plan
+                db.commit()
+                
+        return templates.TemplateResponse("checkout_success.html", {
+            "request": request,
+            "session": session,
+            "user": user,
+            "plan": plan.replace("_", " ").title()
+        })
+    except Exception as e:
+        return templates.TemplateResponse("pricing.html", {
+            "request": request,
+            "error": f"Error retrieving session: {str(e)}",
+            "user": user
+        })
+        
 @app.get("/checkout/success")
 async def checkout_success(request: Request, session_id: str = None):
     if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
