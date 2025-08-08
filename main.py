@@ -100,13 +100,15 @@ def authenticate_user(db, username: str, password: str):
     return user
 
 def get_current_user(request: Request):
-    token = request.cookies.get("access_token")
+     token = request.cookies.get("access_token")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
     )
+    
     if not token:
         raise credentials_exception
+    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -114,11 +116,18 @@ def get_current_user(request: Request):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
+    
     db = SessionLocal()
-    user = get_user(db, username=username)
-    if user is None:
-        raise credentials_exception
-    return user
+    try:
+        user = db.query(User).filter(User.username == username).first()
+        if user is None:
+            raise credentials_exception
+        
+        # Refresh the user object to ensure it's not detached
+        db.refresh(user)
+        return user
+    finally:
+        db.close()
 
 def get_optional_user(request: Request):
     try:
