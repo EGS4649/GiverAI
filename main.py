@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.exceptions import HTTPException
 from fastapi import status
+from fastapi import BackgroundTasks
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import LargeBinary
@@ -14,6 +15,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 from jose import JWTError, jwt
 import stripe
+import json
 
 # Stripe configuration
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -43,6 +45,14 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # ----- User & Usage Models -----
+class GeneratedTweet(Base):
+    __tablename__ = "generated_tweets"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    tweet_text = Column(String)
+    generated_at = Column(DateTime, default=datetime.datetime.utcnow)
+    user = relationship("User")
+    
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -101,6 +111,72 @@ def authenticate_user(db, username: str, password: str):
         return None
     return user
 
+def get_plan_features(plan_name):
+    features = {
+        "free": {
+            "daily_limit": 15,
+            "history_days": 1,
+            "customization": "basic",
+            "export": False,
+            "scheduling": False,
+            "analytics": False,
+            "team_seats": 0,
+            "support": "standard",
+            "white_label": False,
+            "api_access": False
+        },
+        "creator": {
+            "daily_limit": float('inf'),
+            "history_days": 60,
+            "customization": "advanced",
+            "export": True,
+            "scheduling": "limited",
+            "analytics": False,
+            "team_seats": 1,
+            "support": "priority_email",
+            "white_label": False,
+            "api_access": False
+        },
+        "small_team": {
+            "daily_limit": float('inf'),
+            "history_days": 60,
+            "customization": "advanced_team",
+            "export": True,
+            "scheduling": "standard",
+            "analytics": False,
+            "team_seats": 5,
+            "support": "priority",
+            "white_label": False,
+            "api_access": False
+        },
+        "agency": {
+            "daily_limit": float('inf'),
+            "history_days": 90,
+            "customization": "advanced_analytics",
+            "export": True,
+            "scheduling": "advanced",
+            "analytics": True,
+            "team_seats": 15,
+            "support": "dedicated",
+            "white_label": True,
+            "api_access": False
+        },
+        "enterprise": {
+            "daily_limit": float('inf'),
+            "history_days": 365,
+            "customization": "fully_custom",
+            "export": True,
+            "scheduling": "unlimited",
+            "analytics": True,
+            "team_seats": float('inf'),
+            "support": "24/7_dedicated",
+            "white_label": True,
+            "api_access": True
+        }
+    }
+    return features.get(plan_name, features["free"])
+
+
 def get_current_user(request: Request):
     token = request.cookies.get("access_token")
     credentials_exception = HTTPException(
@@ -136,7 +212,12 @@ def get_optional_user(request: Request):
         return get_current_user(request)
     except Exception:
         return None
-
+        
+def apply_plan_features(user):
+    features = get_plan_features(user.plan)
+    user.features = features
+    return user
+    
 # ---- FastAPI Setup -----
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -309,6 +390,93 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
     response = RedirectResponse("/", status_code=302)
     response.delete_cookie("access_token")
     return response
+
+@app.get("/history", response_class=HTMLResponse)
+def tweet_history(request: Request, user: User = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        features = get_plan_features(user.plan)
+        days = features["history_days"]
+        cutoff_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+        
+        tweets = db.query(GeneratedTweet).filter(
+            GeneratedTweet.user_id == user.id,
+            GeneratedTweet.generated_at >= cutoff_date
+        ).order_by(GeneratedTweet.generated_at.desc()).all()
+        
+        return templates.TemplateResponse("history.html", {
+            "request": request,
+            "user": user,
+            "tweets": tweets,
+            "features": features
+        })
+    finally:
+        db.close()
+
+@app.post("/export-tweets")
+def export_tweets(request: Request, background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        features = get_plan_features(user.plan)
+        if not features["export"]:
+            raise HTTPException(status_code=403, detail="Export feature not available for your plan")
+        
+        tweets = db.query(GeneratedTweet).filter(
+            GeneratedTweet.user_id == user.id
+        ).order_by(GeneratedTweet.generated_at.desc()).all()
+        
+        tweet_data = [{"text": tweet.tweet_text, "date": tweet.generated_at} for tweet in tweets]
+        filename = f"tweets_export_{user.username}_{datetime.datetime.utcnow().strftime('%Y%m%d')}.json"
+        
+        # In a real app, you'd save this to storage and email the link
+        # For demo, we'll just return as downloadable
+        return Response(
+            content=json.dumps(tweet_data, default=str),
+            media_type="application/json",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    finally:
+        db.close()
+
+@app.get("/team", response_class=HTMLResponse)
+def team_management(request: Request, user: User = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        features = get_plan_features(user.plan)
+        if features["team_seats"] <= 1:
+            return RedirectResponse("/pricing", status_code=302)
+        
+        # In a real app, you'd fetch actual team members
+        team_members = [
+            {"email": "member1@example.com", "role": "Editor"},
+            {"email": "member2@example.com", "role": "Viewer"}
+        ]
+        
+        return templates.TemplateResponse("team.html", {
+            "request": request,
+            "user": user,
+            "team_members": team_members,
+            "max_seats": features["team_seats"],
+            "available_seats": features["team_seats"] - len(team_members)
+        })
+    finally:
+        db.close()
+
+# Update the dashboard route to save generated tweets
+@app.post("/dashboard", response_class=HTMLResponse)
+async def generate(request: Request):
+    # ... existing code ...
+    
+    # After generating tweets
+    for tweet_text in tweets:
+        generated_tweet = GeneratedTweet(
+            user_id=user.id,
+            tweet_text=tweet_text,
+            generated_at=datetime.datetime.utcnow()
+        )
+        db.add(generated_tweet)
+    
+    db.commit()
     
 @app.get("/tweetgiver", response_class=HTMLResponse)
 def tweetgiver(request: Request):
