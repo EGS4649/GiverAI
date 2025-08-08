@@ -4,6 +4,8 @@ from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.exceptions import HTTPException
+from fastapi import status
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import LargeBinary
@@ -556,6 +558,18 @@ async def generate(request: Request):
         })
     finally:
         db.close()
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+        # Check if client accepts HTML
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse("/login", status_code=302)
+    # Default JSON response for API calls
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
 
 @app.post("/stripe-webhook")
 async def stripe_webhook(request: Request):
