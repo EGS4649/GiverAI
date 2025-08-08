@@ -185,6 +185,7 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
         access_token = create_access_token(
             data={"sub": user.username},
             expires_delta=datetime.timedelta(days=2)
+        )
         
         response = RedirectResponse("/dashboard", status_code=302)
         response.set_cookie(
