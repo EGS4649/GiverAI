@@ -264,9 +264,23 @@
           <li><span class="checkmark">✔</span> Standard scheduling</li>
         </ul>
         <div class="plan-cta">
-          <button class="plan-button">Coming Soon</button>
-        </div>
-      </div>
+        {% if user %}
+            {% if user.plan == 'small_team' %}
+                <button class="plan-button" disabled>Current Plan</button>
+            {% else %}
+                <form action="/checkout/small_team" method="post">
+                    <button class="plan-button" type="submit">
+                        {% if user.plan == 'free' %}Upgrade{% else %}Switch{% endif %} to Small Team
+                    </button>
+                </form>
+            {% endif %}
+        {% else %}
+            <a href="/register">
+                <button class="plan-button">Start Free Trial</button>
+            </a>
+        {% endif %}
+    </div>
+</div>
 
       <!-- Agency Plan -->
       <div class="pricing-card">
@@ -284,10 +298,24 @@
           <li><span class="checkmark">✔</span> Advanced scheduling</li>
           <li><span class="checkmark">✔</span> White labeling</li>
         </ul>
-        <div class="plan-cta">
-          <button class="plan-button">Coming Soon</button>
-        </div>
-      </div>
+       <div class="plan-cta">
+        {% if user %}
+            {% if user.plan == 'agency' %}
+                <button class="plan-button" disabled>Current Plan</button>
+            {% else %}
+                <form action="/checkout/agency" method="post">
+                    <button class="plan-button" type="submit">
+                        {% if user.plan == 'free' %}Upgrade{% else %}Switch{% endif %} to Agency
+                    </button>
+                </form>
+            {% endif %}
+        {% else %}
+            <a href="/register">
+                <button class="plan-button">Start Free Trial</button>
+            </a>
+        {% endif %}
+    </div>
+</div>
 
       <!-- Enterprise Plan -->
       <div class="pricing-card">
@@ -306,10 +334,24 @@
           <li><span class="checkmark">✔</span> API access</li>
           <li><span class="checkmark">✔</span> Account manager</li>
         </ul>
-        <div class="plan-cta">
-          <button class="plan-button">Coming Soon</button>
-        </div>
-      </div>
+       <div class="plan-cta">
+        {% if user %}
+            {% if user.plan == 'enterprise' %}
+                <button class="plan-button" disabled>Current Plan</button>
+            {% else %}
+                <form action="/checkout/enterprise" method="post">
+                    <button class="plan-button" type="submit">
+                        {% if user.plan == 'free' %}Upgrade{% else %}Switch{% endif %} to Enterprise
+                    </button>
+                </form>
+            {% endif %}
+        {% else %}
+            <a href="/register">
+                <button class="plan-button">Start Free Trial</button>
+            </a>
+        {% endif %}
+    </div>
+</div>
     </div>
   </main>
 
