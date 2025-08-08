@@ -531,6 +531,23 @@ def pricing(request: Request):
     user = get_optional_user(request)
     return templates.TemplateResponse("pricing.html", {"request": request, "user": user})
 
+@app.post("/generate-api-key")
+async def generate_api_key(user: User = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        features = get_plan_features(user.plan)
+        if not features["api_access"]:
+            raise HTTPException(status_code=403, detail="API access not available for your plan")
+        
+        # Generate a secure API key
+        new_key = secrets.token_urlsafe(32)
+        user.api_key = new_key
+        db.commit()
+        
+        return RedirectResponse("/account?success=API+key+generated", status_code=302)
+    finally:
+        db.close()
+
 # Unified checkout endpoint for all plans
 @app.post("/checkout/{plan_type}")
 async def create_checkout_session(request: Request, plan_type: str):
