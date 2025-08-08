@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import LargeBinary
+from sqlalchemy import inspect
 from openai import OpenAI
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -142,6 +143,35 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENROUTER_API_KEY", "your-openrouter-api-key-here")
 )
+DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+Base.metadata.create_all(bind=engine)
+
+def migrate_database():
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+    inspector = inspect(engine)
+    
+    # Check if stripe_customer_id column exists
+    if 'users' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        if 'stripe_customer_id' not in columns:
+            with engine.begin() as conn:
+                conn.execute("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR")
+            print("Added stripe_customer_id column to users table")
+    
+    # Check if plan column exists
+    if 'users' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        if 'plan' not in columns:
+            with engine.begin() as conn:
+                conn.execute("ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'")
+            print("Added plan column to users table")
+
+# Run migrations
+migrate_database()
 
 # ---- ROUTES ----
 
