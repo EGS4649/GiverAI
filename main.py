@@ -175,13 +175,29 @@ def login(request: Request):
 @app.post("/login")
 def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
-    user = authenticate_user(db, username, password)
-    if not user:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
-    access_token = create_access_token(data={"sub": user.username}, expires_delta=datetime.timedelta(days=2))
-    response = RedirectResponse("/dashboard", status_code=302)
-    response.set_cookie(key="access_token", value=access_token, httponly=True)
-    return response
+    try:
+        user = authenticate_user(db, username, password)
+        if not user:
+            return templates.TemplateResponse("login.html", {
+                "request": request, 
+                "error": "Invalid credentials"
+            })
+        
+        access_token = create_access_token(
+            data={"sub": user.username},
+            expires_delta=datetime.timedelta(days=2)
+        
+        response = RedirectResponse("/dashboard", status_code=302)
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,  # Enable in production
+            samesite='lax'
+        )
+        return response
+    finally:
+        db.close()
 
 @app.get("/logout")
 def logout():
@@ -416,21 +432,26 @@ def onboarding_post(request: Request, role: str = Form(...), industry: str = For
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
-    user = get_current_user(request)
     db = SessionLocal()
-    today = str(datetime.date.today())
-    usage = db.query(Usage).filter(Usage.user_id==user.id, Usage.date==today).first()
-    tweets_used = usage.count if usage else 0
-    if user.plan == "free":
-        tweets_left = max(0, 15 - tweets_used)
-    else:
-        tweets_left = 'Unlimited'
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "user": user,
-        "tweets_left": tweets_left,
-        "tweets_used": tweets_used
-    })
+    try:
+        user = get_current_user(request)
+        today = str(datetime.date.today())
+        usage = db.query(Usage).filter(
+            Usage.user_id == user.id,
+            Usage.date == today
+        ).first()
+        
+        tweets_used = usage.count if usage else 0
+        tweets_left = 'Unlimited' if user.plan != 'free' else max(0, 15 - tweets_used)
+        
+        return templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "user": user,
+            "tweets_left": tweets_left,
+            "tweets_used": tweets_used
+        })
+    finally:
+        db.close()
 
 @app.post("/dashboard", response_class=HTMLResponse)
 async def generate(request: Request):
