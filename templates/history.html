@@ -6,9 +6,29 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <!-- Navigation Bar -->
+  
+   <!-- Navigation Bar -->
   <nav class="navbar">
-    <!-- ... same as other pages ... -->
+    <div class="brand">
+      <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
+    </div>
+    <ul class="nav-links">
+      <li class="dropdown">
+        <a href="#" class="dropbtn">Features ▼</a>
+        <div class="dropdown-content">
+          <a href="/tweetgiver">TweetGiver</a>
+          <a href="#">More Soon...</a>
+        </div>
+      </li>
+     {% if user %}
+    <li><a href="/dashboard">Dashboard</a></li>
+    <li><a href="/account">Account</a></li>
+    <li><a href="/logout">Logout</a></li>
+  {% else %}
+    <li><a href="/login">Login</a></li>
+    <li><a href="/register">Register</a></li>
+  {% endif %}
+</ul>
   </nav>
 
   <main class="dashboard-container">
