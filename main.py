@@ -375,7 +375,6 @@ def tweet_history(request: Request, user: User = Depends(get_current_user)):
     finally:
         db.close()
 
-# Remove duplicate team route definition
 @app.get("/team", response_class=HTMLResponse)
 def team_management(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
@@ -388,13 +387,14 @@ def team_management(request: Request, user: User = Depends(get_current_user)):
             TeamMember.status == "active"
         ).all()
         
-        return templates.TemplateResponse("team.html", {
-            "request": request,
-            "user": user,
-            "team_members": team_members,
-            "max_seats": user.features["team_seats"],
-            "available_seats": user.features["team_seats"] - len(team_members)
-        })
+       return templates.TemplateResponse("team.html", {
+       "request": request,
+       "user": user,
+       "team_members": team_members,
+       "max_seats": features["team_seats"],
+       "available_seats": features["team_seats"] - len(team_members),
+       "features": features                    # ✅ PATCH
+})
     finally:
         db.close()
 
@@ -407,21 +407,27 @@ async def change_password(
 ):
     db = SessionLocal()
     db_user = db.query(User).filter(User.id == user.id).first()
-    
+
     if not verify_password(current_password, db_user.hashed_password):
+        # Ensure features here too
+        db_user.features = get_plan_features(db_user.plan)
         return templates.TemplateResponse("account.html", {
             "request": request,
-            "user": user,
+            "user": db_user,
+            "features": db_user.features,
             "error": "Current password is incorrect"
         })
-    
+
     db_user.hashed_password = get_password_hash(new_password)
     db.commit()
+    db_user.features = get_plan_features(db_user.plan)  # ✅ Added line
     return templates.TemplateResponse("account.html", {
         "request": request,
         "user": db_user,
+        "features": db_user.features,
         "success": "Password updated successfully!"
     })
+
 
 @app.post("/account/change_email")
 async def change_email(
@@ -431,22 +437,28 @@ async def change_email(
 ):
     db = SessionLocal()
     db_user = db.query(User).filter(User.id == user.id).first()
-    
-    # Check if email already exists
+
     if db.query(User).filter(User.email == new_email).first():
+        db_user.features = get_plan_features(db_user.plan)   # ✅ PATCH
         return templates.TemplateResponse("account.html", {
             "request": request,
-            "user": user,
+            "user": db_user,
+            "features": db_user.features,                   # ✅ PATCH
             "error": "Email already in use"
         })
-    
+
     db_user.email = new_email
     db.commit()
+
+    db_user.features = get_plan_features(db_user.plan)       # ✅ PATCH
     return templates.TemplateResponse("account.html", {
         "request": request,
         "user": db_user,
+        "features": db_user.features,                       # ✅ PATCH
         "success": "Email updated successfully!"
     })
+
+
 
 @app.get("/api-docs", response_class=HTMLResponse)
 def api_docs(request: Request, user: User = Depends(get_optional_user)):
@@ -877,10 +889,13 @@ def dashboard(request: Request, user: User = Depends(get_current_user)):
             tweets_left = max(0, 15 - tweets_used)
         
         return templates.TemplateResponse("dashboard.html", {
-            "request": request,
-            "user": user,  # features is already attached to user
-            "tweets_left": tweets_left,
-            "tweets_used": tweets_used
+        "request": request,
+        "user": user,
+        "tweets": tweets,
+        "tweets_left": new_tweets_left,
+        "tweets_used": usage.count,
+        "features": user.features,             # ✅ PATCH
+        "error": None
         })
     finally:
         db.close()
