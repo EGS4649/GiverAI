@@ -445,19 +445,18 @@ def tweet_history(request: Request, user: User = Depends(get_current_user)):
     finally:
         db.close()
 
-@app.post("/export-tweets")
-def export_tweets(request: Request, user: User = Depends(get_current_user)):
+@app.get("/export-tweets")
+def export_tweets(user: User = Depends(get_current_user)):
     db = SessionLocal()
     try:
         features = get_plan_features(user.plan)
         if not features["export"]:
-            return templates.TemplateResponse("history.html", {
-                "request": request,
-                "user": user,
-                "error": "Export feature not available for your plan"
-            })
+            return Response(
+                "Export feature not available for your plan",
+                status_code=403,
+                media_type="text/plain"
+            )
         
-        # Get all tweets regardless of date for export
         tweets = db.query(GeneratedTweet).filter(
             GeneratedTweet.user_id == user.id
         ).order_by(GeneratedTweet.generated_at.desc()).all()
