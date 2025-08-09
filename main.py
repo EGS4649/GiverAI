@@ -678,43 +678,105 @@ async def generate_api_key(user: User = Depends(get_current_user)):
 @app.post("/cancel-subscription")
 async def cancel_subscription(
     request: Request,
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks
 ):
     db = SessionLocal()
     try:
         if not user.stripe_customer_id:
-            return RedirectResponse("/account?error=No+subscription+found", status_code=302)
-        
+            return RedirectResponse(
+                "/account?error=No+Stripe+customer+ID+found",
+                status_code=302
+            )
+
+        # First check if we already processed cancellation
+        if user.plan == "canceling":
+            return RedirectResponse(
+                "/account?error=Subscription+already+canceled",
+                status_code=302
+            )
+
         # Get active subscriptions
+        try:
+            subscriptions = stripe.Subscription.list(
+                customer=user.stripe_customer_id,
+                status="active"
+            )
+        except stripe.error.StripeError as e:
+            return RedirectResponse(
+                f"/account?error=Stripe+API+Error%3A+{str(e).replace(' ', '+')}",
+                status_code=302
+            )
+
+        if not subscriptions.data:
+            return RedirectResponse(
+                "/account?error=No+active+subscription+found",
+                status_code=302
+            )
+
+        # Process cancellation
+        try:
+            for sub in subscriptions.data:
+                stripe.Subscription.modify(
+                    sub.id,
+                    cancel_at_period_end=True
+                )
+            
+            # Update user in database
+            db_user = db.query(User).filter(User.id == user.id).first()
+            db_user.plan = "canceling"
+            db.commit()
+
+            # Add webhook verification task
+            background_tasks.add_task(
+                verify_cancellation,
+                user.stripe_customer_id
+            )
+
+            return RedirectResponse(
+                "/account?success=Subscription+will+cancel+at+period+end",
+                status_code=302
+            )
+            
+        except stripe.error.StripeError as e:
+            db.rollback()
+            return RedirectResponse(
+                f"/account?error=Cancellation+failed%3A+{str(e).replace(' ', '+')}",
+                status_code=302
+            )
+
+    except Exception as e:
+        db.rollback()
+        return RedirectResponse(
+            f"/account?error=System+error%3A+{str(e).replace(' ', '+')}",
+            status_code=302
+        )
+    finally:
+        db.close()
+
+async def verify_cancellation(stripe_customer_id: str):
+    """Verify cancellation went through"""
+    db = SessionLocal()
+    try:
+        # Wait a moment for Stripe to process
+        await asyncio.sleep(5)
+        
         subscriptions = stripe.Subscription.list(
-            customer=user.stripe_customer_id,
+            customer=stripe_customer_id,
             status="active"
         )
         
-        if not subscriptions.data:
-            return RedirectResponse("/account?error=No+active+subscription", status_code=302)
+        user = db.query(User).filter(
+            User.stripe_customer_id == stripe_customer_id
+        ).first()
         
-        # Cancel at period end instead of immediately
-        for sub in subscriptions.data:
-            stripe.Subscription.modify(
-                sub.id,
-                cancel_at_period_end=True
-            )
-        
-        # Update user plan (will fully downgrade when period ends)
-        db_user = db.query(User).filter(User.id == user.id).first()
-        db_user.plan = "canceling"  # Special state
-        db.commit()
-        
-        return RedirectResponse(
-            "/account?success=Subscription+canceled+at+period+end",
-            status_code=302
-        )
-    except stripe.error.StripeError as e:
-        return RedirectResponse(
-            f"/account?error={str(e).replace(' ', '+')}",
-            status_code=302
-        )
+        if user and not any(sub.cancel_at_period_end for sub in subscriptions):
+            # Cancellation didn't go through - revert status
+            user.plan = "small_team"  # Or whatever their plan was
+            db.commit()
+            
+    except Exception as e:
+        print(f"Verification failed: {str(e)}")
     finally:
         db.close()
 
