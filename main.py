@@ -210,7 +210,7 @@ def get_current_user(request: Request):
         if user is None:
             raise credentials_exception
         
-        # Apply plan features to the user object
+        # Attach features to the user object
         user.features = get_plan_features(user.plan)
         return user
     finally:
@@ -860,10 +860,9 @@ def onboarding_post(request: Request, role: str = Form(...), industry: str = For
     return RedirectResponse("/login", status_code=302)
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request):
+def dashboard(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
     try:
-        user = get_current_user(request)
         today = str(datetime.date.today())
         usage = db.query(Usage).filter(
             Usage.user_id == user.id,
@@ -881,7 +880,7 @@ def dashboard(request: Request):
             "user": user,
             "tweets_left": tweets_left,
             "tweets_used": tweets_used,
-            "features": user.features  # Include features
+            "features": user.features  # Explicitly pass features
         })
     finally:
         db.close()
