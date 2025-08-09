@@ -35,11 +35,12 @@
     <h1>Your Tweet History</h1>
     <p>Showing last {{ features.history_days }} days of generated tweets</p>
     
-   <div class="history-actions">
-  {% if features.export %}
+ {% if user.features.export %}
+<div class="history-actions">
   <a href="/export-tweets" class="export-button">Export All Tweets</a>
-  {% endif %}
-   </div>
+</div>
+{% endif %}
+
     
     <div class="tweet-history">
       {% for tweet in tweets %}
@@ -56,10 +57,22 @@
     </div>
   </main>
 
-  <!-- Footer -->
   <footer>
-    <!-- ... same as other pages ... -->
+    <div class="footer-container">
+      <div class="footer-left">
+        <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+      </div>
+      <div class="footer-links">
+        <a href="/tweetgiver">TweetGiver</a> |
+        <a href="/pricing">Pricing</a>
+      </div>
+      <div class="footer-right">
+        &copy; Copyright Giver.ai
+      </div>
+    </div>
   </footer>
+</body>
+</html>
   
   <script>
     document.querySelectorAll('.copy-tweet').forEach(button => {
