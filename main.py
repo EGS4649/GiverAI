@@ -685,7 +685,7 @@ async def cancel_subscription(
         if not user.stripe_customer_id:
             return RedirectResponse("/account?error=No+subscription+found", status_code=302)
         
-        # Get active subscriptions for this customer
+        # Get active subscriptions
         subscriptions = stripe.Subscription.list(
             customer=user.stripe_customer_id,
             status="active"
@@ -694,21 +694,27 @@ async def cancel_subscription(
         if not subscriptions.data:
             return RedirectResponse("/account?error=No+active+subscription", status_code=302)
         
-        # Cancel all active subscriptions
+        # Cancel at period end instead of immediately
         for sub in subscriptions.data:
-            try:
-                stripe.Subscription.delete(sub.id)
-            except stripe.error.StripeError as e:
-                return RedirectResponse(f"/account?error={str(e)}", status_code=302)
+            stripe.Subscription.modify(
+                sub.id,
+                cancel_at_period_end=True
+            )
         
-        # Update user plan in database
+        # Update user plan (will fully downgrade when period ends)
         db_user = db.query(User).filter(User.id == user.id).first()
-        db_user.plan = "free"
+        db_user.plan = "canceling"  # Special state
         db.commit()
         
-        return RedirectResponse("/account?success=Subscription+canceled", status_code=302)
-    except Exception as e:
-        return RedirectResponse(f"/account?error={str(e)}", status_code=302)
+        return RedirectResponse(
+            "/account?success=Subscription+canceled+at+period+end",
+            status_code=302
+        )
+    except stripe.error.StripeError as e:
+        return RedirectResponse(
+            f"/account?error={str(e).replace(' ', '+')}",
+            status_code=302
+        )
     finally:
         db.close()
 
@@ -996,34 +1002,61 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
     )
 
 @app.post("/stripe-webhook")
-async def stripe_webhook(request: Request):
+async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
     payload = await request.body()
     sig_header = request.headers.get('stripe-signature')
-    event = None
+    webhook_secret = os.getenv('STRIPE_WEBHOOK_SECRET')
 
     try:
         event = stripe.Webhook.construct_event(
-            payload, sig_header, os.getenv("STRIPE_WEBHOOK_SECRET")
+            payload, sig_header, webhook_secret
         )
     except ValueError as e:
-        raise HTTPException(status_code=400)
+        raise HTTPException(status_code=400, detail="Invalid payload")
     except stripe.error.SignatureVerificationError as e:
-        raise HTTPException(status_code=400)
+        raise HTTPException(status_code=400, detail="Invalid signature")
 
     # Handle subscription events
-    if event['type'] == 'customer.subscription.deleted':
+    if event['type'] == 'customer.subscription.updated':
         subscription = event['data']['object']
-        user_id = subscription.metadata.get("user_id")
-        if user_id:
-            db = SessionLocal()
-            try:
-                user = db.query(User).filter(User.id == user_id).first()
-                if user:
-                    # Downgrade to free plan if subscription canceled
-                    user.plan = "free"
-                    db.commit()
-            finally:
-                db.close()
+        if subscription.cancel_at_period_end:
+            background_tasks.add_task(
+                handle_subscription_cancellation,
+                subscription.customer
+            )
+
+    elif event['type'] == 'customer.subscription.deleted':
+        subscription = event['data']['object']
+        background_tasks.add_task(
+            handle_subscription_ended,
+            subscription.customer
+        )
+
+    return {"status": "success"}
+
+async def handle_subscription_cancellation(stripe_customer_id: str):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(
+            User.stripe_customer_id == stripe_customer_id
+        ).first()
+        if user:
+            user.plan = "canceling"  # Mark as pending cancellation
+            db.commit()
+    finally:
+        db.close()
+
+async def handle_subscription_ended(stripe_customer_id: str):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(
+            User.stripe_customer_id == stripe_customer_id
+        ).first()
+        if user:
+            user.plan = "free"  # Fully downgrade
+            db.commit()
+    finally:
+        db.close()
 
     return {"status": "success"}
 
