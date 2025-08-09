@@ -1,13 +1,11 @@
 import datetime
 import os
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+import secrets  # Added for API key generation
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks
+from fastapi.responses import HTMLResponse, RedirectResponse, Response  # Added Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.exceptions import HTTPException
-from fastapi import status
-from fastapi import BackgroundTasks
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import LargeBinary
 from sqlalchemy import inspect
@@ -63,6 +61,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     stripe_customer_id = Column(String, nullable=True)  
+    api_key = Column(String, nullable=True)  # Added API key column
 
 class Usage(Base):
     __tablename__ = "usage"
@@ -226,16 +225,10 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENROUTER_API_KEY", "your-openrouter-api-key-here")
 )
-DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-Base.metadata.create_all(bind=engine)
 
 def migrate_database():
-    from sqlalchemy import text  # Add this import
-    
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
     inspector = inspect(engine)
     
@@ -244,7 +237,6 @@ def migrate_database():
         columns = [col['name'] for col in inspector.get_columns('users')]
         if 'stripe_customer_id' not in columns:
             with engine.begin() as conn:
-                # Wrap SQL in text() construct
                 conn.execute(text("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR"))
             print("Added stripe_customer_id column to users table")
     
@@ -253,11 +245,11 @@ def migrate_database():
         columns = [col['name'] for col in inspector.get_columns('users')]
         if 'plan' not in columns:
             with engine.begin() as conn:
-                # Wrap SQL in text() construct
                 conn.execute(text("ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'"))
             print("Added plan column to users table")
             
-     if 'generated_tweets' not in inspector.get_table_names():
+    # Check if generated_tweets table exists
+    if 'generated_tweets' not in inspector.get_table_names():
         Base.metadata.tables["generated_tweets"].create(bind=engine)
         print("Created generated_tweets table")
     
@@ -396,6 +388,7 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
     
     # Delete user and their usage
     db.query(Usage).filter(Usage.user_id == user.id).delete()
+    db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).delete()
     db.delete(db_user)
     db.commit()
     
@@ -426,7 +419,7 @@ def tweet_history(request: Request, user: User = Depends(get_current_user)):
         db.close()
 
 @app.post("/export-tweets")
-def export_tweets(request: Request, background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
+def export_tweets(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
     try:
         features = get_plan_features(user.plan)
@@ -440,8 +433,6 @@ def export_tweets(request: Request, background_tasks: BackgroundTasks, user: Use
         tweet_data = [{"text": tweet.tweet_text, "date": tweet.generated_at} for tweet in tweets]
         filename = f"tweets_export_{user.username}_{datetime.datetime.utcnow().strftime('%Y%m%d')}.json"
         
-        # In a real app, you'd save this to storage and email the link
-        # For demo, we'll just return as downloadable
         return Response(
             content=json.dumps(tweet_data, default=str),
             media_type="application/json",
@@ -474,22 +465,6 @@ def team_management(request: Request, user: User = Depends(get_current_user)):
     finally:
         db.close()
 
-# Update the dashboard route to save generated tweets
-@app.post("/dashboard", response_class=HTMLResponse)
-async def generate(request: Request):
-    # ... existing code ...
-    
-    # After generating tweets
-    for tweet_text in tweets:
-        generated_tweet = GeneratedTweet(
-            user_id=user.id,
-            tweet_text=tweet_text,
-            generated_at=datetime.datetime.utcnow()
-        )
-        db.add(generated_tweet)
-    
-    db.commit()
-    
 @app.get("/tweetgiver", response_class=HTMLResponse)
 def tweetgiver(request: Request):
     user = get_optional_user(request)
@@ -591,6 +566,7 @@ async def create_checkout_session(request: Request, plan_type: str):
             "error": f"Error creating checkout session: {str(e)}",
             "user": user
         })
+
 @app.post("/generate-tweet-api")
 async def generate_tweet_api(
     request: Request,
@@ -773,6 +749,15 @@ async def generate(request: Request):
         prompt = f"As a {job}, suggest {tweet_count} engaging tweets to achieve: {goal}."
 
         tweets = await get_ai_tweets(prompt, count=tweet_count)
+
+        # Save generated tweets to history
+        for tweet_text in tweets:
+            generated_tweet = GeneratedTweet(
+                user_id=user.id,
+                tweet_text=tweet_text,
+                generated_at=datetime.datetime.utcnow()
+            )
+            db.add(generated_tweet)
 
         # Update usage count
         usage.count += len(tweets)
