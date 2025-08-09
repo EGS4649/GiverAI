@@ -201,13 +201,6 @@
       </p>
     </div>
     {% endif %}
-    
-{% if user.features.team_seats > 1 %}
-  <a href="/team" class="stat-card">
-    <div class="stat-number">👥</div>
-    <div class="stat-label">Manage Team</div>
-  </a>
-{% endif %}
 
 {% if user.features.api_access %}
   <a href="/api-docs" class="stat-card">
