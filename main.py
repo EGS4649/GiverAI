@@ -393,7 +393,6 @@ def team_management(request: Request, user: User = Depends(get_current_user)):
             "team_members": team_members,
             "max_seats": features["team_seats"],
             "available_seats": features["team_seats"] - len(team_members),
-            "features": features                    # ✅ PATCH
         })
     finally:
         db.close()
