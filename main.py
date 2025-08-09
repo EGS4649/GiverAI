@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from jose import JWTError, jwt
 import stripe
 import json
+import asyncio
 
 # Stripe configuration
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -684,12 +685,24 @@ async def cancel_subscription(
     db = SessionLocal()
     try:
         if not user.stripe_customer_id:
-            return RedirectResponse(
-                "/account?error=No+Stripe+customer+ID+found",
-                status_code=302
-            )
+            # Try to find customer by email as fallback
+            try:
+                customers = stripe.Customer.list(email=user.email, limit=1)
+                if customers.data:
+                    user.stripe_customer_id = customers.data[0].id
+                    db.commit()
+                else:
+                    return RedirectResponse(
+                        "/account?error=No+Stripe+customer+found",
+                        status_code=302
+                    )
+            except stripe.error.StripeError:
+                return RedirectResponse(
+                    "/account?error=Stripe+lookup+failed",
+                    status_code=302
+                )
 
-        # First check if we already processed cancellation
+        # Check if we already processed cancellation
         if user.plan == "canceling":
             return RedirectResponse(
                 "/account?error=Subscription+already+canceled",
@@ -727,7 +740,7 @@ async def cancel_subscription(
             db_user.plan = "canceling"
             db.commit()
 
-            # Add webhook verification task
+            # Add verification task
             background_tasks.add_task(
                 verify_cancellation,
                 user.stripe_customer_id
@@ -755,26 +768,42 @@ async def cancel_subscription(
         db.close()
 
 async def verify_cancellation(stripe_customer_id: str):
-    """Verify cancellation went through"""
+    """Verify cancellation and downgrade when period ends"""
     db = SessionLocal()
     try:
-        # Wait a moment for Stripe to process
-        await asyncio.sleep(5)
-        
-        subscriptions = stripe.Subscription.list(
-            customer=stripe_customer_id,
-            status="active"
-        )
-        
-        user = db.query(User).filter(
-            User.stripe_customer_id == stripe_customer_id
-        ).first()
-        
-        if user and not any(sub.cancel_at_period_end for sub in subscriptions):
-            # Cancellation didn't go through - revert status
-            user.plan = "small_team"  # Or whatever their plan was
-            db.commit()
+        # Check every day until period ends
+        while True:
+            await asyncio.sleep(86400)  # 24 hours
             
+            subscriptions = stripe.Subscription.list(
+                customer=stripe_customer_id,
+                status="all"
+            )
+            
+            active_subs = [sub for sub in subscriptions.data if sub.status == "active"]
+            
+            # If no active subs, downgrade to free
+            if not active_subs:
+                user = db.query(User).filter(
+                    User.stripe_customer_id == stripe_customer_id
+                ).first()
+                
+                if user and user.plan == "canceling":
+                    user.plan = "free"
+                    db.commit()
+                    print(f"Downgraded user {user.id} to free plan")
+                    break
+                
+            # Check if any subscription is still active but ending soon
+            ending_soon = False
+            for sub in active_subs:
+                if sub.cancel_at_period_end and sub.current_period_end > time.time():
+                    ending_soon = True
+                    break
+                    
+            if not ending_soon:
+                break
+                
     except Exception as e:
         print(f"Verification failed: {str(e)}")
     finally:
@@ -867,29 +896,53 @@ async def generate_tweet_api(
 # Update success handler to change user's plan
 @app.get("/checkout/success")
 async def checkout_success(request: Request, session_id: str = None):
-    if not session_id:
+    if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
         return RedirectResponse("/pricing", status_code=302)
 
+    plan_name = "Unknown Plan"
     try:
         session = stripe.checkout.Session.retrieve(session_id)
-        if session.customer:  # This is the critical line
-            db = SessionLocal()
-            try:
-                user = get_optional_user(request)
-                if user:
-                    db_user = db.query(User).filter(User.id == user.id).first()
-                    if db_user:
-                        db_user.stripe_customer_id = session.customer  # Save customer ID
-                        db_user.plan = session.metadata.get("plan", "free")
-                        db.commit()
-            finally:
-                db.close()
+        plan_name = session.metadata.get("plan", "Unknown Plan")
+        
+        # Update user's plan in database
+        db = SessionLocal()
+        try:
+            user = get_optional_user(request)
+            if user:
+                db_user = db.query(User).filter(User.id == user.id).first()
+                if db_user:
+                    # Update plan and customer ID
+                    db_user.plan = plan_name
+                    
+                    # Get customer ID from session
+                    if session.customer:
+                        db_user.stripe_customer_id = session.customer
+                    
+                    db.commit()
+                    
+                    # Refresh features
+                    db_user.features = get_plan_features(plan_name)
+        finally:
+            db.close()
+            
     except Exception as e:
         print(f"Error processing checkout: {str(e)}")
 
+    # Get proper display name
+    plan_display_names = {
+        "creator": "Creator Plan",
+        "small_team": "Small Team Plan",
+        "agency": "Agency Plan",
+        "enterprise": "Enterprise Plan"
+    }
+    
+    display_name = plan_display_names.get(plan_name, 
+        plan_name.replace("_", " ").title() + " Plan")
+
     return templates.TemplateResponse("checkout_success.html", {
         "request": request,
-        "user": get_optional_user(request)
+        "user": get_optional_user(request),
+        "plan": display_name  # Pass the properly formatted plan name
     })
         
 async def get_ai_tweets(prompt, count=5):
@@ -1070,40 +1123,28 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
                 subscription.customer
             )
 
-    elif event['type'] == 'customer.subscription.deleted':
+     if event['type'] == 'customer.subscription.deleted':
         subscription = event['data']['object']
         background_tasks.add_task(
-            handle_subscription_ended,
+            downgrade_user_plan,
             subscription.customer
         )
-
+    
     return {"status": "success"}
 
-async def handle_subscription_cancellation(stripe_customer_id: str):
+async def downgrade_user_plan(stripe_customer_id: str):
     db = SessionLocal()
     try:
         user = db.query(User).filter(
             User.stripe_customer_id == stripe_customer_id
         ).first()
-        if user:
-            user.plan = "canceling"  # Mark as pending cancellation
+        
+        if user and user.plan == "canceling":
+            user.plan = "free"
             db.commit()
+            print(f"Downgraded user {user.id} via webhook")
     finally:
         db.close()
-
-async def handle_subscription_ended(stripe_customer_id: str):
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(
-            User.stripe_customer_id == stripe_customer_id
-        ).first()
-        if user:
-            user.plan = "free"  # Fully downgrade
-            db.commit()
-    finally:
-        db.close()
-
-    return {"status": "success"}
 
 if __name__ == "__main__":
     import uvicorn
