@@ -285,7 +285,7 @@ migrate_database()
 
 # ---- ROUTES ----
 
-@app.get("/", response_class=HTMLResponse)
+@app.get(, response_class=HTMLResponse)
 def index(request: Request):
     user = get_optional_user(request)
     return templates.TemplateResponse("index.html", {"request": request, "user": user})
@@ -354,6 +354,11 @@ def account(request: Request, user: User = Depends(get_current_user)):
         "user": user,
         "features": user.features  # Explicitly pass features
     })
+    return templates.TemplateResponse("template.html", {
+    "request": request,
+    "user": user,  # From Depends(get_current_user) or get_optional_user
+    "features": user.features if user else get_plan_features("free")
+})
 
 @app.post("/account/change_password")
 async def change_password(
@@ -442,6 +447,11 @@ def tweet_history(request: Request, user: User = Depends(get_current_user)):
             "user": user,
             "tweets": tweets,
             "features": features  # Make sure this is included
+        })
+        return templates.TemplateResponse("template.html", {
+            "request": request,
+            "user": user,  # From Depends(get_current_user) or get_optional_user
+            "features": user.features if user else get_plan_features("free")
         })
     finally:
         db.close()
