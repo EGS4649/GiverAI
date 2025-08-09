@@ -186,7 +186,6 @@ def get_plan_features(plan_name):
     }
     return features.get(plan_name, features["free"])
 
-
 def get_current_user(request: Request):
     token = request.cookies.get("access_token")
     credentials_exception = HTTPException(
@@ -211,8 +210,6 @@ def get_current_user(request: Request):
         if user is None:
             raise credentials_exception
         
-        # Refresh the user object to ensure it's not detached
-        db.refresh(user)
         # Apply plan features to the user object
         user.features = get_plan_features(user.plan)
         return user
@@ -440,11 +437,11 @@ def tweet_history(request: Request, user: User = Depends(get_current_user)):
             "request": request,
             "user": user,
             "tweets": tweets,
-            "features": features
+            "features": features  # Make sure this is included
         })
     finally:
         db.close()
-
+        
 @app.get("/export-tweets")
 def export_tweets(user: User = Depends(get_current_user)):
     db = SessionLocal()
