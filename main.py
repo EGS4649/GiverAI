@@ -867,47 +867,30 @@ async def generate_tweet_api(
 # Update success handler to change user's plan
 @app.get("/checkout/success")
 async def checkout_success(request: Request, session_id: str = None):
-    if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
+    if not session_id:
         return RedirectResponse("/pricing", status_code=302)
 
     try:
         session = stripe.checkout.Session.retrieve(session_id)
-        plan = session.metadata.get("plan", "Unknown Plan")
-        
-        if plan:
-            # Update user's plan in database
+        if session.customer:  # This is the critical line
             db = SessionLocal()
             try:
                 user = get_optional_user(request)
                 if user:
                     db_user = db.query(User).filter(User.id == user.id).first()
                     if db_user:
-                        db_user.plan = plan
+                        db_user.stripe_customer_id = session.customer  # Save customer ID
+                        db_user.plan = session.metadata.get("plan", "free")
                         db.commit()
             finally:
                 db.close()
-                
-        # Get the proper display name for the plan
-        plan_display_names = {
-            "creator": "Creator Plan",
-            "small_team": "Small Team Plan",
-            "agency": "Agency Plan",
-            "enterprise": "Enterprise Plan"
-        }
-        display_name = plan_display_names.get(plan, plan.replace("_", " ").title() + " Plan")
-
-        return templates.TemplateResponse("checkout_success.html", {
-            "request": request,
-            "session": session,
-            "user": get_optional_user(request),
-            "plan": display_name  # Pass the properly formatted plan name
-        })
     except Exception as e:
-        return templates.TemplateResponse("pricing.html", {
-            "request": request,
-            "error": f"Error retrieving session: {str(e)}",
-            "user": get_optional_user(request)
-        })
+        print(f"Error processing checkout: {str(e)}")
+
+    return templates.TemplateResponse("checkout_success.html", {
+        "request": request,
+        "user": get_optional_user(request)
+    })
         
 async def get_ai_tweets(prompt, count=5):
     try:
