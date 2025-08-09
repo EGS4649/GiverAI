@@ -348,17 +348,55 @@ def logout():
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
 def account(request: Request, user: User = Depends(get_current_user)):
-    # Ensure features are available in the template
     return templates.TemplateResponse("account.html", {
         "request": request,
-        "user": user,
-        "features": user.features  # Explicitly pass features
+        "user": user
     })
-    return templates.TemplateResponse("template.html", {
-    "request": request,
-    "user": user,  # From Depends(get_current_user) or get_optional_user
-    "features": user.features if user else get_plan_features("free")
-})
+
+# Fix history route
+@app.get("/history", response_class=HTMLResponse)
+def tweet_history(request: Request, user: User = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        # Use user.features instead of get_plan_features()
+        days = user.features["history_days"]
+        cutoff_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+        
+        tweets = db.query(GeneratedTweet).filter(
+            GeneratedTweet.user_id == user.id,
+            GeneratedTweet.generated_at >= cutoff_date
+        ).order_by(GeneratedTweet.generated_at.desc()).all()
+        
+        return templates.TemplateResponse("history.html", {
+            "request": request,
+            "user": user,
+            "tweets": tweets
+        })
+    finally:
+        db.close()
+
+# Remove duplicate team route definition
+@app.get("/team", response_class=HTMLResponse)
+def team_management(request: Request, user: User = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        if user.features["team_seats"] <= 1:
+            return RedirectResponse("/pricing", status_code=302)
+        
+        team_members = db.query(TeamMember).filter(
+            TeamMember.user_id == user.id,
+            TeamMember.status == "active"
+        ).all()
+        
+        return templates.TemplateResponse("team.html", {
+            "request": request,
+            "user": user,
+            "team_members": team_members,
+            "max_seats": user.features["team_seats"],
+            "available_seats": user.features["team_seats"] - len(team_members)
+        })
+    finally:
+        db.close()
 
 @app.post("/account/change_password")
 async def change_password(
@@ -428,33 +466,6 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
     response = RedirectResponse("/", status_code=302)
     response.delete_cookie("access_token")
     return response
-
-@app.get("/history", response_class=HTMLResponse)
-def tweet_history(request: Request, user: User = Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        features = get_plan_features(user.plan)
-        days = features["history_days"]
-        cutoff_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
-        
-        tweets = db.query(GeneratedTweet).filter(
-            GeneratedTweet.user_id == user.id,
-            GeneratedTweet.generated_at >= cutoff_date
-        ).order_by(GeneratedTweet.generated_at.desc()).all()
-        
-        return templates.TemplateResponse("history.html", {
-            "request": request,
-            "user": user,
-            "tweets": tweets,
-            "features": features  # Make sure this is included
-        })
-        return templates.TemplateResponse("template.html", {
-            "request": request,
-            "user": user,  # From Depends(get_current_user) or get_optional_user
-            "features": user.features if user else get_plan_features("free")
-        })
-    finally:
-        db.close()
         
 @app.get("/export-tweets")
 def export_tweets(user: User = Depends(get_current_user)):
@@ -566,30 +577,6 @@ async def remove_team_member(
             return RedirectResponse("/team?success=Member+removed", status_code=302)
         
         return RedirectResponse("/team?error=Member+not+found", status_code=302)
-    finally:
-        db.close()
-
-# Update team route
-@app.get("/team", response_class=HTMLResponse)
-def team_management(request: Request, user: User = Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        features = get_plan_features(user.plan)
-        if features["team_seats"] <= 1:
-            return RedirectResponse("/pricing", status_code=302)
-        
-        team_members = db.query(TeamMember).filter(
-            TeamMember.user_id == user.id,
-            TeamMember.status == "active"
-        ).all()
-        
-        return templates.TemplateResponse("team.html", {
-            "request": request,
-            "user": user,
-            "team_members": team_members,
-            "max_seats": features["team_seats"],
-            "available_seats": features["team_seats"] - len(team_members)
-        })
     finally:
         db.close()
 
@@ -891,10 +878,9 @@ def dashboard(request: Request, user: User = Depends(get_current_user)):
         
         return templates.TemplateResponse("dashboard.html", {
             "request": request,
-            "user": user,
+            "user": user,  # features is already attached to user
             "tweets_left": tweets_left,
-            "tweets_used": tweets_used,
-            "features": user.features  # Explicitly pass features
+            "tweets_used": tweets_used
         })
     finally:
         db.close()
