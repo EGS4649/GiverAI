@@ -15,11 +15,11 @@
     <h1>Your Tweet History</h1>
     <p>Showing last {{ features.history_days }} days of generated tweets</p>
     
-    <div class="history-actions">
-      {% if features.export %}
-      <a href="/export-tweets" class="export-button">Export All Tweets</a>
-      {% endif %}
-    </div>
+   <div class="history-actions">
+  {% if features.export %}
+  <a href="/export-tweets" class="export-button">Export All Tweets</a>
+  {% endif %}
+   </div>
     
     <div class="tweet-history">
       {% for tweet in tweets %}
