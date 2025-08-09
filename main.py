@@ -274,6 +274,11 @@ def migrate_database():
                 conn.execute(text("ALTER TABLE users ADD COLUMN api_key VARCHAR"))
             print("Added api_key column to users table")
 
+     # Check if team_members table exists
+    if 'team_members' not in inspector.get_table_names():
+        Base.metadata.tables["team_members"].create(bind=engine)
+        print("Created team_members table")
+
 # Run migrations
 migrate_database()
 
@@ -655,6 +660,40 @@ async def generate_api_key(user: User = Depends(get_current_user)):
         db.commit()
         
         return RedirectResponse("/account?success=API+key+generated", status_code=302)
+    finally:
+        db.close()
+
+@app.post("/cancel-subscription")
+async def cancel_subscription(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    db = SessionLocal()
+    try:
+        if not user.stripe_customer_id:
+            return RedirectResponse("/account?error=No+subscription+found", status_code=302)
+        
+        # Get active subscriptions
+        subscriptions = stripe.Subscription.list(
+            customer=user.stripe_customer_id,
+            status="active"
+        )
+        
+        if not subscriptions.data:
+            return RedirectResponse("/account?error=No+active+subscription", status_code=302)
+        
+        # Cancel all active subscriptions
+        for sub in subscriptions.data:
+            stripe.Subscription.delete(sub.id)
+        
+        # Update user plan
+        db_user = db.query(User).filter(User.id == user.id).first()
+        db_user.plan = "free"
+        db.commit()
+        
+        return RedirectResponse("/account?success=Subscription+canceled", status_code=302)
+    except stripe.error.StripeError as e:
+        return RedirectResponse(f"/account?error={str(e)}", status_code=302)
     finally:
         db.close()
 
