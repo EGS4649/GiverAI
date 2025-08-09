@@ -685,7 +685,7 @@ async def cancel_subscription(
         if not user.stripe_customer_id:
             return RedirectResponse("/account?error=No+subscription+found", status_code=302)
         
-        # Get active subscriptions
+        # Get active subscriptions for this customer
         subscriptions = stripe.Subscription.list(
             customer=user.stripe_customer_id,
             status="active"
@@ -696,15 +696,18 @@ async def cancel_subscription(
         
         # Cancel all active subscriptions
         for sub in subscriptions.data:
-            stripe.Subscription.delete(sub.id)
+            try:
+                stripe.Subscription.delete(sub.id)
+            except stripe.error.StripeError as e:
+                return RedirectResponse(f"/account?error={str(e)}", status_code=302)
         
-        # Update user plan
+        # Update user plan in database
         db_user = db.query(User).filter(User.id == user.id).first()
         db_user.plan = "free"
         db.commit()
         
         return RedirectResponse("/account?success=Subscription+canceled", status_code=302)
-    except stripe.error.StripeError as e:
+    except Exception as e:
         return RedirectResponse(f"/account?error={str(e)}", status_code=302)
     finally:
         db.close()
