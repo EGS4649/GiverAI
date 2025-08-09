@@ -887,14 +887,17 @@ def dashboard(request: Request, user: User = Depends(get_current_user)):
         else:
             tweets_left = max(0, 15 - tweets_used)
         
+        # Initialize tweets as an empty list since we're not generating any yet
+        tweets = []
+        
         return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "user": user,
-        "tweets": tweets,
-        "tweets_left": new_tweets_left,
-        "tweets_used": usage.count,
-        "features": user.features,             # ✅ PATCH
-        "error": None
+            "request": request,
+            "user": user,
+            "tweets": tweets,  # Now properly defined
+            "tweets_left": tweets_left,  # Fixed variable name (was new_tweets_left)
+            "tweets_used": tweets_used,
+            "features": user.features,
+            "error": None
         })
     finally:
         db.close()
