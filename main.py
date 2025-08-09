@@ -218,7 +218,11 @@ def get_current_user(request: Request):
 
 def get_optional_user(request: Request):
     try:
-        return get_current_user(request)
+        user = get_current_user(request)
+        # Ensure features exist even for optional users
+        if not hasattr(user, 'features'):
+            user.features = get_plan_features(user.plan)
+        return user
     except Exception:
         return None
         
