@@ -275,7 +275,7 @@ def migrate_database():
                 conn.execute(text("ALTER TABLE users ADD COLUMN api_key VARCHAR"))
             print("Added api_key column to users table")
 
-     # Check if team_members table exists
+    # Check if team_members table exists
     if 'team_members' not in inspector.get_table_names():
         Base.metadata.tables["team_members"].create(bind=engine)
         print("Created team_members table")
@@ -387,14 +387,14 @@ def team_management(request: Request, user: User = Depends(get_current_user)):
             TeamMember.status == "active"
         ).all()
         
-       return templates.TemplateResponse("team.html", {
-       "request": request,
-       "user": user,
-       "team_members": team_members,
-       "max_seats": features["team_seats"],
-       "available_seats": features["team_seats"] - len(team_members),
-       "features": features                    # ✅ PATCH
-})
+        return templates.TemplateResponse("team.html", {
+            "request": request,
+            "user": user,
+            "team_members": team_members,
+            "max_seats": features["team_seats"],
+            "available_seats": features["team_seats"] - len(team_members),
+            "features": features                    # ✅ PATCH
+        })
     finally:
         db.close()
 
@@ -457,7 +457,6 @@ async def change_email(
         "features": db_user.features,                       # ✅ PATCH
         "success": "Email updated successfully!"
     })
-
 
 
 @app.get("/api-docs", response_class=HTMLResponse)
