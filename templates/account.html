@@ -44,6 +44,16 @@
     .delete-section button {
       background: #ff4444;
     }
+
+    .success-message {
+      background: rgba(0, 255, 0, 0.2);
+      border: 1px solid #00ff88;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      color: #00ff88;
+}
+
   </style>
 </head>
 <body>
@@ -73,6 +83,11 @@
 
   <main class="account-container">
     <h1>Account Management</h1>
+    {% if request.query_params.get('success') %}
+<div class="success-message">
+    {{ request.query_params.get('success') | replace('+', ' ') }}
+</div>
+{% endif %}
     
     {% if error %}
       <div style="background: rgba(255, 0, 0, 0.2); border: 1px solid #ff4444; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #ff4444;">
@@ -85,6 +100,15 @@
         {{ success }}
       </div>
     {% endif %}
+
+    {% if user.plan != 'free' %}
+<div class="account-section">
+    <h2>Subscription Management</h2>
+    <form method="post" action="/cancel-subscription">
+        <button type="submit">Cancel Subscription</button>
+    </form>
+</div>
+{% endif %}
 
     {% if features.api_access %}
 <div class="account-section">
