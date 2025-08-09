@@ -543,5 +543,22 @@ footer {
     flex-direction: column;
     text-align: center;
   }
+  
+.stat-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 255, 255, 0.2);
+  border-color: rgba(0, 255, 255, 0.6);
+}
+
+.stat-number {
+  font-size: 2em !important;  /* Override existing size for emoji */
+  margin-bottom: 10px;
+}
 }
 
