@@ -40,15 +40,34 @@
     <p class="page-description">Welcome to the {{ plan }}! Your subscription is now active.</p>
       
       <div style="background: rgba(0, 255, 0, 0.1); border: 1px solid #00ff88; padding: 30px; border-radius: 10px; margin: 40px 0; max-width: 600px; margin-left: auto; margin-right: auto;">
-        <h2 style="color: #00ff88; margin-bottom: 20px;">What's Next?</h2>
-        <ul style="text-align: left; color: #fff; line-height: 1.8;">
-          <li>✅ Unlimited tweet generations</li>
-          <li>✅ Advanced customization options</li>
-          <li>✅ 60-day tweet history</li>
-          <li>✅ Priority email support</li>
-          <li>✅ Export and download features</li>
-        </ul>
-      </div>
+  <h2 style="color: #00ff88; margin-bottom: 20px;">What's Next?</h2>
+  <ul style="text-align: left; color: #fff; line-height: 1.8;">
+    {% if plan == "Creator Plan" %}
+      <li>✅ Unlimited tweet generations</li>
+      <li>✅ Advanced customization options</li>
+      <li>✅ 60-day tweet history</li>
+      <li>✅ Priority email support</li>
+      <li>✅ Export and download features</li>
+    {% elif plan == "Small Team Plan" %}
+      <li>✅ Everything in Creator, plus:</li>
+      <li>✅ Team collaboration (up to 5 members)</li>
+      <li>✅ Standard scheduling</li>
+      <li>✅ Shared tweet history</li>
+    {% elif plan == "Agency Plan" %}
+      <li>✅ Everything in Small Team, plus:</li>
+      <li>✅ Advanced analytics</li>
+      <li>✅ 90-day tweet history</li>
+      <li>✅ White labeling</li>
+      <li>✅ Up to 15 team members</li>
+    {% elif plan == "Enterprise Plan" %}
+      <li>✅ Everything in Agency, plus:</li>
+      <li>✅ Unlimited team members</li>
+      <li>✅ Custom integrations</li>
+      <li>✅ API access</li>
+      <li>✅ Dedicated account manager</li>
+    {% endif %}
+  </ul>
+</div>
       
       <div class="cta-buttons">
         <a href="/tweetgiver" class="cta-primary">Start Creating Tweets</a>
