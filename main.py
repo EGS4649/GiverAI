@@ -932,14 +932,13 @@ async def generate(request: Request):
                 return templates.TemplateResponse("dashboard.html", {
                     "request": request,
                     "user": user,
+                    "features": user.features,  # ADDED FEATURES HERE
                     "tweets_left": 0,
                     "tweets": [],
                     "error": "Daily limit reached! Upgrade for unlimited tweets."
                 })
             if tweet_count > tweets_left:
                 tweet_count = tweets_left
-        else:
-            tweets_left = "Unlimited"
 
         # Build prompt with requested tweet count
         prompt = f"As a {job}, suggest {tweet_count} engaging tweets to achieve: {goal}."
@@ -968,6 +967,7 @@ async def generate(request: Request):
         return templates.TemplateResponse("dashboard.html", {
             "request": request,
             "user": user,
+            "features": user.features,  # ADDED FEATURES HERE
             "tweets": tweets,
             "tweets_left": new_tweets_left,
             "tweets_used": usage.count,
