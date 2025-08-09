@@ -1123,7 +1123,8 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
                 subscription.customer
             )
 
-     if event['type'] == 'customer.subscription.deleted':
+    # FIXED: Proper indentation for this block
+    if event['type'] == 'customer.subscription.deleted':
         subscription = event['data']['object']
         background_tasks.add_task(
             downgrade_user_plan,
@@ -1131,7 +1132,19 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
         )
     
     return {"status": "success"}
-
+    
+async def handle_subscription_cancellation(stripe_customer_id: str):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(
+            User.stripe_customer_id == stripe_customer_id
+        ).first()
+        if user:
+            user.plan = "canceling"
+            db.commit()
+    finally:
+        db.close()
+        
 async def downgrade_user_plan(stripe_customer_id: str):
     db = SessionLocal()
     try:
