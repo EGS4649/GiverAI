@@ -202,6 +202,8 @@ def get_current_user(request: Request):
         
         # Refresh the user object to ensure it's not detached
         db.refresh(user)
+        # Apply plan features to the user object
+        user.features = get_plan_features(user.plan)
         return user
     finally:
         db.close()
@@ -213,8 +215,8 @@ def get_optional_user(request: Request):
         return None
         
 def apply_plan_features(user):
-    features = get_plan_features(user.plan)
-    user.features = features
+    if not hasattr(user, 'features'):
+        user.features = get_plan_features(user.plan)
     return user
     
 # ---- FastAPI Setup -----
@@ -329,7 +331,12 @@ def logout():
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
 def account(request: Request, user: User = Depends(get_current_user)):
-    return templates.TemplateResponse("account.html", {"request": request, "user": user})
+    # Ensure features are available in the template
+    return templates.TemplateResponse("account.html", {
+        "request": request,
+        "user": user,
+        "features": user.features  # Explicitly pass features
+    })
 
 @app.post("/account/change_password")
 async def change_password(
@@ -701,7 +708,8 @@ def dashboard(request: Request):
             "request": request,
             "user": user,
             "tweets_left": tweets_left,
-            "tweets_used": tweets_used
+            "tweets_used": tweets_used,
+            "features": user.features  # Include features
         })
     finally:
         db.close()
