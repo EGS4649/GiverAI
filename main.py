@@ -9,6 +9,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import LargeBinary
 from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
 from openai import OpenAI
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -69,6 +70,16 @@ class Usage(Base):
     user_id = Column(Integer, ForeignKey('users.id'))
     date = Column(String)
     count = Column(Integer, default=0)
+    user = relationship("User")
+
+class TeamMember(Base):
+    __tablename__ = "team_members"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    email = Column(String, index=True)
+    role = Column(String, default="editor")
+    status = Column(String, default="pending")  # pending, active, removed
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
     user = relationship("User")
 
 # Account Management Models
@@ -469,6 +480,110 @@ def team_management(request: Request, user: User = Depends(get_current_user)):
             "max_seats": features["team_seats"],
             "available_seats": features["team_seats"] - len(team_members)
         })
+    finally:
+        db.close()
+
+# Add routes
+@app.post("/add-team-member")
+async def add_team_member(
+    request: Request,
+    email: str = Form(...),
+    role: str = Form(...),
+    user: User = Depends(get_current_user)
+):
+    db = SessionLocal()
+    try:
+        features = get_plan_features(user.plan)
+        current_team = db.query(TeamMember).filter(
+            TeamMember.user_id == user.id,
+            TeamMember.status == "active"
+        ).all()
+        
+        if len(current_team) >= features["team_seats"]:
+            return RedirectResponse("/team?error=No+available+seats", status_code=302)
+            
+        new_member = TeamMember(
+            user_id=user.id,
+            email=email,
+            role=role
+        )
+        db.add(new_member)
+        db.commit()
+        
+        # Send invitation email (pseudo-code)
+        # send_invitation_email(email, user.username)
+        
+        return RedirectResponse("/team?success=Member+invited", status_code=302)
+    except IntegrityError:
+        return RedirectResponse("/team?error=Member+already+exists", status_code=302)
+    finally:
+        db.close()
+
+@app.post("/remove-team-member")
+async def remove_team_member(
+    request: Request,
+    email: str = Form(...),
+    user: User = Depends(get_current_user)
+):
+    db = SessionLocal()
+    try:
+        member = db.query(TeamMember).filter(
+            TeamMember.user_id == user.id,
+            TeamMember.email == email
+        ).first()
+        
+        if member:
+            member.status = "removed"
+            db.commit()
+            return RedirectResponse("/team?success=Member+removed", status_code=302)
+        
+        return RedirectResponse("/team?error=Member+not+found", status_code=302)
+    finally:
+        db.close()
+
+# Update team route
+@app.get("/team", response_class=HTMLResponse)
+def team_management(request: Request, user: User = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        features = get_plan_features(user.plan)
+        if features["team_seats"] <= 1:
+            return RedirectResponse("/pricing", status_code=302)
+        
+        team_members = db.query(TeamMember).filter(
+            TeamMember.user_id == user.id,
+            TeamMember.status == "active"
+        ).all()
+        
+        return templates.TemplateResponse("team.html", {
+            "request": request,
+            "user": user,
+            "team_members": team_members,
+            "max_seats": features["team_seats"],
+            "available_seats": features["team_seats"] - len(team_members)
+        })
+    finally:
+        db.close()
+
+@app.post("/remove-team-member")
+async def remove_team_member(
+    request: Request,
+    email: str = Form(...),
+    user: User = Depends(get_current_user)
+):
+    db = SessionLocal()
+    try:
+        member = db.query(TeamMember).filter(
+            TeamMember.user_id == user.id,
+            TeamMember.email == email
+        ).first()
+        
+        if member:
+            member.status = "removed"
+            db.commit()
+            return RedirectResponse("/team?success=Member+removed", status_code=302)
+        
+        return RedirectResponse("/team?error=Member+not+found", status_code=302)
     finally:
         db.close()
 
