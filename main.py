@@ -563,7 +563,7 @@ async def create_checkout_session(request: Request, plan_type: str):
             customer_email=user.email,
             metadata={
                 "user_id": user.id,
-                "plan": plan_type
+                "plan": plan_type  # Make sure this matches our plan names exactly
             }
         )
         return RedirectResponse(checkout_session.url, status_code=303)
@@ -622,7 +622,7 @@ async def checkout_success(request: Request, session_id: str = None):
 
     try:
         session = stripe.checkout.Session.retrieve(session_id)
-        plan = session.metadata.get("plan")
+        plan = session.metadata.get("plan", "Unknown Plan")
         
         if plan:
             # Update user's plan in database
@@ -637,11 +637,20 @@ async def checkout_success(request: Request, session_id: str = None):
             finally:
                 db.close()
                 
+        # Get the proper display name for the plan
+        plan_display_names = {
+            "creator": "Creator Plan",
+            "small_team": "Small Team Plan",
+            "agency": "Agency Plan",
+            "enterprise": "Enterprise Plan"
+        }
+        display_name = plan_display_names.get(plan, plan.replace("_", " ").title() + " Plan")
+
         return templates.TemplateResponse("checkout_success.html", {
             "request": request,
             "session": session,
             "user": get_optional_user(request),
-            "plan": plan.replace("_", " ").title() if plan else "Unknown"
+            "plan": display_name  # Pass the properly formatted plan name
         })
     except Exception as e:
         return templates.TemplateResponse("pricing.html", {
