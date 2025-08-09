@@ -1,8 +1,8 @@
 import datetime
 import os
-import secrets  # Added for API key generation
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse, Response  # Added Response
+import secrets
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text
