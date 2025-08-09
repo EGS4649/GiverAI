@@ -285,7 +285,7 @@ migrate_database()
 
 # ---- ROUTES ----
 
-@app.get(, response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     user = get_optional_user(request)
     return templates.TemplateResponse("index.html", {"request": request, "user": user})
