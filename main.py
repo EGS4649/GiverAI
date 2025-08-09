@@ -678,8 +678,8 @@ async def generate_api_key(user: User = Depends(get_current_user)):
 @app.post("/cancel-subscription")
 async def cancel_subscription(
     request: Request,
-    user: User = Depends(get_current_user),
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user)
 ):
     db = SessionLocal()
     try:
