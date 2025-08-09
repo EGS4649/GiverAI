@@ -33,13 +33,15 @@
 
   <main class="dashboard-container">
     <h1>Your Tweet History</h1>
-    <p>Showing last {{ features.history_days }} days of generated tweets</p>
+    <!-- FIXED: Changed features to user.features -->
+    <p>Showing last {{ user.features.history_days }} days of generated tweets</p>
     
- {% if user.features.export %}
-<div class="history-actions">
-  <a href="/export-tweets" class="export-button">Export All Tweets</a>
-</div>
-{% endif %}
+    <!-- FIXED: Changed features to user.features -->
+    {% if user.features.export %}
+    <div class="history-actions">
+      <a href="/export-tweets" class="export-button">Export All Tweets</a>
+    </div>
+    {% endif %}
 
     
     <div class="tweet-history">
@@ -47,7 +49,8 @@
       <div class="tweet-card">
         <div class="tweet-date">{{ tweet.generated_at.strftime('%Y-%m-%d %H:%M') }}</div>
         <div class="tweet-content">{{ tweet.tweet_text }}</div>
-        {% if features.export %}
+        <!-- FIXED: Changed features to user.features -->
+        {% if user.features.export %}
         <a href="#" class="copy-tweet" data-text="{{ tweet.tweet_text }}">Copy</a>
         {% endif %}
       </div>
@@ -71,8 +74,6 @@
       </div>
     </div>
   </footer>
-</body>
-</html>
   
   <script>
     document.querySelectorAll('.copy-tweet').forEach(button => {
