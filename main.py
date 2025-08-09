@@ -379,6 +379,7 @@ def tweet_history(request: Request, user: User = Depends(get_current_user)):
 def team_management(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
     try:
+        # Use user.features instead of creating a separate features variable
         if user.features["team_seats"] <= 1:
             return RedirectResponse("/pricing", status_code=302)
         
@@ -387,12 +388,16 @@ def team_management(request: Request, user: User = Depends(get_current_user)):
             TeamMember.status == "active"
         ).all()
         
+        # Calculate values using user.features
+        max_seats = user.features["team_seats"]
+        available_seats = max_seats - len(team_members)
+        
         return templates.TemplateResponse("team.html", {
             "request": request,
             "user": user,
             "team_members": team_members,
-            "max_seats": features["team_seats"],
-            "available_seats": features["team_seats"] - len(team_members),
+            "max_seats": max_seats,
+            "available_seats": available_seats
         })
     finally:
         db.close()
