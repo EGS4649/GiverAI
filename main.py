@@ -399,6 +399,10 @@ async def change_email(
         "success": "Email updated successfully!"
     })
 
+@app.get("/api-docs", response_class=HTMLResponse)
+def api_docs(request: Request, user: User = Depends(get_optional_user)):
+    return templates.TemplateResponse("api_docs.html", {"request": request, "user": user})
+
 @app.post("/account/delete")
 async def delete_account(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
@@ -442,17 +446,26 @@ def export_tweets(request: Request, user: User = Depends(get_current_user)):
     try:
         features = get_plan_features(user.plan)
         if not features["export"]:
-            raise HTTPException(status_code=403, detail="Export feature not available for your plan")
+            return templates.TemplateResponse("history.html", {
+                "request": request,
+                "user": user,
+                "error": "Export feature not available for your plan"
+            })
         
+        # Get all tweets regardless of date for export
         tweets = db.query(GeneratedTweet).filter(
             GeneratedTweet.user_id == user.id
         ).order_by(GeneratedTweet.generated_at.desc()).all()
         
-        tweet_data = [{"text": tweet.tweet_text, "date": tweet.generated_at} for tweet in tweets]
+        tweet_data = [{
+            "text": tweet.tweet_text, 
+            "date": tweet.generated_at.strftime("%Y-%m-%d %H:%M:%S")
+        } for tweet in tweets]
+        
         filename = f"tweets_export_{user.username}_{datetime.datetime.utcnow().strftime('%Y%m%d')}.json"
         
         return Response(
-            content=json.dumps(tweet_data, default=str),
+            content=json.dumps(tweet_data, indent=2),
             media_type="application/json",
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
