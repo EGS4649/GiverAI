@@ -101,15 +101,6 @@
       </div>
     {% endif %}
 
-    {% if user.plan != 'free' %}
-<div class="account-section">
-    <h2>Subscription Management</h2>
-    <form method="post" action="/cancel-subscription">
-        <button type="submit">Cancel Subscription</button>
-    </form>
-</div>
-{% endif %}
-
 {% if user.features.api_access %}
 <div class="account-section">
   <h2>API Access</h2>
@@ -147,6 +138,15 @@
         <button type="submit">Update Email</button>
       </form>
     </div>
+
+     {% if user.plan != 'free' %}
+<div class="account-section">
+    <h2>Subscription Management</h2>
+    <form method="post" action="/cancel-subscription">
+        <button type="submit">Cancel Subscription</button>
+    </form>
+</div>
+{% endif %}
     
     <div class="account-section delete-section">
       <h2>Delete Account</h2>
