@@ -5,8 +5,10 @@ bcrypt==4.0.1
 sqlalchemy
 stripe
 python-jose
+python-dotenv
 openai
 jinja2
 python-multipart
 psycopg2-binary
 alembic
+
