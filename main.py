@@ -355,6 +355,228 @@ def migrate_database():
                     print(f"Added {col_name} column to users table")
                 except Exception as e:
                     print(f"Error adding {col_name}: {e}")
+
+    # First, let's create a function to check and fix the database
+def fix_corrupted_user_data():
+    """Fix corrupted hashed_password data in the database"""
+    from sqlalchemy import create_engine, text
+    
+    engine = create_engine(DATABASE_URL)
+    
+    try:
+        with engine.begin() as conn:
+            # First, let's see what data we have
+            print("=== Checking user data ===")
+            
+            # Get all users without trying to process hashed_password through SQLAlchemy
+            result = conn.execute(text("""
+                SELECT id, username, email, hashed_password, 
+                       pg_typeof(hashed_password) as password_type
+                FROM users
+            """))
+            
+            rows = result.fetchall()
+            print(f"Found {len(rows)} users in database")
+            
+            for row in rows:
+                print(f"User ID: {row[0]}, Username: {row[1]}")
+                print(f"Password type in DB: {row[4]}")
+                print(f"Password data type in Python: {type(row[3])}")
+                
+                # If the password is stored as text instead of bytea, we need to fix it
+                if row[4] == 'text' or isinstance(row[3], str):
+                    print(f"WARNING: User {row[1]} has corrupted password data")
+                    
+                    # For now, let's set a temporary password that they can change
+                    temp_password = "TempPassword123!"
+                    temp_hash = hash_password(temp_password)
+                    
+                    conn.execute(text("""
+                        UPDATE users 
+                        SET hashed_password = :new_hash 
+                        WHERE id = :user_id
+                    """), {
+                        "new_hash": temp_hash,
+                        "user_id": row[0]
+                    })
+                    
+                    print(f"Fixed password for user {row[1]} - temp password: {temp_password}")
+            
+            print("=== User data check completed ===")
+            
+    except Exception as e:
+        print(f"Error checking user data: {e}")
+        import traceback
+        traceback.print_exc()
+
+# Modified registration function that avoids the corrupted data
+@app.post("/register", response_class=HTMLResponse)  
+def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
+    db = SessionLocal()
+    try:
+        print(f"Starting registration for username: {username}")
+        
+        # Use raw SQL to avoid SQLAlchemy processing corrupted data
+        from sqlalchemy import text
+        
+        # Check username exists using raw SQL
+        result = db.execute(text("""
+            SELECT COUNT(*) FROM users WHERE username = :username
+        """), {"username": username})
+        username_count = result.scalar()
+        
+        if username_count > 0:
+            print(f"Username {username} already exists")
+            return templates.TemplateResponse("register.html", {
+                "request": request, 
+                "error": "Username already exists"
+            })
+        
+        # Check email exists using raw SQL  
+        result = db.execute(text("""
+            SELECT COUNT(*) FROM users WHERE email = :email
+        """), {"email": email})
+        email_count = result.scalar()
+        
+        if email_count > 0:
+            print(f"Email {email} already registered")
+            return templates.TemplateResponse("register.html", {
+                "request": request, 
+                "error": "Email already registered"
+            })
+        
+        # Hash the password
+        print("Hashing password...")
+        hashed_password = hash_password(password)
+        print(f"Password hashed successfully, type: {type(hashed_password)}")
+        
+        # Insert using raw SQL to avoid SQLAlchemy ORM issues
+        result = db.execute(text("""
+            INSERT INTO users (username, email, hashed_password, plan, is_active, created_at)
+            VALUES (:username, :email, :hashed_password, :plan, :is_active, :created_at)
+            RETURNING id
+        """), {
+            "username": username,
+            "email": email, 
+            "hashed_password": hashed_password,
+            "plan": "free",
+            "is_active": True,
+            "created_at": datetime.datetime.utcnow()
+        })
+        
+        user_id = result.fetchone()[0]
+        db.commit()
+        
+        print(f"User registered successfully with ID: {user_id}")
+        return RedirectResponse("/login", status_code=302)
+        
+    except Exception as e:
+        db.rollback()
+        error_msg = str(e)
+        print(f"Registration error: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        
+        return templates.TemplateResponse("register.html", {
+            "request": request,
+            "error": "Registration failed. Please try again."
+        })
+    finally:
+        db.close()
+
+# Also fix the get_user function to handle corrupted data
+def get_user_safe(db, username: str):
+    """Get user using raw SQL to avoid corrupted data issues"""
+    try:
+        from sqlalchemy import text
+        result = db.execute(text("""
+            SELECT id, username, email, plan, is_active, created_at,
+                   stripe_customer_id, api_key, is_admin, role, industry, goals, posting_frequency
+            FROM users 
+            WHERE username = :username
+        """), {"username": username})
+        
+        row = result.fetchone()
+        if not row:
+            return None
+            
+        # Create a user-like object
+        class SafeUser:
+            def __init__(self, row):
+                self.id = row[0]
+                self.username = row[1] 
+                self.email = row[2]
+                self.plan = row[3] or "free"
+                self.is_active = row[4]
+                self.created_at = row[5]
+                self.stripe_customer_id = row[6]
+                self.api_key = row[7]
+                self.is_admin = row[8] or False
+                self.role = row[9]
+                self.industry = row[10]
+                self.goals = row[11]
+                self.posting_frequency = row[12]
+                
+        return SafeUser(row)
+        
+    except Exception as e:
+        print(f"Error getting user safely: {e}")
+        return None
+
+# Updated authenticate function
+def authenticate_user_safe(db, username: str, password: str):
+    """Authenticate user avoiding corrupted password data"""
+    try:
+        from sqlalchemy import text
+        
+        # Get user data including hashed password using raw SQL
+        result = db.execute(text("""
+            SELECT id, username, email, hashed_password, plan, is_active, created_at,
+                   stripe_customer_id, api_key, is_admin, role, industry, goals, posting_frequency
+            FROM users 
+            WHERE username = :username
+        """), {"username": username})
+        
+        row = result.fetchone()
+        if not row:
+            return None
+        
+        hashed_password = row[3]
+        print(f"Retrieved password type: {type(hashed_password)}")
+        
+        # Handle different password storage formats
+        if isinstance(hashed_password, str):
+            # If stored as string, convert to bytes
+            hashed_password = hashed_password.encode('utf-8')
+        
+        # Verify password
+        password_valid = verify_password(password, hashed_password)
+        if not password_valid:
+            return None
+        
+        # Create user object
+        class SafeUser:
+            def __init__(self, row):
+                self.id = row[0]
+                self.username = row[1]
+                self.email = row[2] 
+                self.plan = row[4] or "free"
+                self.is_active = row[5]
+                self.created_at = row[6]
+                self.stripe_customer_id = row[7]
+                self.api_key = row[8]
+                self.is_admin = row[9] or False
+                self.role = row[10]
+                self.industry = row[11]
+                self.goals = row[12]
+                self.posting_frequency = row[13]
+                
+        return SafeUser(row)
+        
+    except Exception as e:
+        print(f"Authentication error: {e}")
+        return None
+
     
     # Check and create other tables if needed
     if 'generated_tweets' not in inspector.get_table_names():
@@ -581,15 +803,12 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
     finally:
         db.close()
 
-@app.get("/login", response_class=HTMLResponse)
-def login(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
-
 @app.post("/login")
 def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
     try:
-        user = authenticate_user(db, username, password)
+        # Use the safe authentication method
+        user = authenticate_user_safe(db, username, password)
         if not user:
             return templates.TemplateResponse("login.html", {
                 "request": request, 
@@ -610,6 +829,38 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
             samesite='lax'
         )
         return response
+    finally:
+        db.close()
+
+# Updated get_current_user function  
+def get_current_user(request: Request):
+    token = request.cookies.get("access_token")
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+    )
+    
+    if not token:
+        raise credentials_exception
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    db = SessionLocal()
+    try:
+        # Use safe user retrieval
+        user = get_user_safe(db, username)
+        if user is None:
+            raise credentials_exception
+        
+        # Attach features to the user object
+        user.features = get_plan_features(user.plan)
+        return user
     finally:
         db.close()
 
@@ -906,6 +1157,16 @@ async def generate_api_key(user: User = Depends(get_current_user)):
         return RedirectResponse("/account?success=API+key+generated", status_code=302)
     finally:
         db.close()
+
+# Add a route to run the fix
+@app.get("/fix-database")
+async def fix_database_route():
+    """Route to fix corrupted database data"""
+    try:
+        fix_corrupted_user_data()
+        return {"status": "Database fix attempted. Check server logs."}
+    except Exception as e:
+        return {"status": f"Error: {str(e)}"}
 
 @app.post("/cancel-subscription")
 async def cancel_subscription(
