@@ -39,14 +39,9 @@ def verify_password(plain_password: str, hashed_password: bytes) -> bool:
     return bcrypt.checkpw(plain_password.encode(), hashed_password)
 
 # ----- DB Setup -----
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable not set")
-
-# For PostgreSQL (remove SQLite-specific parameters)
+DATABASE_URL = os.getenv("DATABASE_URL")  # Should be your Render PostgreSQL URL
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
 # ----- User & Usage Models -----
 class GeneratedTweet(Base):
