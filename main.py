@@ -33,10 +33,14 @@ except Exception as e:
     print("bcrypt import error:", e)
 
 def hash_password(password: str) -> bytes:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+    # Ensure we're working with bytes
+    password_bytes = password.encode('utf-8')
+    return bcrypt.hashpw(password_bytes, bcrypt.gensalt())
 
 def verify_password(plain_password: str, hashed_password: bytes) -> bool:
-    return bcrypt.checkpw(plain_password.encode(), hashed_password)
+    # Ensure plain_password is encoded to bytes
+    plain_password_bytes = plain_password.encode('utf-8')
+    return bcrypt.checkpw(plain_password_bytes, hashed_password)
 
 # ----- DB Setup -----
 DATABASE_URL = os.getenv("DATABASE_URL")  # Should be your Render PostgreSQL URL
@@ -58,7 +62,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
-    hashed_password = Column(LargeBinary) 
+    hashed_password = Column(LargeBinary, nullable=False)
     plan = Column(String, default="free")  # Now supports: free, creator, small_team, agency, enterprise
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -358,6 +362,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         return templates.TemplateResponse("register.html", {"request": request, "error": "Username already exists"})
     if db.query(User).filter(User.email == email).first():
         return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"})
+        hashed_password = hash_password(password)
     
     try:
         user = User(
