@@ -256,13 +256,30 @@ def migrate_database():
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
     
-    # Add this check for is_admin column
+    # Check and add all missing columns
     if 'users' in inspector.get_table_names():
         columns = [col['name'] for col in inspector.get_columns('users')]
-        if 'is_admin' not in columns:
-            with engine.begin() as conn:
-                conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE"))
-            print("Added is_admin column to users table")
+        
+        # List of all columns that should exist
+        required_columns = {
+            'is_admin': "ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE",
+            'api_key': "ALTER TABLE users ADD COLUMN api_key VARCHAR",
+            'stripe_customer_id': "ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR",
+            'plan': "ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'"
+        }
+        
+        for col_name, sql in required_columns.items():
+            if col_name not in columns:
+                with engine.begin() as conn:
+                    conn.execute(text(sql))
+                print(f"Added {col_name} column to users table")
+    
+    # Check and create other tables if needed
+    if 'generated_tweets' not in inspector.get_table_names():
+        Base.metadata.tables["generated_tweets"].create(bind=engine)
+    
+    if 'team_members' not in inspector.get_table_names():
+        Base.metadata.tables["team_members"].create(bind=engine)
             
     # Check if stripe_customer_id column exists
     if 'users' in inspector.get_table_names():
