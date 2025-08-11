@@ -96,39 +96,60 @@ SECRET_KEY = "your-secret-key-here"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 
+# Also update the hash_password function with better debugging
 def hash_password(password: str) -> bytes:
     """Hash a password and return bytes for database storage"""
     try:
-        # Ensure we're working with bytes
+        print(f"hash_password called with password type: {type(password)}")
+        
+        # Ensure we're working with bytes for bcrypt
         if isinstance(password, str):
             password_bytes = password.encode('utf-8')
+            print("Converted password string to bytes")
         else:
             password_bytes = password
+            print("Password was already bytes")
         
-        # Generate salt and hash
+        print("Generating salt...")
         salt = bcrypt.gensalt()
-        hashed = bcrypt.hashpw(password_bytes, salt)
+        print(f"Salt type: {type(salt)}")
         
-        # Ensure we return bytes
+        print("Hashing password...")
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        print(f"bcrypt.hashpw returned type: {type(hashed)}")
+        
+        # bcrypt should always return bytes, but let's be extra safe
         if isinstance(hashed, str):
+            print("WARNING: bcrypt returned string, converting to bytes")
             return hashed.encode('utf-8')
+        
+        if not isinstance(hashed, bytes):
+            raise ValueError(f"bcrypt returned unexpected type: {type(hashed)}")
+        
+        print(f"Returning hashed password of type: {type(hashed)}")
         return hashed
         
     except Exception as e:
         print(f"Password hashing error: {str(e)}")
-        raise ValueError("Failed to hash password")
+        print(f"Error type: {type(e)}")
+        import traceback
+        traceback.print_exc()
+        raise ValueError(f"Failed to hash password: {str(e)}")
 
 def verify_password(plain_password: str, hashed_password: bytes) -> bool:
     """Verify a password against a hash"""
     try:
+        print(f"verify_password called with hash type: {type(hashed_password)}")
+        
         # Ensure plain_password is bytes
         if isinstance(plain_password, str):
             plain_password_bytes = plain_password.encode('utf-8')
         else:
             plain_password_bytes = plain_password
         
-        # Ensure hashed_password is bytes
+        # Handle case where hashed_password might be stored as string
         if isinstance(hashed_password, str):
+            print("WARNING: hashed_password is string, converting to bytes")
             hashed_password = hashed_password.encode('utf-8')
         
         return bcrypt.checkpw(plain_password_bytes, hashed_password)
@@ -391,73 +412,71 @@ def register(request: Request):
 def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
     try:
+        print(f"Starting registration for username: {username}")
+        
         # Check if username exists
-        if db.query(User).filter(User.username == username).first():
+        existing_user = db.query(User).filter(User.username == username).first()
+        if existing_user:
+            print(f"Username {username} already exists")
             return templates.TemplateResponse("register.html", {
                 "request": request, 
                 "error": "Username already exists"
             })
         
         # Check if email exists
-        if db.query(User).filter(User.email == email).first():
+        existing_email = db.query(User).filter(User.email == email).first()
+        if existing_email:
+            print(f"Email {email} already registered")
             return templates.TemplateResponse("register.html", {
                 "request": request, 
                 "error": "Email already registered"
             })
         
-        # Hash the password - ensure it returns bytes
+        # Hash the password with detailed debugging
+        print("Starting password hashing...")
         hashed_password = hash_password(password)
+        print(f"Hashed password type: {type(hashed_password)}")
+        print(f"Hashed password length: {len(hashed_password) if hashed_password else 'None'}")
         
-        # Ensure hashed_password is bytes, not string
-        if isinstance(hashed_password, str):
-            hashed_password = hashed_password.encode('utf-8')
+        # Double-check the type
+        if not isinstance(hashed_password, bytes):
+            print(f"ERROR: hashed_password is not bytes, it's {type(hashed_password)}")
+            if isinstance(hashed_password, str):
+                print("Converting string to bytes...")
+                hashed_password = hashed_password.encode('utf-8')
+            else:
+                raise ValueError(f"Unexpected password hash type: {type(hashed_password)}")
         
+        print("Creating User object...")
         user = User(
             username=username, 
             email=email, 
             hashed_password=hashed_password
         )
         
+        print("Adding user to database...")
         db.add(user)
-        db.commit()
-        db.refresh(user)  # Refresh to get the ID
         
+        print("Committing transaction...")
+        db.commit()
+        
+        print("Registration successful!")
         return RedirectResponse("/onboarding", status_code=302)
         
-    except IntegrityError as e:
-        db.rollback()
-        if "users_pkey" in str(e):
-            # Reset sequence and retry
-            try:
-                db.execute(text("SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM users))"))
-                db.commit()
-                
-                # Retry creating the user
-                user = User(
-                    username=username, 
-                    email=email, 
-                    hashed_password=hashed_password
-                )
-                db.add(user)
-                db.commit()
-                return RedirectResponse("/onboarding", status_code=302)
-            except Exception as retry_error:
-                db.rollback()
-                return templates.TemplateResponse("register.html", {
-                    "request": request,
-                    "error": "Registration failed. Please try again."
-                })
-        else:
-            return templates.TemplateResponse("register.html", {
-                "request": request,
-                "error": "Registration failed. Please try again."
-            })
     except Exception as e:
         db.rollback()
-        print(f"Registration error: {str(e)}")  # For debugging
+        error_msg = str(e)
+        print(f"Registration error details: {error_msg}")
+        print(f"Error type: {type(e)}")
+        
+        # Print the full traceback for debugging
+        import traceback
+        print("Full traceback:")
+        traceback.print_exc()
+        
         return templates.TemplateResponse("register.html", {
             "request": request,
-            "error": "Registration failed. Please try again."
+            "error": f"Registration failed: {error_msg}"
         })
     finally:
         db.close()
