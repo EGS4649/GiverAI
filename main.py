@@ -119,7 +119,13 @@ def create_access_token(data: dict, expires_delta=None):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def get_user(db, username: str):
-    return db.query(User).filter(User.username == username).first()
+    try:
+        return db.query(User).filter(User.username == username).first()
+    except ProgrammingError as e:
+        if "column users.is_admin does not exist" in str(e):
+            migrate_database()  # Auto-fix missing column
+            return db.query(User).filter(User.username == username).first()
+        raise
 
 def authenticate_user(db, username: str, password: str):
     user = get_user(db, username)
