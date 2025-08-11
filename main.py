@@ -360,7 +360,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"})
     
     try:
-         hashed_password = hash_password(password)
+        hashed_password = hash_password(password)  # FIXED INDENTATION HERE
         
         user = User(
             username=username, 
@@ -369,7 +369,6 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         )
         db.add(user)
         db.commit()
-        return RedirectResponse("/onboarding", status_code=302)
         return RedirectResponse("/onboarding", status_code=302)
     except IntegrityError as e:
         if "users_pkey" in str(e):
