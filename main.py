@@ -1500,6 +1500,14 @@ def onboarding_stats(request: Request, user: User = Depends(get_current_user)):
 def dashboard(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
     try:
+        # Check if user needs to complete onboarding
+        needs_onboarding = not all([user.role, user.industry, user.goals, user.posting_frequency])
+        
+        if needs_onboarding:
+            # Redirect to onboarding completion
+            return RedirectResponse("/complete-onboarding", status_code=302)
+        
+        # Your existing dashboard logic
         today = str(datetime.date.today())
         usage = db.query(Usage).filter(
             Usage.user_id == user.id,
@@ -1512,14 +1520,13 @@ def dashboard(request: Request, user: User = Depends(get_current_user)):
         else:
             tweets_left = max(0, 15 - tweets_used)
         
-        # Initialize tweets as an empty list since we're not generating any yet
         tweets = []
         
         return templates.TemplateResponse("dashboard.html", {
             "request": request,
             "user": user,
-            "tweets": tweets,  # Now properly defined
-            "tweets_left": tweets_left,  # Fixed variable name (was new_tweets_left)
+            "tweets": tweets,
+            "tweets_left": tweets_left,
             "tweets_used": tweets_used,
             "features": user.features,
             "error": None
@@ -1598,6 +1605,37 @@ async def generate(request: Request):
             "tweets_used": usage.count,
             "error": None
         })
+    finally:
+        db.close()
+
+@app.get("/complete-onboarding", response_class=HTMLResponse)
+def complete_onboarding_get(request: Request, user: User = Depends(get_current_user)):
+    """Complete missing onboarding data"""
+    return templates.TemplateResponse("complete_onboarding.html", {
+        "request": request,
+        "user": user
+    })
+
+@app.post("/complete-onboarding")
+def complete_onboarding_post(request: Request,
+                            role: str = Form(...),
+                            industry: str = Form(...),
+                            goals: str = Form(...),
+                            posting_frequency: str = Form(...),
+                            user: User = Depends(get_current_user)):
+    """Save the missing onboarding data"""
+    db = SessionLocal()
+    try:
+        db_user = db.query(User).filter(User.id == user.id).first()
+        if db_user:
+            db_user.role = role
+            db_user.industry = industry
+            db_user.goals = goals
+            db_user.posting_frequency = posting_frequency
+            db.commit()
+            print(f"Completed onboarding for existing user: {db_user.username}")
+            
+        return RedirectResponse("/dashboard", status_code=302)
     finally:
         db.close()
 
