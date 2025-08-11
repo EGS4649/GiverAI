@@ -96,8 +96,6 @@ class PasswordChange(BaseModel):
 class EmailChange(BaseModel):
     new_email: str
 
-Base.metadata.create_all(bind=engine)
-
 # ----- Auth Setup -----
 SECRET_KEY = "your-secret-key-here"
 ALGORITHM = "HS256"
@@ -256,7 +254,7 @@ def migrate_database():
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
     
-       # Check and add all missing columns
+    # Check and add all missing columns
     if 'users' in inspector.get_table_names():
         columns = [col['name'] for col in inspector.get_columns('users')]
         
@@ -320,10 +318,7 @@ def migrate_database():
         Base.metadata.tables["team_members"].create(bind=engine)
         print("Created team_members table")
 
-# Run migrations
-migrate_database()
-
- # Add this sequence reset logic at the end
+    # Add sequence reset logic at the end
     with engine.begin() as conn:
         # Reset sequences for all tables
         tables = ["users", "generated_tweets", "usage", "team_members"]
@@ -341,25 +336,9 @@ migrate_database()
             except Exception as e:
                 print(f"Error resetting sequence for {table}: {str(e)}")
 
-with engine.begin() as conn:
-    conn.execute(text("""
-    DO $$
-    DECLARE
-        table_name text;
-    BEGIN
-        FOR table_name IN 
-            SELECT tablename FROM pg_tables 
-            WHERE schemaname = 'public' 
-            AND tablename IN ('users', 'generated_tweets', 'usage', 'team_members')
-        LOOP
-            EXECUTE format('SELECT setval(pg_get_serial_sequence(%L, ''id''), COALESCE(MAX(id), 1), false) FROM %I', 
-                           table_name, table_name);
-        END LOOP;
-    END $$;
-    """))
-    print("Reset all sequences")
+# Run migrations
+migrate_database()
 
-Base.metadata.create_all(bind=engine)
 # ---- ROUTES ----
 
 @app.get("/", response_class=HTMLResponse)
@@ -375,41 +354,36 @@ def register(request: Request):
 @app.post("/register", response_class=HTMLResponse)
 def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
-
-     try:
-        # ... existing checks ...
-        
+    if db.query(User).filter(User.username == username).first():
+        return templates.TemplateResponse("register.html", {"request": request, "error": "Username already exists"})
+    if db.query(User).filter(User.email == email).first():
+        return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"})
+    
+    try:
         user = User(
             username=username, 
             email=email, 
             hashed_password=get_password_hash(password)
         )
         db.add(user)
-        
-        try:
-            db.commit()
-        except IntegrityError as e:
-            if "users_pkey" in str(e):
-                # Reset sequence and retry
-                db.rollback()
-                with db.begin():
-                    db.execute(text("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))"))
-                db.add(user)
-                db.commit()
-            else:
-                raise
-        
+        db.commit()
         return RedirectResponse("/onboarding", status_code=302)
+    except IntegrityError as e:
+        if "users_pkey" in str(e):
+            # Reset sequence and retry
+            db.rollback()
+            with db.begin():
+                db.execute(text("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))"))
+            db.add(user)
+            db.commit()
+            return RedirectResponse("/onboarding", status_code=302)
+        else:
+            return templates.TemplateResponse("register.html", {
+                "request": request,
+                "error": "Registration failed. Please try again."
+            })
     finally:
         db.close()
-    if db.query(User).filter(User.username == username).first():
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Username already exists"})
-    if db.query(User).filter(User.email == email).first():
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"})
-    user = User(username=username, email=email, hashed_password=get_password_hash(password))
-    db.add(user)
-    db.commit()
-    return RedirectResponse("/onboarding", status_code=302)
 
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
@@ -617,30 +591,6 @@ def export_tweets(user: User = Depends(get_current_user)):
     finally:
         db.close()
 
-@app.get("/team", response_class=HTMLResponse)
-def team_management(request: Request, user: User = Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        features = get_plan_features(user.plan)
-        if features["team_seats"] <= 1:
-            return RedirectResponse("/pricing", status_code=302)
-        
-        # In a real app, you'd fetch actual team members
-        team_members = [
-            {"email": "member1@example.com", "role": "Editor"},
-            {"email": "member2@example.com", "role": "Viewer"}
-        ]
-        
-        return templates.TemplateResponse("team.html", {
-            "request": request,
-            "user": user,
-            "team_members": team_members,
-            "max_seats": features["team_seats"],
-            "available_seats": features["team_seats"] - len(team_members)
-        })
-    finally:
-        db.close()
-
 # Add routes
 @app.post("/add-team-member")
 async def add_team_member(
@@ -674,28 +624,6 @@ async def add_team_member(
         return RedirectResponse("/team?success=Member+invited", status_code=302)
     except IntegrityError:
         return RedirectResponse("/team?error=Member+already+exists", status_code=302)
-    finally:
-        db.close()
-
-@app.post("/remove-team-member")
-async def remove_team_member(
-    request: Request,
-    email: str = Form(...),
-    user: User = Depends(get_current_user)
-):
-    db = SessionLocal()
-    try:
-        member = db.query(TeamMember).filter(
-            TeamMember.user_id == user.id,
-            TeamMember.email == email
-        ).first()
-        
-        if member:
-            member.status = "removed"
-            db.commit()
-            return RedirectResponse("/team?success=Member+removed", status_code=302)
-        
-        return RedirectResponse("/team?error=Member+not+found", status_code=302)
     finally:
         db.close()
 
