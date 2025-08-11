@@ -256,7 +256,7 @@ def migrate_database():
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
     
-    # Check and add all missing columns
+       # Check and add all missing columns
     if 'users' in inspector.get_table_names():
         columns = [col['name'] for col in inspector.get_columns('users')]
         
@@ -265,7 +265,12 @@ def migrate_database():
             'is_admin': "ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE",
             'api_key': "ALTER TABLE users ADD COLUMN api_key VARCHAR",
             'stripe_customer_id': "ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR",
-            'plan': "ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'"
+            'plan': "ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'",
+            # ADD THE MISSING COLUMNS HERE
+            'role': "ALTER TABLE users ADD COLUMN role VARCHAR",
+            'industry': "ALTER TABLE users ADD COLUMN industry VARCHAR",
+            'goals': "ALTER TABLE users ADD COLUMN goals VARCHAR",
+            'posting_frequency': "ALTER TABLE users ADD COLUMN posting_frequency VARCHAR"
         }
         
         for col_name, sql in required_columns.items():
