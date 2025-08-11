@@ -4,6 +4,11 @@ from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, 
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import time
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -14,7 +19,7 @@ def get_engine(db_url, max_retries=3):
         except Exception as e:
             if attempt == max_retries - 1:
                 raise
-            print(f"Connection failed, retrying ({attempt + 1}/{max_retries})...")
+            logger.info(f"Connection failed, retrying ({attempt + 1}/{max_retries})...")
             time.sleep(2)
 
 def convert_sqlite_to_postgres_type(col_type):
@@ -31,15 +36,17 @@ def main():
         if not POSTGRES_URL:
             raise ValueError("RENDER_POSTGRES_URL environment variable not set")
 
-        print("Connecting to databases...")
+        logger.info("Connecting to databases...")
         sqlite_engine = get_engine(SQLITE_URL)
         postgres_engine = get_engine(POSTGRES_URL)
 
-        print("Reflecting SQLite schema...")
+        logger.info("Reflecting SQLite schema...")
         sqlite_metadata = MetaData()
         sqlite_metadata.reflect(bind=sqlite_engine)
+        sqlite_tables = set(sqlite_metadata.tables.keys())
+        logger.info(f"Tables in SQLite: {sqlite_tables}")
 
-        print("Creating PostgreSQL schema (if not exists)...")
+        logger.info("Creating PostgreSQL schema (if not exists)...")
         postgres_metadata = MetaData()
         
         # Recreate tables with PostgreSQL-compatible types
@@ -60,24 +67,41 @@ def main():
         postgres_metadata.create_all(postgres_engine, checkfirst=True)
 
         def migrate_table(table_name):
-            print(f"\nMigrating {table_name}...")
+            logger.info(f"\nMigrating {table_name}...")
+            
+            # Check if table exists in SQLite
+            if table_name not in sqlite_metadata.tables:
+                logger.warning(f"Table {table_name} not found in SQLite database! Skipping...")
+                return
+                
             sqlite_table = sqlite_metadata.tables[table_name]
             postgres_table = postgres_metadata.tables[table_name]
             
             with sqlite_engine.begin() as src, postgres_engine.begin() as dest:
                 # Check if table is empty in PostgreSQL
-                existing_count = dest.execute(sa.select(sa.func.count()).select_from(postgres_table)).scalar()
+                try:
+                    existing_count = dest.execute(sa.select(sa.func.count()).select_from(postgres_table)).scalar()
+                except Exception as e:
+                    logger.error(f"Error checking existing data: {e}")
+                    logger.info("Creating missing table in PostgreSQL...")
+                    postgres_table.create(dest)
+                    existing_count = 0
+                
                 if existing_count > 0:
-                    print(f"Skipping {table_name} - already has {existing_count} rows")
+                    logger.info(f"Skipping {table_name} - already has {existing_count} rows")
                     return
                 
-                rows = src.execute(sa.select(sqlite_table)).fetchall()
+                try:
+                    rows = src.execute(sa.select(sqlite_table)).fetchall()
+                except Exception as e:
+                    logger.error(f"Error reading from SQLite: {e}")
+                    return
                 
                 if not rows:
-                    print(f"No data in {table_name}")
+                    logger.info(f"No data in {table_name}")
                     return
                 
-                print(f"Found {len(rows)} rows to migrate")
+                logger.info(f"Found {len(rows)} rows to migrate")
                 for i, row in enumerate(rows, 1):
                     try:
                         # For users table, let PostgreSQL generate new IDs
@@ -92,20 +116,22 @@ def main():
                                 postgres_table.insert().values(**row._asdict())
                             )
                         
-                        if i % 100 == 0:
-                            print(f"Migrated {i}/{len(rows)} rows")
+                        if i % 100 == 0 or i == len(rows):
+                            logger.info(f"Migrated {i}/{len(rows)} rows")
                     except Exception as e:
-                        print(f"Error on row {i}: {e}")
-                        raise  # This will automatically rollback the transaction
+                        logger.error(f"Error on row {i}: {e}")
+                        # Continue with next row instead of failing completely
+                        continue
 
         tables = ["users", "generated_tweets", "usage"]
         for table in tables:
             migrate_table(table)
             
-        print("\nMigration completed successfully!")
+        logger.info("\nMigration completed successfully!")
 
     except Exception as e:
-        print(f"\nMigration failed: {str(e)}")
+        logger.error(f"\nMigration failed: {str(e)}")
+        logger.exception("Migration error details:")
 
 if __name__ == "__main__":
     main()
