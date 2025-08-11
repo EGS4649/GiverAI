@@ -523,7 +523,7 @@ def get_user_safe(db, username: str):
         print(f"Error getting user safely: {e}")
         return None
 
-# Updated authenticate function
+# Updated authenticate_user_safe function
 def authenticate_user_safe(db, username: str, password: str):
     """Authenticate user avoiding corrupted password data"""
     try:
@@ -548,6 +548,13 @@ def authenticate_user_safe(db, username: str, password: str):
         if isinstance(hashed_password, str):
             # If stored as string, convert to bytes
             hashed_password = hashed_password.encode('utf-8')
+        elif isinstance(hashed_password, memoryview):
+            # Convert memoryview to bytes - THIS IS THE FIX
+            hashed_password = bytes(hashed_password)
+            print(f"Converted memoryview to bytes: {type(hashed_password)}")
+        elif hashed_password is None:
+            print("Password is None")
+            return None
         
         # Verify password
         password_valid = verify_password(password, hashed_password)
@@ -575,9 +582,155 @@ def authenticate_user_safe(db, username: str, password: str):
         
     except Exception as e:
         print(f"Authentication error: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
-    
+# Updated verify_password function
+def verify_password(plain_password: str, hashed_password: bytes) -> bool:
+    """Verify a password against a hash"""
+    try:
+        print(f"verify_password called with hash type: {type(hashed_password)}")
+        
+        # Ensure plain_password is bytes
+        if isinstance(plain_password, str):
+            plain_password_bytes = plain_password.encode('utf-8')
+        else:
+            plain_password_bytes = plain_password
+        
+        # Handle case where hashed_password might be stored as string or memoryview
+        if isinstance(hashed_password, str):
+            print("WARNING: hashed_password is string, converting to bytes")
+            hashed_password = hashed_password.encode('utf-8')
+        elif isinstance(hashed_password, memoryview):
+            print("Converting memoryview to bytes")
+            hashed_password = bytes(hashed_password)
+        
+        return bcrypt.checkpw(plain_password_bytes, hashed_password)
+        
+    except Exception as e:
+        print(f"Password verification error: {str(e)}")
+        return False
+
+# Updated hash_password function to ensure proper bytes handling
+def hash_password(password: str) -> bytes:
+    """Hash a password and return bytes for database storage"""
+    try:
+        print(f"hash_password called with password type: {type(password)}")
+        
+        # Ensure we're working with bytes for bcrypt
+        if isinstance(password, str):
+            password_bytes = password.encode('utf-8')
+            print("Converted password string to bytes")
+        else:
+            password_bytes = password
+            print("Password was already bytes")
+        
+        print("Generating salt...")
+        salt = bcrypt.gensalt()
+        print(f"Salt type: {type(salt)}")
+        
+        print("Hashing password...")
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        print(f"bcrypt.hashpw returned type: {type(hashed)}")
+        
+        # bcrypt should always return bytes, but let's be extra safe
+        if isinstance(hashed, str):
+            print("WARNING: bcrypt returned string, converting to bytes")
+            return hashed.encode('utf-8')
+        
+        if not isinstance(hashed, bytes):
+            raise ValueError(f"bcrypt returned unexpected type: {type(hashed)}")
+        
+        print(f"Returning hashed password of type: {type(hashed)}")
+        return hashed
+        
+    except Exception as e:
+        print(f"Password hashing error: {str(e)}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        traceback.print_exc()
+        raise ValueError(f"Failed to hash password: {str(e)}")
+
+# Updated registration function with better error handling
+@app.post("/register", response_class=HTMLResponse)
+def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
+    db = SessionLocal()
+    try:
+        print(f"Starting registration for username: {username}")
+        
+        # Use raw SQL to avoid SQLAlchemy processing corrupted data
+        from sqlalchemy import text
+        
+        # Check username exists using raw SQL
+        result = db.execute(text("""
+            SELECT COUNT(*) FROM users WHERE username = :username
+        """), {"username": username})
+        username_count = result.scalar()
+        
+        if username_count > 0:
+            print(f"Username {username} already exists")
+            return templates.TemplateResponse("register.html", {
+                "request": request, 
+                "error": "Username already exists"
+            })
+        
+        # Check email exists using raw SQL  
+        result = db.execute(text("""
+            SELECT COUNT(*) FROM users WHERE email = :email
+        """), {"email": email})
+        email_count = result.scalar()
+        
+        if email_count > 0:
+            print(f"Email {email} already registered")
+            return templates.TemplateResponse("register.html", {
+                "request": request, 
+                "error": "Email already registered"
+            })
+        
+        # Hash the password
+        print("Hashing password...")
+        hashed_password = hash_password(password)
+        print(f"Password hashed successfully, type: {type(hashed_password)}")
+        
+        # Ensure we have bytes for database storage
+        if isinstance(hashed_password, memoryview):
+            hashed_password = bytes(hashed_password)
+        
+        # Insert using raw SQL to avoid SQLAlchemy ORM issues
+        result = db.execute(text("""
+            INSERT INTO users (username, email, hashed_password, plan, is_active, created_at)
+            VALUES (:username, :email, :hashed_password, :plan, :is_active, :created_at)
+            RETURNING id
+        """), {
+            "username": username,
+            "email": email, 
+            "hashed_password": hashed_password,
+            "plan": "free",
+            "is_active": True,
+            "created_at": datetime.datetime.utcnow()
+        })
+        
+        user_id = result.fetchone()[0]
+        db.commit()
+        
+        print(f"User registered successfully with ID: {user_id}")
+        return RedirectResponse("/onboarding", status_code=302)
+        
+    except Exception as e:
+        db.rollback()
+        error_msg = str(e)
+        print(f"Registration error: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        
+        return templates.TemplateResponse("register.html", {
+            "request": request,
+            "error": "Registration failed. Please try again."
+        })
+    finally:
+        db.close()
+
     # Check and create other tables if needed
     if 'generated_tweets' not in inspector.get_table_names():
         Base.metadata.tables["generated_tweets"].create(bind=engine)
