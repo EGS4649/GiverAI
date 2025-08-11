@@ -323,6 +323,43 @@ def migrate_database():
 # Run migrations
 migrate_database()
 
+ # Add this sequence reset logic at the end
+    with engine.begin() as conn:
+        # Reset sequences for all tables
+        tables = ["users", "generated_tweets", "usage", "team_members"]
+        for table in tables:
+            try:
+                # Get current max ID
+                result = conn.execute(text(f"SELECT MAX(id) FROM {table}"))
+                max_id = result.scalar() or 0
+                
+                # Reset sequence to next available ID
+                conn.execute(
+                    text(f"ALTER SEQUENCE {table}_id_seq RESTART WITH {max_id + 1}")
+                )
+                print(f"Reset sequence for {table} to {max_id + 1}")
+            except Exception as e:
+                print(f"Error resetting sequence for {table}: {str(e)}")
+
+with engine.begin() as conn:
+    conn.execute(text("""
+    DO $$
+    DECLARE
+        table_name text;
+    BEGIN
+        FOR table_name IN 
+            SELECT tablename FROM pg_tables 
+            WHERE schemaname = 'public' 
+            AND tablename IN ('users', 'generated_tweets', 'usage', 'team_members')
+        LOOP
+            EXECUTE format('SELECT setval(pg_get_serial_sequence(%L, ''id''), COALESCE(MAX(id), 1), false) FROM %I', 
+                           table_name, table_name);
+        END LOOP;
+    END $$;
+    """))
+    print("Reset all sequences")
+
+Base.metadata.create_all(bind=engine)
 # ---- ROUTES ----
 
 @app.get("/", response_class=HTMLResponse)
@@ -338,6 +375,33 @@ def register(request: Request):
 @app.post("/register", response_class=HTMLResponse)
 def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
+
+     try:
+        # ... existing checks ...
+        
+        user = User(
+            username=username, 
+            email=email, 
+            hashed_password=get_password_hash(password)
+        )
+        db.add(user)
+        
+        try:
+            db.commit()
+        except IntegrityError as e:
+            if "users_pkey" in str(e):
+                # Reset sequence and retry
+                db.rollback()
+                with db.begin():
+                    db.execute(text("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))"))
+                db.add(user)
+                db.commit()
+            else:
+                raise
+        
+        return RedirectResponse("/onboarding", status_code=302)
+    finally:
+        db.close()
     if db.query(User).filter(User.username == username).first():
         return templates.TemplateResponse("register.html", {"request": request, "error": "Username already exists"})
     if db.query(User).filter(User.email == email).first():
