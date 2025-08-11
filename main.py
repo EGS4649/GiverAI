@@ -64,6 +64,11 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     stripe_customer_id = Column(String, nullable=True)  
     api_key = Column(String, nullable=True)  # Added API key column
+    is_admin = Column(Boolean, default=False)
+    role = Column(String, nullable=True)
+    industry = Column(String, nullable=True)
+    goals = Column(String, nullable=True)
+    posting_frequency = Column(String, nullable=True)
 
 class Usage(Base):
     __tablename__ = "usage"
@@ -977,10 +982,32 @@ def onboarding_get(request: Request):
     return templates.TemplateResponse("onboarding.html", {"request": request})
 
 @app.post("/onboarding", response_class=HTMLResponse)
-def onboarding_post(request: Request, role: str = Form(...), industry: str = Form(...), goals: str = Form(...), posting_frequency: str = Form(...)):
-    # For now, just redirect to login since we don't have user session yet
-    # In a real app, you'd save this data to the user's profile
+def onboarding_post(request: Request,
+                   role: str = Form(...),
+                   industry: str = Form(...),
+                   goals: str = Form(...),
+                   posting_frequency: str = Form(...)):
+    db = SessionLocal()
+    user = get_optional_user(request)  # Or get_current_user if required
+    if user:
+        db_user = db.query(User).filter(User.id == user.id).first()
+        db_user.role = role
+        db_user.industry = industry
+        db_user.goals = goals
+        db_user.posting_frequency = posting_frequency
+        db.commit()
+    db.close()
     return RedirectResponse("/login", status_code=302)
+
+@app.get("/onboarding-stats")
+def onboarding_stats(request: Request, user: User = Depends(get_current_user)):
+    if not user.is_admin:  # Add is_admin field/check as needed
+        raise HTTPException(status_code=403)
+    db = SessionLocal()
+    stats = db.query(User.role, func.count(User.id)).group_by(User.role).all()
+    db.close()
+    # Render with chart data to your frontend template, or return JSON for charting on frontend
+    return templates.TemplateResponse("onboarding_stats.html", {"request": request, "stats": stats})
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, user: User = Depends(get_current_user)):
