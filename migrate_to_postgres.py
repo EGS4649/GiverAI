@@ -105,12 +105,13 @@ def main():
                 for i, row in enumerate(rows, 1):
                     try:
                         # For users table, let PostgreSQL generate new IDs
-                        if table_name == "users":
-                            row_dict = row._asdict()
-                            del row_dict['id']  # Let PostgreSQL generate the ID
-                            dest.execute(
-                                postgres_table.insert().values(**row_dict)
-                            )
+                       if table_name == "users":
+                          row_dict = row._asdict()
+                          del row_dict['id']
+                       if isinstance(row_dict.get('hashed_password'), str):
+                          row_dict['hashed_password'] = row_dict['hashed_password'].encode('utf-8')
+                     dest.execute(postgres_table.insert().values(**row_dict))
+
                         else:
                             dest.execute(
                                 postgres_table.insert().values(**row._asdict())
