@@ -40,6 +40,7 @@ def migrate_table(table_name):
             try:
                 dest.execute(
                     postgres_table.insert().values(**row._asdict())
+                )
                 dest.commit()
             except Exception as e:
                 print(f"Error inserting row: {e}")
