@@ -803,7 +803,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
     finally:
         db.close()
         
-app.get("/login", response_class=HTMLResponse)
+@app.get("/login", response_class=HTMLResponse)
 def login_get(request: Request):
     user = get_optional_user(request)
     # If user is already logged in, redirect to dashboard
