@@ -32,16 +32,6 @@ try:
 except Exception as e:
     print("bcrypt import error:", e)
 
-def hash_password(password: str) -> bytes:
-    # Ensure we're working with bytes
-    password_bytes = password.encode('utf-8')
-    return bcrypt.hashpw(password_bytes, bcrypt.gensalt())
-
-def verify_password(plain_password: str, hashed_password: bytes) -> bool:
-    # Ensure plain_password is encoded to bytes
-    plain_password_bytes = plain_password.encode('utf-8')
-    return bcrypt.checkpw(plain_password_bytes, hashed_password)
-
 # ----- DB Setup -----
 DATABASE_URL = os.getenv("DATABASE_URL")  # Should be your Render PostgreSQL URL
 engine = create_engine(DATABASE_URL)
@@ -104,6 +94,16 @@ class EmailChange(BaseModel):
 SECRET_KEY = "your-secret-key-here"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
+
+def hash_password(password: str) -> bytes:
+    # Ensure we're working with bytes
+    password_bytes = password.encode('utf-8')
+    return bcrypt.hashpw(password_bytes, bcrypt.gensalt())
+
+def verify_password(plain_password: str, hashed_password: bytes) -> bool:
+    # Ensure plain_password is encoded to bytes
+    plain_password_bytes = plain_password.encode('utf-8')
+    return bcrypt.checkpw(plain_password_bytes, hashed_password)
 
 def create_access_token(data: dict, expires_delta=None):
     to_encode = data.copy()
