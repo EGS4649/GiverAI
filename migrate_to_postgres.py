@@ -39,7 +39,7 @@ def main():
         sqlite_metadata = MetaData()
         sqlite_metadata.reflect(bind=sqlite_engine)
 
-        print("Creating PostgreSQL schema...")
+        print("Creating PostgreSQL schema (if not exists)...")
         postgres_metadata = MetaData()
         
         # Recreate tables with PostgreSQL-compatible types
@@ -56,7 +56,8 @@ def main():
             
             Table(table_name, postgres_metadata, *columns)
         
-        postgres_metadata.create_all(postgres_engine)
+        # Create tables only if they don't exist
+        postgres_metadata.create_all(postgres_engine, checkfirst=True)
 
         def migrate_table(table_name):
             print(f"\nMigrating {table_name}...")
@@ -64,6 +65,12 @@ def main():
             postgres_table = postgres_metadata.tables[table_name]
             
             with sqlite_engine.begin() as src, postgres_engine.begin() as dest:
+                # Check if table is empty in PostgreSQL
+                existing_count = dest.execute(sa.select(sa.func.count()).select_from(postgres_table)).scalar()
+                if existing_count > 0:
+                    print(f"Skipping {table_name} - already has {existing_count} rows")
+                    return
+                
                 rows = src.execute(sa.select(sqlite_table)).fetchall()
                 
                 if not rows:
@@ -73,9 +80,18 @@ def main():
                 print(f"Found {len(rows)} rows to migrate")
                 for i, row in enumerate(rows, 1):
                     try:
-                        dest.execute(
-                            postgres_table.insert().values(**row._asdict())
-                        )
+                        # For users table, let PostgreSQL generate new IDs
+                        if table_name == "users":
+                            row_dict = row._asdict()
+                            del row_dict['id']  # Let PostgreSQL generate the ID
+                            dest.execute(
+                                postgres_table.insert().values(**row_dict)
+                            )
+                        else:
+                            dest.execute(
+                                postgres_table.insert().values(**row._asdict())
+                            )
+                        
                         if i % 100 == 0:
                             print(f"Migrated {i}/{len(rows)} rows")
                     except Exception as e:
