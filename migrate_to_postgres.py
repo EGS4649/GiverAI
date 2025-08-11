@@ -1,6 +1,6 @@
 import os
 import sqlalchemy as sa
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Boolean, DateTime
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Boolean, TIMESTAMP
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import time
@@ -20,7 +20,7 @@ def get_engine(db_url, max_retries=3):
 def convert_sqlite_to_postgres_type(col_type):
     """Convert SQLite types to PostgreSQL compatible types"""
     if isinstance(col_type, sa.DateTime):
-        return sa.TIMESTAMP()
+        return TIMESTAMP()
     return col_type
 
 def main():
@@ -63,7 +63,7 @@ def main():
             sqlite_table = sqlite_metadata.tables[table_name]
             postgres_table = postgres_metadata.tables[table_name]
             
-            with sqlite_engine.connect() as src, postgres_engine.connect() as dest:
+            with sqlite_engine.begin() as src, postgres_engine.begin() as dest:
                 rows = src.execute(sa.select(sqlite_table)).fetchall()
                 
                 if not rows:
@@ -78,11 +78,9 @@ def main():
                         )
                         if i % 100 == 0:
                             print(f"Migrated {i}/{len(rows)} rows")
-                        dest.commit()
                     except Exception as e:
                         print(f"Error on row {i}: {e}")
-                        dest.rollback()
-                        continue
+                        raise  # This will automatically rollback the transaction
 
         tables = ["users", "generated_tweets", "usage"]
         for table in tables:
