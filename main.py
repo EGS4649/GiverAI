@@ -250,6 +250,14 @@ def migrate_database():
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
     
+    # Add this check for is_admin column
+    if 'users' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        if 'is_admin' not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE"))
+            print("Added is_admin column to users table")
+            
     # Check if stripe_customer_id column exists
     if 'users' in inspector.get_table_names():
         columns = [col['name'] for col in inspector.get_columns('users')]
