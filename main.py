@@ -105,12 +105,6 @@ SECRET_KEY = "your-secret-key-here"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 
-def get_password_hash(password: str) -> bytes:
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-
-def verify_password(plain_password: str, hashed_password: bytes) -> bool:
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password)
-
 def create_access_token(data: dict, expires_delta=None):
     to_encode = data.copy()
     if expires_delta:
@@ -365,10 +359,13 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         hashed_password = hash_password(password)
     
     try:
+        # Create properly hashed password
+        hashed_password = get_password_hash(password)
+        
         user = User(
             username=username, 
             email=email, 
-            hashed_password=get_password_hash(password)
+            hashed_password=hashed_password
         )
         db.add(user)
         db.commit()
