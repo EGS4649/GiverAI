@@ -307,6 +307,7 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY", "your-openrouter-api-key-here")
 )
 
+# Add this to your migrate_database function
 def migrate_database():
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
@@ -315,13 +316,31 @@ def migrate_database():
     if 'users' in inspector.get_table_names():
         columns = [col['name'] for col in inspector.get_columns('users')]
         
+        # Check if hashed_password column has the right type
+        user_columns = inspector.get_columns('users')
+        hashed_password_col = next((col for col in user_columns if col['name'] == 'hashed_password'), None)
+        
+        if hashed_password_col:
+            print(f"hashed_password column type: {hashed_password_col['type']}")
+            # If it's not bytea (PostgreSQL's binary type), we need to fix it
+            if 'bytea' not in str(hashed_password_col['type']).lower():
+                print("WARNING: hashed_password column is not bytea type")
+                # You might need to recreate this column
+                try:
+                    with engine.begin() as conn:
+                        # First, let's try to alter the column type
+                        conn.execute(text("ALTER TABLE users ALTER COLUMN hashed_password TYPE bytea USING hashed_password::bytea"))
+                        print("Successfully converted hashed_password column to bytea")
+                except Exception as e:
+                    print(f"Could not alter column type: {e}")
+                    print("You may need to manually fix the database schema")
+        
         # List of all columns that should exist
         required_columns = {
             'is_admin': "ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE",
             'api_key': "ALTER TABLE users ADD COLUMN api_key VARCHAR",
             'stripe_customer_id': "ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR",
             'plan': "ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'",
-            # ADD THE MISSING COLUMNS HERE
             'role': "ALTER TABLE users ADD COLUMN role VARCHAR",
             'industry': "ALTER TABLE users ADD COLUMN industry VARCHAR",
             'goals': "ALTER TABLE users ADD COLUMN goals VARCHAR",
@@ -330,9 +349,90 @@ def migrate_database():
         
         for col_name, sql in required_columns.items():
             if col_name not in columns:
-                with engine.begin() as conn:
-                    conn.execute(text(sql))
-                print(f"Added {col_name} column to users table")
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(sql))
+                    print(f"Added {col_name} column to users table")
+                except Exception as e:
+                    print(f"Error adding {col_name}: {e}")
+    
+    # Check and create other tables if needed
+    if 'generated_tweets' not in inspector.get_table_names():
+        Base.metadata.tables["generated_tweets"].create(bind=engine)
+    
+    if 'team_members' not in inspector.get_table_names():
+        Base.metadata.tables["team_members"].create(bind=engine)
+
+# Alternative: Create a completely new User model to ensure proper types
+class UserV2(Base):
+    __tablename__ = "users_v2"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(LargeBinary, nullable=False)  # Ensure this is LargeBinary
+    plan = Column(String, default="free")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    stripe_customer_id = Column(String, nullable=True)
+    api_key = Column(String, nullable=True)
+    is_admin = Column(Boolean, default=False)
+    role = Column(String, nullable=True)
+    industry = Column(String, nullable=True)
+    goals = Column(String, nullable=True)
+    posting_frequency = Column(String, nullable=True)
+
+# Function to migrate existing users to new table structure
+def migrate_users_to_v2():
+    """Migrate users from old table to new table with proper binary storage"""
+    engine = create_engine(DATABASE_URL)
+    
+    # Create the new table
+    UserV2.__table__.create(engine, checkfirst=True)
+    
+    db = SessionLocal()
+    try:
+        # Get all existing users
+        old_users = db.query(User).all()
+        
+        for old_user in old_users:
+            # Check if user already exists in v2 table
+            existing = db.query(UserV2).filter(UserV2.username == old_user.username).first()
+            if existing:
+                continue
+            
+            # Handle the password - it might be stored as string in old table
+            if isinstance(old_user.hashed_password, str):
+                # If it's a bcrypt hash stored as string, encode it
+                hashed_password = old_user.hashed_password.encode('utf-8')
+            else:
+                hashed_password = old_user.hashed_password
+            
+            new_user = UserV2(
+                username=old_user.username,
+                email=old_user.email,
+                hashed_password=hashed_password,
+                plan=getattr(old_user, 'plan', 'free'),
+                is_active=old_user.is_active,
+                created_at=old_user.created_at,
+                stripe_customer_id=getattr(old_user, 'stripe_customer_id', None),
+                api_key=getattr(old_user, 'api_key', None),
+                is_admin=getattr(old_user, 'is_admin', False),
+                role=getattr(old_user, 'role', None),
+                industry=getattr(old_user, 'industry', None),
+                goals=getattr(old_user, 'goals', None),
+                posting_frequency=getattr(old_user, 'posting_frequency', None)
+            )
+            
+            db.add(new_user)
+        
+        db.commit()
+        print("Successfully migrated users to v2 table")
+        
+    except Exception as e:
+        print(f"Migration error: {e}")
+        db.rollback()
+    finally:
+        db.close()
     
     # Check and create other tables if needed
     if 'generated_tweets' not in inspector.get_table_names():
