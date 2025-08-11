@@ -97,9 +97,45 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 
 def hash_password(password: str) -> bytes:
-    # Ensure we're working with bytes
-    password_bytes = password.encode('utf-8')
-    return bcrypt.hashpw(password_bytes, bcrypt.gensalt())
+    """Hash a password and return bytes for database storage"""
+    try:
+        # Ensure we're working with bytes
+        if isinstance(password, str):
+            password_bytes = password.encode('utf-8')
+        else:
+            password_bytes = password
+        
+        # Generate salt and hash
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        
+        # Ensure we return bytes
+        if isinstance(hashed, str):
+            return hashed.encode('utf-8')
+        return hashed
+        
+    except Exception as e:
+        print(f"Password hashing error: {str(e)}")
+        raise ValueError("Failed to hash password")
+
+def verify_password(plain_password: str, hashed_password: bytes) -> bool:
+    """Verify a password against a hash"""
+    try:
+        # Ensure plain_password is bytes
+        if isinstance(plain_password, str):
+            plain_password_bytes = plain_password.encode('utf-8')
+        else:
+            plain_password_bytes = plain_password
+        
+        # Ensure hashed_password is bytes
+        if isinstance(hashed_password, str):
+            hashed_password = hashed_password.encode('utf-8')
+        
+        return bcrypt.checkpw(plain_password_bytes, hashed_password)
+        
+    except Exception as e:
+        print(f"Password verification error: {str(e)}")
+        return False
 
 def verify_password(plain_password: str, hashed_password: bytes) -> bool:
     # Ensure plain_password is encoded to bytes
@@ -354,36 +390,75 @@ def register(request: Request):
 @app.post("/register", response_class=HTMLResponse)
 def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
-    if db.query(User).filter(User.username == username).first():
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Username already exists"})
-    if db.query(User).filter(User.email == email).first():
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"})
-    
     try:
-        hashed_password = hash_password(password)  # FIXED INDENTATION HERE
+        # Check if username exists
+        if db.query(User).filter(User.username == username).first():
+            return templates.TemplateResponse("register.html", {
+                "request": request, 
+                "error": "Username already exists"
+            })
+        
+        # Check if email exists
+        if db.query(User).filter(User.email == email).first():
+            return templates.TemplateResponse("register.html", {
+                "request": request, 
+                "error": "Email already registered"
+            })
+        
+        # Hash the password - ensure it returns bytes
+        hashed_password = hash_password(password)
+        
+        # Ensure hashed_password is bytes, not string
+        if isinstance(hashed_password, str):
+            hashed_password = hashed_password.encode('utf-8')
         
         user = User(
             username=username, 
             email=email, 
             hashed_password=hashed_password
         )
+        
         db.add(user)
         db.commit()
+        db.refresh(user)  # Refresh to get the ID
+        
         return RedirectResponse("/onboarding", status_code=302)
+        
     except IntegrityError as e:
+        db.rollback()
         if "users_pkey" in str(e):
             # Reset sequence and retry
-            db.rollback()
-            with db.begin():
-                db.execute(text("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))"))
-            db.add(user)
-            db.commit()
-            return RedirectResponse("/onboarding", status_code=302)
+            try:
+                db.execute(text("SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM users))"))
+                db.commit()
+                
+                # Retry creating the user
+                user = User(
+                    username=username, 
+                    email=email, 
+                    hashed_password=hashed_password
+                )
+                db.add(user)
+                db.commit()
+                return RedirectResponse("/onboarding", status_code=302)
+            except Exception as retry_error:
+                db.rollback()
+                return templates.TemplateResponse("register.html", {
+                    "request": request,
+                    "error": "Registration failed. Please try again."
+                })
         else:
             return templates.TemplateResponse("register.html", {
                 "request": request,
                 "error": "Registration failed. Please try again."
             })
+    except Exception as e:
+        db.rollback()
+        print(f"Registration error: {str(e)}")  # For debugging
+        return templates.TemplateResponse("register.html", {
+            "request": request,
+            "error": "Registration failed. Please try again."
+        })
     finally:
         db.close()
 
