@@ -802,7 +802,15 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         })
     finally:
         db.close()
-
+        
+app.get("/login", response_class=HTMLResponse)
+def login_get(request: Request):
+    user = get_optional_user(request)
+    # If user is already logged in, redirect to dashboard
+    if user:
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse("login.html", {"request": request, "user": user})
+    
 @app.post("/login")
 def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
