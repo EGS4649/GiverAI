@@ -42,6 +42,8 @@ def verify_password(plain_password: str, hashed_password: bytes) -> bool:
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable not set")
+
+# For PostgreSQL (remove SQLite-specific parameters)
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
