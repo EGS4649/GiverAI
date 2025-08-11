@@ -39,7 +39,7 @@ def verify_password(plain_password: str, hashed_password: bytes) -> bool:
     return bcrypt.checkpw(plain_password.encode(), hashed_password)
 
 # ----- DB Setup -----
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://giver_postgres_wjvf_user:CUhAA17lYUik3YuwBMqlorb37vE9TYia@dpg-d2cvrbadbo4c73c6go2g-a.oregon-postgres.render.com/giver_postgres_wjvf")
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
