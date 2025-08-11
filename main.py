@@ -356,11 +356,9 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         return templates.TemplateResponse("register.html", {"request": request, "error": "Username already exists"})
     if db.query(User).filter(User.email == email).first():
         return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"})
-        hashed_password = hash_password(password)
     
     try:
-        # Create properly hashed password
-        hashed_password = get_password_hash(password)
+        hashed_password = hash_password(password)  # CORRECTED FUNCTION CALL
         
         user = User(
             username=username, 
@@ -369,6 +367,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         )
         db.add(user)
         db.commit()
+        return RedirectResponse("/onboarding", status_code=302)
         return RedirectResponse("/onboarding", status_code=302)
     except IntegrityError as e:
         if "users_pkey" in str(e):
