@@ -42,6 +42,7 @@ def verify_password(plain_password: str, hashed_password: bytes) -> bool:
 DATABASE_URL = os.getenv("DATABASE_URL")  # Should be your Render PostgreSQL URL
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
 # ----- User & Usage Models -----
 class GeneratedTweet(Base):
