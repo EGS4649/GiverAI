@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import LargeBinary
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError, ProgrammingError 
+from sqlalchemy.orm import defer
 from openai import OpenAI
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -116,11 +117,12 @@ def create_access_token(data: dict, expires_delta=None):
 
 def get_user(db, username: str):
     try:
-        return db.query(User).filter(User.username == username).first()
+        # Defer loading password in non-auth routes
+        return db.query(User).options(defer(User.hashed_password)).filter(User.username == username).first()
     except ProgrammingError as e:
         if "column users.is_admin does not exist" in str(e):
-            migrate_database()  # Auto-fix missing column
-            return db.query(User).filter(User.username == username).first()
+            migrate_database()
+            return db.query(User).options(defer(User.hashed_password)).filter(User.username == username).first()
         raise
 
 def authenticate_user(db, username: str, password: str):
@@ -358,7 +360,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"})
     
     try:
-        hashed_password = hash_password(password)  # CORRECTED FUNCTION CALL
+         hashed_password = hash_password(password)
         
         user = User(
             username=username, 
@@ -489,28 +491,32 @@ async def change_password(
     user: User = Depends(get_current_user)
 ):
     db = SessionLocal()
-    db_user = db.query(User).filter(User.id == user.id).first()
+    try:
+        # We need to load the hashed_password for verification
+        db_user = db.query(User).filter(User.id == user.id).first()
+        
+        if not verify_password(current_password, db_user.hashed_password):
+            # Apply features to user object
+            db_user = apply_plan_features(db_user)
+            return templates.TemplateResponse("account.html", {
+                "request": request,
+                "user": db_user,
+                "error": "Current password is incorrect"
+            })
 
-    if not verify_password(current_password, db_user.hashed_password):
-        # Ensure features here too
-        db_user.features = get_plan_features(db_user.plan)
+        # Update password
+        db_user.hashed_password = hash_password(new_password)
+        db.commit()
+        
+        # Apply features to user object
+        db_user = apply_plan_features(db_user)
         return templates.TemplateResponse("account.html", {
             "request": request,
             "user": db_user,
-            "features": db_user.features,
-            "error": "Current password is incorrect"
+            "success": "Password updated successfully!"
         })
-
-    db_user.hashed_password = get_password_hash(new_password)
-    db.commit()
-    db_user.features = get_plan_features(db_user.plan)  # ✅ Added line
-    return templates.TemplateResponse("account.html", {
-        "request": request,
-        "user": db_user,
-        "features": db_user.features,
-        "success": "Password updated successfully!"
-    })
-
+    finally:
+        db.close()
 
 @app.post("/account/change_email")
 async def change_email(
