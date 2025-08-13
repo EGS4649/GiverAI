@@ -1776,6 +1776,8 @@ async def test_email(background_tasks: BackgroundTasks):
         to_email="egs001102@gmail.com", 
         subject="TEST Email from Giver.ai",
         body="<h1>This is a test</h1><p>If you see this, email sending works!</p>"
+        print(f"Attempting to connect to: {os.getenv('SMTP_SERVER')}:{os.getenv('SMTP_PORT')}")
+        print(f"Using username: {os.getenv('SMTP_USERNAME')}")
     )
     return {"message": "Test email queued"}
 
