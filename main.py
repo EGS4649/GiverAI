@@ -17,6 +17,10 @@ from jose import JWTError, jwt
 import stripe
 import json
 import asyncio
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
 
 # Stripe configuration
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -26,6 +30,9 @@ STRIPE_SMALL_TEAM_PRICE_ID = os.getenv("STRIPE_SMALL_TEAM_PRICE_ID")
 STRIPE_AGENCY_PRICE_ID = os.getenv("STRIPE_AGENCY_PRICE_ID")
 STRIPE_ENTERPRISE_PRICE_ID = os.getenv("STRIPE_ENTERPRISE_PRICE_ID")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+# email config
+load_dotenv('email.env')
 
 try:
     import bcrypt
@@ -1030,6 +1037,47 @@ def logout():
     response = RedirectResponse("/", status_code=302)
     response.delete_cookie("access_token")
     return response
+
+# email
+async def send_email(to_email: str, subject: str, body: str):
+    """Send email using SMTP configuration"""
+    try:
+        # Get email configuration from environment
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = int(os.getenv("SMTP_PORT", 587))
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+        from_email = os.getenv("EMAIL_FROM")
+        
+        print(f"Connecting to SMTP server: {smtp_server}:{smtp_port}")
+        print(f"Username: {smtp_username}")
+        print(f"From email: {from_email}")
+        
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = from_email
+        msg['To'] = to_email
+        
+        # Add HTML body
+        html_part = MIMEText(body, 'html')
+        msg.attach(html_part)
+        
+        # Connect to server and send email
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()  # Enable security
+            server.login(smtp_username, smtp_password)
+            server.send_message(msg)
+            
+        print(f"Email sent successfully to {to_email}")
+        return True
+        
+    except Exception as e:
+        print(f"Failed to send email: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+        
     
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
@@ -1772,13 +1820,14 @@ async def generate(request: Request):
 # temporary test route to the FastAPI app (remove after testing)
 @app.get("/test-email")
 async def test_email(background_tasks: BackgroundTasks):
+    print(f"Attempting to connect to: {os.getenv('SMTP_SERVER')}:{os.getenv('SMTP_PORT')}")
+    print(f"Using username: {os.getenv('SMTP_USERNAME')}")
+    
     background_tasks.add_task(
         send_email,
         to_email="egs001102@gmail.com", 
         subject="TEST Email from Giver.ai",
         body="<h1>This is a test</h1><p>If you see this, email sending works!</p>"
-        print(f"Attempting to connect to: {os.getenv('SMTP_SERVER')}:{os.getenv('SMTP_PORT')}")
-        print(f"Using username: {os.getenv('SMTP_USERNAME')}")
     )
     return {"message": "Test email queued"}
 
