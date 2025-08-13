@@ -1822,81 +1822,8 @@ async def generate(request: Request):
         })
     finally:
         db.close()
-        
-# temporary test route to the FastAPI app (remove after testing)
-@app.get("/test-email")
-def test_email_sync():
-    """Test email sending with immediate response"""
-    print("=== EMAIL CONFIGURATION DEBUG ===")
-    print(f"SMTP_SERVER: {os.getenv('SMTP_SERVER')}")
-    print(f"SMTP_PORT: {os.getenv('SMTP_PORT')}")
-    print(f"SMTP_USERNAME: {os.getenv('SMTP_USERNAME')}")
-    print(f"SMTP_PASSWORD: {'✓ Set' if os.getenv('SMTP_PASSWORD') else '❌ Missing'}")
-    print(f"EMAIL_FROM: {os.getenv('EMAIL_FROM')}")
-    print("=================================")
     
-    success = send_email_sync(
-        to_email="egs001102@gmail.com", 
-        subject="TEST Email from Giver.ai",
-        body="<h1>This is a test</h1><p>If you see this, email sending works!</p>"
-    )
-    
-    return {
-        "message": "Test email sent" if success else "Email failed",
-        "success": success,
-        "smtp_server": os.getenv('SMTP_SERVER'),
-        "smtp_port": os.getenv('SMTP_PORT')
-    }
 
-@app.get("/test-email-background")
-async def test_email_background(background_tasks: BackgroundTasks):
-    """Test email sending with background task"""
-    print("=== QUEUEING EMAIL IN BACKGROUND ===")
-    
-    def email_task():
-        print("🚀 Background email task starting...")
-        success = send_email_sync(
-            to_email="egs001102@gmail.com", 
-            subject="Background TEST Email from Giver.ai",
-            body="<h1>Background Task Test</h1><p>This email was sent via background task!</p>"
-        )
-        print(f"📧 Background email task completed: {success}")
-    
-    background_tasks.add_task(email_task)
-    return {"message": "Email queued in background - check server logs!"}
-
-@app.get("/debug-email")
-def debug_email():
-    """Debug email configuration without sending"""
-    debug_info = {
-        "environment_variables": {
-            "SMTP_SERVER": os.getenv("SMTP_SERVER"),
-            "SMTP_PORT": os.getenv("SMTP_PORT"), 
-            "SMTP_USERNAME": os.getenv("SMTP_USERNAME"),
-            "SMTP_PASSWORD": "***SET***" if os.getenv("SMTP_PASSWORD") else "❌ MISSING",
-            "EMAIL_FROM": os.getenv("EMAIL_FROM")
-        },
-        "render_env_check": "Looking for SMTP_* and EMAIL_* vars...",
-        "found_email_vars": {k: v for k, v in os.environ.items() if 'SMTP' in k or 'EMAIL' in k}
-    }
-    
-    # Test SMTP connection without sending
-    try:
-        smtp_server = os.getenv("SMTP_SERVER")
-        smtp_port = int(os.getenv("SMTP_PORT", 587))
-        smtp_username = os.getenv("SMTP_USERNAME") 
-        smtp_password = os.getenv("SMTP_PASSWORD")
-        
-        if not all([smtp_server, smtp_username, smtp_password]):
-            debug_info["smtp_test"] = "❌ SKIPPED - Missing credentials"
-        else:
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_username, smtp_password)
-                debug_info["smtp_test"] = "✅ SUCCESS - SMTP connection works!"
-                
-    except Exception as e:
-        debug_info["smtp_test"] = f"❌ FAILED: {str(e)}"
 @app.post("/complete-onboarding")
 def complete_onboarding_post(request: Request,
                             role: str = Form(...),
