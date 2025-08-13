@@ -1769,6 +1769,16 @@ async def generate(request: Request):
     finally:
         db.close()
 
+@app.get("/test-email")
+async def test_email(background_tasks: BackgroundTasks):
+    background_tasks.add_task(
+        send_email,
+        to_email="egs001102@gmail.com", 
+        subject="TEST Email from Giver.ai",
+        body="<h1>This is a test</h1><p>If you see this, email sending works!</p>"
+    )
+    return {"message": "Test email queued"}
+
 @app.get("/complete-onboarding", response_class=HTMLResponse)
 def complete_onboarding_get(request: Request, user: User = Depends(get_current_user)):
     """Complete missing onboarding data"""
