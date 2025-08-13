@@ -31,9 +31,6 @@ STRIPE_AGENCY_PRICE_ID = os.getenv("STRIPE_AGENCY_PRICE_ID")
 STRIPE_ENTERPRISE_PRICE_ID = os.getenv("STRIPE_ENTERPRISE_PRICE_ID")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
-# email config
-load_dotenv('email.env')
-
 try:
     import bcrypt
     print("bcrypt module imported successfully")
@@ -1039,8 +1036,8 @@ def logout():
     return response
 
 # email
-async def send_email(to_email: str, subject: str, body: str):
-    """Send email using SMTP configuration"""
+def send_email_sync(to_email: str, subject: str, body: str) -> bool:
+    """Send email using SMTP configuration - synchronous version"""
     try:
         # Get email configuration from environment
         smtp_server = os.getenv("SMTP_SERVER")
@@ -1048,6 +1045,14 @@ async def send_email(to_email: str, subject: str, body: str):
         smtp_username = os.getenv("SMTP_USERNAME")
         smtp_password = os.getenv("SMTP_PASSWORD")
         from_email = os.getenv("EMAIL_FROM")
+        
+        # Validate required environment variables
+        if not all([smtp_server, smtp_username, smtp_password, from_email]):
+            print("Missing required email environment variables")
+            print(f"SMTP_SERVER: {smtp_server}")
+            print(f"SMTP_USERNAME: {smtp_username}")
+            print(f"EMAIL_FROM: {from_email}")
+            return False
         
         print(f"Connecting to SMTP server: {smtp_server}:{smtp_port}")
         print(f"Username: {smtp_username}")
@@ -1820,11 +1825,15 @@ async def generate(request: Request):
 # temporary test route to the FastAPI app (remove after testing)
 @app.get("/test-email")
 async def test_email(background_tasks: BackgroundTasks):
-    print(f"Attempting to connect to: {os.getenv('SMTP_SERVER')}:{os.getenv('SMTP_PORT')}")
-    print(f"Using username: {os.getenv('SMTP_USERNAME')}")
+    print("=== Email Configuration Debug ===")
+    print(f"SMTP_SERVER: {os.getenv('SMTP_SERVER')}")
+    print(f"SMTP_PORT: {os.getenv('SMTP_PORT')}")
+    print(f"SMTP_USERNAME: {os.getenv('SMTP_USERNAME')}")
+    print(f"EMAIL_FROM: {os.getenv('EMAIL_FROM')}")
+    print("================================")
     
     background_tasks.add_task(
-        send_email,
+        send_email_async,  # Use the new async function
         to_email="egs001102@gmail.com", 
         subject="TEST Email from Giver.ai",
         body="<h1>This is a test</h1><p>If you see this, email sending works!</p>"
