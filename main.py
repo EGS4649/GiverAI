@@ -1768,7 +1768,8 @@ async def generate(request: Request):
         })
     finally:
         db.close()
-
+        
+# temporary test route to the FastAPI app (remove after testing)
 @app.get("/test-email")
 async def test_email(background_tasks: BackgroundTasks):
     background_tasks.add_task(
