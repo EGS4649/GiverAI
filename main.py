@@ -1036,6 +1036,7 @@ def logout():
     return response
 
 # email
+# Add this function first (before your routes)
 def send_email_sync(to_email: str, subject: str, body: str) -> bool:
     """Send email using SMTP configuration - synchronous version"""
     try:
@@ -1048,15 +1049,15 @@ def send_email_sync(to_email: str, subject: str, body: str) -> bool:
         
         # Validate required environment variables
         if not all([smtp_server, smtp_username, smtp_password, from_email]):
-            print("Missing required email environment variables")
+            print("❌ Missing required email environment variables")
             print(f"SMTP_SERVER: {smtp_server}")
             print(f"SMTP_USERNAME: {smtp_username}")
             print(f"EMAIL_FROM: {from_email}")
             return False
         
-        print(f"Connecting to SMTP server: {smtp_server}:{smtp_port}")
-        print(f"Username: {smtp_username}")
-        print(f"From email: {from_email}")
+        print(f"🔗 Connecting to SMTP server: {smtp_server}:{smtp_port}")
+        print(f"👤 Username: {smtp_username}")
+        print(f"📧 From email: {from_email}")
         
         # Create message
         msg = MIMEMultipart('alternative')
@@ -1074,11 +1075,11 @@ def send_email_sync(to_email: str, subject: str, body: str) -> bool:
             server.login(smtp_username, smtp_password)
             server.send_message(msg)
             
-        print(f"Email sent successfully to {to_email}")
+        print(f"✅ Email sent successfully to {to_email}")
         return True
         
     except Exception as e:
-        print(f"Failed to send email: {str(e)}")
+        print(f"❌ Failed to send email: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
@@ -1824,30 +1825,78 @@ async def generate(request: Request):
         
 # temporary test route to the FastAPI app (remove after testing)
 @app.get("/test-email")
-async def test_email(background_tasks: BackgroundTasks):
-    print("=== Email Configuration Debug ===")
+def test_email_sync():
+    """Test email sending with immediate response"""
+    print("=== EMAIL CONFIGURATION DEBUG ===")
     print(f"SMTP_SERVER: {os.getenv('SMTP_SERVER')}")
     print(f"SMTP_PORT: {os.getenv('SMTP_PORT')}")
     print(f"SMTP_USERNAME: {os.getenv('SMTP_USERNAME')}")
+    print(f"SMTP_PASSWORD: {'✓ Set' if os.getenv('SMTP_PASSWORD') else '❌ Missing'}")
     print(f"EMAIL_FROM: {os.getenv('EMAIL_FROM')}")
-    print("================================")
+    print("=================================")
     
-    background_tasks.add_task(
-        send_email_async,  # Use the new async function
+    success = send_email_sync(
         to_email="egs001102@gmail.com", 
         subject="TEST Email from Giver.ai",
         body="<h1>This is a test</h1><p>If you see this, email sending works!</p>"
     )
-    return {"message": "Test email queued"}
+    
+    return {
+        "message": "Test email sent" if success else "Email failed",
+        "success": success,
+        "smtp_server": os.getenv('SMTP_SERVER'),
+        "smtp_port": os.getenv('SMTP_PORT')
+    }
 
-@app.get("/complete-onboarding", response_class=HTMLResponse)
-def complete_onboarding_get(request: Request, user: User = Depends(get_current_user)):
-    """Complete missing onboarding data"""
-    return templates.TemplateResponse("complete_onboarding.html", {
-        "request": request,
-        "user": user
-    })
+@app.get("/test-email-background")
+async def test_email_background(background_tasks: BackgroundTasks):
+    """Test email sending with background task"""
+    print("=== QUEUEING EMAIL IN BACKGROUND ===")
+    
+    def email_task():
+        print("🚀 Background email task starting...")
+        success = send_email_sync(
+            to_email="egs001102@gmail.com", 
+            subject="Background TEST Email from Giver.ai",
+            body="<h1>Background Task Test</h1><p>This email was sent via background task!</p>"
+        )
+        print(f"📧 Background email task completed: {success}")
+    
+    background_tasks.add_task(email_task)
+    return {"message": "Email queued in background - check server logs!"}
 
+@app.get("/debug-email")
+def debug_email():
+    """Debug email configuration without sending"""
+    debug_info = {
+        "environment_variables": {
+            "SMTP_SERVER": os.getenv("SMTP_SERVER"),
+            "SMTP_PORT": os.getenv("SMTP_PORT"), 
+            "SMTP_USERNAME": os.getenv("SMTP_USERNAME"),
+            "SMTP_PASSWORD": "***SET***" if os.getenv("SMTP_PASSWORD") else "❌ MISSING",
+            "EMAIL_FROM": os.getenv("EMAIL_FROM")
+        },
+        "render_env_check": "Looking for SMTP_* and EMAIL_* vars...",
+        "found_email_vars": {k: v for k, v in os.environ.items() if 'SMTP' in k or 'EMAIL' in k}
+    }
+    
+    # Test SMTP connection without sending
+    try:
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = int(os.getenv("SMTP_PORT", 587))
+        smtp_username = os.getenv("SMTP_USERNAME") 
+        smtp_password = os.getenv("SMTP_PASSWORD")
+        
+        if not all([smtp_server, smtp_username, smtp_password]):
+            debug_info["smtp_test"] = "❌ SKIPPED - Missing credentials"
+        else:
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_username, smtp_password)
+                debug_info["smtp_test"] = "✅ SUCCESS - SMTP connection works!"
+                
+    except Exception as e:
+        debug_info["smtp_test"] = f"❌ FAILED: {str(e)}"
 @app.post("/complete-onboarding")
 def complete_onboarding_post(request: Request,
                             role: str = Form(...),
