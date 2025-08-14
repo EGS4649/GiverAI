@@ -843,8 +843,8 @@ def get_current_user(request: Request):
     
     db = SessionLocal()
     try:
-        # Use safe user retrieval
-        user = get_user_safe(db, username)
+        # Use the existing get_user function
+        user = get_user(db, username)
         if user is None:
             raise credentials_exception
         
@@ -853,7 +853,7 @@ def get_current_user(request: Request):
         return user
     finally:
         db.close()
-
+        
 @app.get("/logout")
 def logout():
     response = RedirectResponse("/", status_code=302)
