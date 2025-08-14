@@ -454,6 +454,7 @@ def get_plan_features(plan_name):
     }
     return features.get(plan_name, features["free"])
 
+# Updated get_current_user function  
 def get_current_user(request: Request):
     token = request.cookies.get("access_token")
     credentials_exception = HTTPException(
@@ -474,7 +475,8 @@ def get_current_user(request: Request):
     
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.username == username).first()
+        # Use the existing get_user function instead of get_user_safe
+        user = get_user(db, username)
         if user is None:
             raise credentials_exception
         
