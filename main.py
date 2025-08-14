@@ -428,7 +428,7 @@ def test_simple_email(to_email: str):
 
         
 # Initialize email service
-email_service = EmailService()
+email_service = SimpleEmailService()
 
 # Database models for email verification
 class EmailVerification(Base):
