@@ -13,6 +13,7 @@ from sqlalchemy import LargeBinary
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError, ProgrammingError 
 from sqlalchemy.orm import defer
+from sqlalchemy import text
 from openai import OpenAI
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -381,7 +382,8 @@ def get_user(db, username: str):
         raise
 
 def authenticate_user(db, username: str, password: str):
-    user = get_user(db, username)
+    # We need to load the password for verification
+    user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(password, user.hashed_password): 
         return None
     return user
@@ -662,16 +664,12 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
                 "error": "Email already registered"
             })
         
-        # Hash the password
+         # Hash the password
         print("Hashing password...")
         hashed_password = hash_password(password)
         print(f"Password hashed successfully, type: {type(hashed_password)}")
         
-        # Ensure we have bytes for database storage
-        if isinstance(hashed_password, memoryview):
-            hashed_password = bytes(hashed_password)
-        
-        # Insert using raw SQL to avoid SQLAlchemy ORM issues
+        # Insert user
         result = db.execute(text("""
             INSERT INTO users (username, email, hashed_password, plan, is_active, created_at)
             VALUES (:username, :email, :hashed_password, :plan, :is_active, :created_at)
@@ -688,8 +686,19 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         user_id = result.fetchone()[0]
         db.commit()
         
+        # Create email verification record
+        verification = create_verification_record(user_id, db)
+        
+        # Send verification email
+        db_user = db.query(User).filter(User.id == user_id).first()
+        if db_user:
+            email_service.send_verification_email(db_user, verification.token)
+        
+        # Also send welcome email
+        email_service.send_welcome_email(db_user)
+        
         print(f"User registered successfully with ID: {user_id}")
-        return RedirectResponse("/onboarding", status_code=302)
+        return RedirectResponse("/register-success", status_code=302)
         
     except Exception as e:
         db.rollback()
@@ -701,6 +710,37 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         return templates.TemplateResponse("register.html", {
             "request": request,
             "error": "Registration failed. Please try again."
+        })
+    finally:
+        db.close()
+
+@app.get("/verify-email")
+def verify_email(request: Request, token: str = Query(...)):
+    db = SessionLocal()
+    try:
+        verification = db.query(EmailVerification).filter(
+            EmailVerification.token == token,
+            EmailVerification.expires_at > datetime.datetime.utcnow()
+        ).first()
+        
+        if not verification:
+            return templates.TemplateResponse("verification_failed.html", {
+                "request": request,
+                "error": "Invalid or expired verification token"
+            })
+        
+        # Mark email as verified
+        verification.verified = True
+        verification.verified_at = datetime.datetime.utcnow()
+        db.commit()
+        
+        # Update user status
+        user = verification.user
+        user.is_active = True
+        db.commit()
+        
+        return templates.TemplateResponse("verification_success.html", {
+            "request": request
         })
     finally:
         db.close()
@@ -717,12 +757,18 @@ def login_get(request: Request):
 def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
     try:
-        # Use the safe authentication method
-        user = authenticate_user_safe(db, username, password)
+        user = authenticate_user(db, username, password)
         if not user:
             return templates.TemplateResponse("login.html", {
                 "request": request, 
                 "error": "Invalid credentials"
+            })
+        
+        # Check if email is verified
+        if not user.is_active:
+            return templates.TemplateResponse("login.html", {
+                "request": request, 
+                "error": "Please verify your email before logging in"
             })
         
         access_token = create_access_token(
