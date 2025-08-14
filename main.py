@@ -732,7 +732,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         email_service.send_welcome_email(db_user)
         
         print(f"User registered successfully with ID: {user_id}")
-        return RedirectResponse("/register-success", status_code=302)
+        return RedirectResponse("/register", status_code=302)
         
     except Exception as e:
         db.rollback()
@@ -1449,10 +1449,6 @@ async def get_ai_tweets(prompt, count=5):
         return tweets[:count]
     except Exception as e:
         return [f"Error: {str(e)}. Please check your OpenAI API key."]
-
-@app.get("/register-success", response_class=HTMLResponse)
-def register_success(request: Request):
-    return templates.TemplateResponse("register_success.html", {"request": request})
 
 @app.get("/onboarding", response_class=HTMLResponse)
 def onboarding_get(request: Request):
