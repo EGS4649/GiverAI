@@ -1812,8 +1812,7 @@ EMAIL_TEMPLATES = {
         </body>
         </html>
         """
-    }
-}
+    },
     
     "account_changed": {
         "subject": "Your GiverAI Account Was Updated 🔐",
