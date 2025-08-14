@@ -1,6 +1,8 @@
 import datetime
+from datetime import timedelta
 import os
 import secrets
+import hashlib
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -95,6 +97,195 @@ class PasswordChange(BaseModel):
 class EmailChange(BaseModel):
     new_email: str
 
+# Enhanced Email Functions
+class EmailService:
+    def __init__(self):
+        self.smtp_server = os.getenv("SMTP_SERVER")
+        self.smtp_port = int(os.getenv("SMTP_PORT", 587))
+        self.smtp_username = os.getenv("SMTP_USERNAME")
+        self.smtp_password = os.getenv("SMTP_PASSWORD")
+        self.from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+        self.sender_name = os.getenv("EMAIL_SENDER_NAME", "GiverAI")
+        
+    def send_email(self, to_email: str, template_name: str, **kwargs) -> bool:
+        """Send email using specified template"""
+        try:
+            if not all([self.smtp_server, self.smtp_username, self.smtp_password]):
+                print("❌ Missing email configuration")
+                return False
+                
+            template = EMAIL_TEMPLATES.get(template_name)
+            if not template:
+                print(f"❌ Email template '{template_name}' not found")
+                return False
+            
+            # Format template with provided variables
+            subject = template["subject"].format(**kwargs)
+            body = template["body"].format(**kwargs)
+            
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f"{self.sender_name} <{self.from_email}>"
+            msg['To'] = to_email
+            msg['Reply-To'] = self.from_email
+            
+            # Add HTML body
+            html_part = MIMEText(body, 'html')
+            msg.attach(html_part)
+            
+            # Send email
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls()
+                server.login(self.smtp_username, self.smtp_password)
+                server.send_message(msg)
+                
+            print(f"✅ {template_name.title()} email sent to {to_email}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to send {template_name} email: {str(e)}")
+            return False
+
+ def send_welcome_email(self, user):
+        """Send welcome email to new user"""
+        return self.send_email(
+            to_email=user.email,
+            template_name="welcome",
+            username=user.username,
+            dashboard_url="https://giverai.me/dashboard",
+            help_url="https://giverai.me/help"
+        )
+    
+    def send_verification_email(self, user, verification_token):
+        """Send email verification"""
+        verification_code = verification_token[-6:]  # Last 6 chars as code
+        return self.send_email(
+            to_email=user.email,
+            template_name="verification",
+            username=user.username,
+            email=user.email,
+            verification_url=f"https://giverai.me/verify-email?token={verification_token}",
+            verification_code=verification_code
+        )
+    
+    def send_account_changed_email(self, user, change_details, ip_address="Unknown"):
+        """Send account security alert"""
+        return self.send_email(
+            to_email=user.email,
+            template_name="account_changed",
+            username=user.username,
+            email=user.email,
+            change_details=change_details,
+            timestamp=datetime.now().strftime("%B %d, %Y at %I:%M %p UTC"),
+            ip_address=ip_address,
+            account_url="https://giverai.me/account"
+        )
+    
+    def send_subscription_changed_email(self, user, old_plan, new_plan, next_billing_date, amount):
+        """Send subscription update notification"""
+        plan_features = get_plan_features(new_plan)
+        feature_list = []
+        
+        if plan_features["daily_limit"] == float('inf'):
+            feature_list.append("• Unlimited daily tweets")
+        else:
+            feature_list.append(f"• {plan_features['daily_limit']} tweets per day")
+            
+        if plan_features["team_seats"] > 1:
+            feature_list.append(f"• {plan_features['team_seats']} team seats")
+            
+        if plan_features["export"]:
+            feature_list.append("• Export tweet history")
+            
+        if plan_features["analytics"]:
+            feature_list.append("• Advanced analytics")
+            
+        if plan_features["api_access"]:
+            feature_list.append("• API access")
+        
+        plan_descriptions = {
+            "creator": "Perfect for individual creators and influencers",
+            "small_team": "Ideal for small teams and growing businesses", 
+            "agency": "Built for agencies managing multiple clients",
+            "enterprise": "Complete solution for large organizations"
+        }
+        
+        return self.send_email(
+            to_email=user.email,
+            template_name="subscription_changed",
+            username=user.username,
+            new_plan=new_plan.replace("_", " ").title(),
+            plan_description=plan_descriptions.get(new_plan, ""),
+            new_features="<br>".join(feature_list),
+            next_billing_date=next_billing_date,
+            amount=amount,
+            dashboard_url="https://giverai.me/dashboard",
+            billing_url="https://giverai.me/account"
+        )
+    
+    def send_team_invitation_email(self, invitee_email, team_owner, role, team_name, team_plan, team_industry, accept_token, decline_token):
+        """Send team invitation email"""
+        role_permissions = {
+            "admin": "Full access to team settings and member management",
+            "editor": "Can create and edit team content",
+            "viewer": "Can view team content and analytics"
+        }
+        
+        return self.send_email(
+            to_email=invitee_email,
+            template_name="team_invitation",
+            team_owner=team_owner,
+            role=role.title(),
+            role_permissions=role_permissions.get(role, "Team collaboration access"),
+            team_name=team_name or f"{team_owner}'s Team",
+            team_plan=team_plan.replace("_", " ").title(),
+            team_industry=team_industry or "Not specified",
+            email=invitee_email,
+            accept_url=f"https://giverai.me/accept-invitation?token={accept_token}",
+            decline_url=f"https://giverai.me/decline-invitation?token={decline_token}"
+        )
+    
+    def send_goodbye_email(self, user, total_tweets, days_active):
+        """Send account deletion confirmation"""
+        return self.send_email(
+            to_email=user.email,
+            template_name="goodbye",
+            username=user.username,
+            email=user.email,
+            total_tweets=total_tweets,
+            days_active=days_active,
+            last_plan=user.plan.replace("_", " ").title(),
+            feedback_url="https://giverai.me/feedback",
+            signup_url="https://giverai.me/register"
+        )
+        
+# Initialize email service
+email_service = EmailService()
+
+# Database models for email verification
+class EmailVerification(Base):
+    __tablename__ = "email_verifications"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    token = Column(String, unique=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime)
+    verified = Column(Boolean, default=False)
+    user = relationship("User")
+
+# Helper functions
+def generate_verification_token():
+    """Generate secure verification token"""
+    return secrets.token_urlsafe(32)
+
+def create_verification_record(user_id: int, db):
+    """Create email verification record"""
+    token = generate_verification_token()
+    verification = EmailVerification(
+        user_id=user_id,
+        token=token,
+        expires_at=datetime.utcnow()
 # ----- Auth Setup -----
 SECRET_KEY = "your-secret-key-here"
 ALGORITHM = "HS256"
@@ -1154,29 +1345,6 @@ def test_sender_name():
         "fixed_version": test_fixed(),
         "recommendation": "Use the fixed version in your send_email function"
     }
-
-# Updated test email route with proper sender name
-@app.get("/test-email-fixed-name")
-def test_email_fixed_name():
-    """Test email with proper sender name"""
-    
-    success = send_email_sync(
-        to_email="your-email@gmail.com",  # Replace with your email
-        subject="✅ Sender Name Test - GiverAI",
-        body="""
-        <h1>Sender Name Test</h1>
-        <p>If you see "GiverAI" as the sender (not ":5s"), then it's working!</p>
-        <p>Check who this email appears to be from.</p>
-        """
-    )
-    
-    return {
-        "message": "Test email sent with proper sender name",
-        "success": success,
-        "expected_sender": "GiverAI",
-        "check": "Look at the sender name in your email client"
-    }
-        
     
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
@@ -1916,80 +2084,383 @@ async def generate(request: Request):
     finally:
         db.close()
         
-# temporary test route to the FastAPI app (remove after testing)
-@app.get("/test-email")
-def test_email_sync():
-    """Test email sending with immediate response"""
-    print("=== EMAIL CONFIGURATION DEBUG ===")
-    print(f"SMTP_SERVER: {os.getenv('SMTP_SERVER')}")
-    print(f"SMTP_PORT: {os.getenv('SMTP_PORT')}")
-    print(f"SMTP_USERNAME: {os.getenv('SMTP_USERNAME')}")
-    print(f"SMTP_PASSWORD: {'✓ Set' if os.getenv('SMTP_PASSWORD') else '❌ Missing'}")
-    print(f"EMAIL_FROM: {os.getenv('EMAIL_FROM')}")
-    print("=================================")
+# Email Templates
+EMAIL_TEMPLATES = {
+    "welcome": {
+        "subject": "Welcome to GiverAI! Your Twitter Content Creation Journey Starts Now 🚀",
+        "body": """
+        <html>
+        <head>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 15px 0; }
+                .feature-box { background: #f8f9fa; padding: 15px; margin: 10px 0; border-left: 4px solid #667eea; border-radius: 4px; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Welcome to GiverAI! 🎉</h1>
+                    <p>Your AI-powered Twitter content creation platform</p>
+                </div>
+                <div class="content">
+                    <h2>Hi {username}! 👋</h2>
+                    <p>We're thrilled to have you join our community of content creators who are transforming their Twitter presence with AI.</p>
+                    
+                    <div class="feature-box">
+                        <h3>🚀 What's Next?</h3>
+                        <p>Complete your profile setup and start generating engaging tweets tailored to your industry and goals.</p>
+                    </div>
+                    
+                    <div class="feature-box">
+                        <h3>✨ Your Free Plan Includes:</h3>
+                        <ul>
+                            <li>15 AI-generated tweets per day</li>
+                            <li>Basic customization options</li>
+                            <li>1-day tweet history</li>
+                        </ul>
+                    </div>
+                    
+                    <p>Ready to create your first viral tweet?</p>
+                    <a href="{dashboard_url}" class="button">Start Creating Tweets</a>
+                    
+                    <p>Need help getting started? Check out our <a href="{help_url}">quick start guide</a> or reply to this email with any questions.</p>
+                    
+                    <p>Happy tweeting!</p>
+                    <p><strong>The GiverAI Team</strong></p>
+                </div>
+                <div class="footer">
+                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                    <p>You received this email because you signed up for GiverAI.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    },
     
-    success = send_email_sync(
-        to_email="egs001102@gmail.com", 
-        subject="TEST Email from Giver.ai",
-        body="<h1>This is a test</h1><p>If you see this, email sending works!</p>"
-    )
+    "verification": {
+        "subject": "Verify Your GiverAI Account - Almost Ready! ✅",
+        "body": """
+        <html>
+        <head>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .verify-button { display: inline-block; background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-size: 18px; font-weight: bold; }
+                .verification-code { background: #f8f9fa; padding: 20px; margin: 20px 0; text-align: center; border-radius: 8px; border: 2px dashed #667eea; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Verify Your Email 📧</h1>
+                    <p>One more step to unlock GiverAI</p>
+                </div>
+                <div class="content">
+                    <h2>Hi {username}!</h2>
+                    <p>Thanks for signing up for GiverAI! To complete your registration and start creating amazing tweets, please verify your email address.</p>
+                    
+                    <div style="text-align: center;">
+                        <a href="{verification_url}" class="verify-button">Verify Email Address</a>
+                    </div>
+                    
+                    <div class="verification-code">
+                        <p><strong>Verification Code:</strong></p>
+                        <h2 style="color: #667eea; font-size: 24px; margin: 10px 0;">{verification_code}</h2>
+                        <p><small>Use this code if the button above doesn't work</small></p>
+                    </div>
+                    
+                    <p><strong>This verification link expires in 24 hours.</strong></p>
+                    
+                    <p>If you didn't create an account with GiverAI, please ignore this email.</p>
+                    
+                    <p>Best regards,<br><strong>The GiverAI Team</strong></p>
+                </div>
+                <div class="footer">
+                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                    <p>This verification email was sent to {email}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    },
     
-    return {
-        "message": "Test email sent" if success else "Email failed",
-        "success": success,
-        "smtp_server": os.getenv('SMTP_SERVER'),
-        "smtp_port": os.getenv('SMTP_PORT')
+    "account_changed": {
+        "subject": "Your GiverAI Account Was Updated 🔐",
+        "body": """
+        <html>
+        <head>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 25px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .alert-box { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px; }
+                .change-details { background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 6px; }
+                .button { display: inline-block; background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 15px 0; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Account Security Alert 🔐</h1>
+                    <p>Important changes to your GiverAI account</p>
+                </div>
+                <div class="content">
+                    <h2>Hi {username},</h2>
+                    
+                    <div class="alert-box">
+                        <p><strong>⚠️ Your account information was recently updated</strong></p>
+                    </div>
+                    
+                    <div class="change-details">
+                        <h3>What Changed:</h3>
+                        <p>{change_details}</p>
+                        <p><strong>When:</strong> {timestamp}</p>
+                        <p><strong>IP Address:</strong> {ip_address}</p>
+                    </div>
+                    
+                    <h3>Was this you?</h3>
+                    <p>If you made this change, no action is needed. Your account is secure.</p>
+                    
+                    <p><strong>If you didn't make this change:</strong></p>
+                    <ol>
+                        <li>Change your password immediately</li>
+                        <li>Review your account settings</li>
+                        <li>Contact our support team</li>
+                    </ol>
+                    
+                    <a href="{account_url}" class="button">Secure My Account</a>
+                    
+                    <p>For your security, we recommend using a strong, unique password and enabling two-factor authentication.</p>
+                    
+                    <p>If you need help, please contact us at support@giverai.me</p>
+                    
+                    <p>Stay secure,<br><strong>The GiverAI Security Team</strong></p>
+                </div>
+                <div class="footer">
+                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                    <p>This security alert was sent to {email}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    },
+    
+    "subscription_changed": {
+        "subject": "Your GiverAI Subscription Has Been Updated 💼",
+        "body": """
+        <html>
+        <head>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .plan-box { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }
+                .feature-list { background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 6px; }
+                .button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 15px 0; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Subscription Updated! 🎉</h1>
+                    <p>Your GiverAI plan has changed</p>
+                </div>
+                <div class="content">
+                    <h2>Hi {username}!</h2>
+                    
+                    <div class="plan-box">
+                        <h2>🚀 Welcome to {new_plan}!</h2>
+                        <p>{plan_description}</p>
+                    </div>
+                    
+                    <h3>What's New in Your Plan:</h3>
+                    <div class="feature-list">
+                        {new_features}
+                    </div>
+                    
+                    <h3>Billing Details:</h3>
+                    <ul>
+                        <li><strong>Plan:</strong> {new_plan}</li>
+                        <li><strong>Next Billing Date:</strong> {next_billing_date}</li>
+                        <li><strong>Amount:</strong> {amount}</li>
+                    </ul>
+                    
+                    <p>Your new features are active immediately. Start exploring them now!</p>
+                    
+                    <a href="{dashboard_url}" class="button">Explore New Features</a>
+                    
+                    <p>Questions about your subscription? Check our <a href="{billing_url}">billing FAQ</a> or contact support.</p>
+                    
+                    <p>Thanks for choosing GiverAI!</p>
+                    <p><strong>The GiverAI Team</strong></p>
+                </div>
+                <div class="footer">
+                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                    <p>Manage your subscription: {billing_url}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    },
+    
+    "team_invitation": {
+        "subject": "You've Been Invited to Join {team_owner}'s GiverAI Team! 👥",
+        "body": """
+        <html>
+        <head>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .invitation-box { background: #e3f2fd; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #2196f3; }
+                .accept-button { display: inline-block; background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; margin: 15px 10px 15px 0; font-weight: bold; }
+                .decline-button { display: inline-block; background: #6c757d; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; margin: 15px 0; font-weight: bold; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Team Invitation 📨</h1>
+                    <p>You've been invited to collaborate!</p>
+                </div>
+                <div class="content">
+                    <h2>Hi there! 👋</h2>
+                    
+                    <div class="invitation-box">
+                        <h3>🎉 You're Invited!</h3>
+                        <p><strong>{team_owner}</strong> has invited you to join their GiverAI team as a <strong>{role}</strong>.</p>
+                    </div>
+                    
+                    <h3>What This Means:</h3>
+                    <ul>
+                        <li>✅ Access to the team's GiverAI workspace</li>
+                        <li>✅ Collaborate on tweet generation and content strategy</li>
+                        <li>✅ Share and manage team-generated content</li>
+                        <li>✅ {role_permissions}</li>
+                    </ul>
+                    
+                    <h3>About the Team:</h3>
+                    <p><strong>Team:</strong> {team_name}<br>
+                    <strong>Plan:</strong> {team_plan}<br>
+                    <strong>Industry:</strong> {team_industry}</p>
+                    
+                    <p>Ready to start collaborating on amazing Twitter content?</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{accept_url}" class="accept-button">Accept Invitation</a>
+                        <a href="{decline_url}" class="decline-button">Decline</a>
+                    </div>
+                    
+                    <p><small>This invitation expires in 7 days. If you don't have a GiverAI account, you'll be prompted to create one.</small></p>
+                    
+                    <p>Questions? Contact {team_owner} or our support team at support@giverai.me</p>
+                    
+                    <p>Looking forward to having you on the team!</p>
+                    <p><strong>The GiverAI Team</strong></p>
+                </div>
+                <div class="footer">
+                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                    <p>This invitation was sent to {email} by {team_owner}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    },
+    
+    "goodbye": {
+        "subject": "We're Sorry to See You Go - Your GiverAI Account Has Been Deleted 👋",
+        "body": """
+        <html>
+        <head>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .data-box { background: #fff3cd; padding: 15px; margin: 20px 0; border-radius: 6px; border: 1px solid #ffeaa7; }
+                .feedback-box { background: #e3f2fd; padding: 20px; margin: 20px 0; border-radius: 8px; }
+                .button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 15px 0; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Account Deleted 😢</h1>
+                    <p>We're sorry to see you go, {username}</p>
+                </div>
+                <div class="content">
+                    <h2>Your GiverAI account has been successfully deleted</h2>
+                    
+                    <div class="data-box">
+                        <h3>🗑️ Data Removal</h3>
+                        <p>As requested, we have permanently deleted:</p>
+                        <ul>
+                            <li>Your account profile and settings</li>
+                            <li>All generated tweets and content history</li>
+                            <li>Usage data and analytics</li>
+                            <li>Team memberships and collaborations</li>
+                            <li>Billing and subscription information</li>
+                        </ul>
+                        <p><strong>This action cannot be undone.</strong></p>
+                    </div>
+                    
+                    <h3>Thank You for Using GiverAI</h3>
+                    <p>We appreciate the time you spent with us. During your journey, you:</p>
+                    <ul>
+                        <li>📝 Generated {total_tweets} tweets</li>
+                        <li>📅 Were with us for {days_active} days</li>
+                        <li>🎯 Used the {last_plan} plan</li>
+                    </ul>
+                    
+                    <div class="feedback-box">
+                        <h3>💬 Help Us Improve</h3>
+                        <p>We'd love to hear why you decided to leave. Your feedback helps us make GiverAI better for everyone.</p>
+                        <a href="{feedback_url}" class="button">Share Feedback</a>
+                        <p><small>This survey takes less than 2 minutes and is completely anonymous.</small></p>
+                    </div>
+                    
+                    <h3>Changed Your Mind?</h3>
+                    <p>You're always welcome back! If you decide to return, you can create a new account anytime, though your previous data cannot be restored.</p>
+                    
+                    <a href="{signup_url}" class="button">Return to GiverAI</a>
+                    
+                    <p>We hope our paths cross again in the future. Until then, we wish you all the best with your content creation journey!</p>
+                    
+                    <p>Farewell and best wishes,</p>
+                    <p><strong>The GiverAI Team</strong></p>
+                </div>
+                <div class="footer">
+                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                    <p>This confirmation was sent to {email}</p>
+                    <p>You will not receive any further emails from us.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
     }
+}
 
-@app.get("/test-email-background")
-async def test_email_background(background_tasks: BackgroundTasks):
-    """Test email sending with background task"""
-    print("=== QUEUEING EMAIL IN BACKGROUND ===")
-    
-    def email_task():
-        print("🚀 Background email task starting...")
-        success = send_email_sync(
-            to_email="egs001102@gmail.com", 
-            subject="Background TEST Email from Giver.ai",
-            body="<h1>Background Task Test</h1><p>This email was sent via background task!</p>"
-        )
-        print(f"📧 Background email task completed: {success}")
-    
-    background_tasks.add_task(email_task)
-    return {"message": "Email queued in background - check server logs!"}
-
-@app.get("/debug-email")
-def debug_email():
-    """Debug email configuration without sending"""
-    debug_info = {
-        "environment_variables": {
-            "SMTP_SERVER": os.getenv("SMTP_SERVER"),
-            "SMTP_PORT": os.getenv("SMTP_PORT"), 
-            "SMTP_USERNAME": os.getenv("SMTP_USERNAME"),
-            "SMTP_PASSWORD": "***SET***" if os.getenv("SMTP_PASSWORD") else "❌ MISSING",
-            "EMAIL_FROM": os.getenv("EMAIL_FROM")
-        },
-        "render_env_check": "Looking for SMTP_* and EMAIL_* vars...",
-        "found_email_vars": {k: v for k, v in os.environ.items() if 'SMTP' in k or 'EMAIL' in k}
-    }
-    
-    # Test SMTP connection without sending
-    try:
-        smtp_server = os.getenv("SMTP_SERVER")
-        smtp_port = int(os.getenv("SMTP_PORT", 587))
-        smtp_username = os.getenv("SMTP_USERNAME") 
-        smtp_password = os.getenv("SMTP_PASSWORD")
-        
-        if not all([smtp_server, smtp_username, smtp_password]):
-            debug_info["smtp_test"] = "❌ SKIPPED - Missing credentials"
-        else:
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_username, smtp_password)
-                debug_info["smtp_test"] = "✅ SUCCESS - SMTP connection works!"
-                
-    except Exception as e:
-        debug_info["smtp_test"] = f"❌ FAILED: {str(e)}"
 @app.post("/complete-onboarding")
 def complete_onboarding_post(request: Request,
                             role: str = Form(...),
