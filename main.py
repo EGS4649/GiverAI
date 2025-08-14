@@ -1038,40 +1038,44 @@ def logout():
 # email
 # Add this function first (before your routes)
 def send_email_sync(to_email: str, subject: str, body: str) -> bool:
-    """Send email using SMTP configuration - synchronous version"""
+    """Send email with proper sender name display"""
     try:
-        # Get email configuration from environment
         smtp_server = os.getenv("SMTP_SERVER")
         smtp_port = int(os.getenv("SMTP_PORT", 587))
         smtp_username = os.getenv("SMTP_USERNAME")
         smtp_password = os.getenv("SMTP_PASSWORD")
-        from_email = os.getenv("EMAIL_FROM")
+        from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
         
         # Validate required environment variables
         if not all([smtp_server, smtp_username, smtp_password, from_email]):
             print("❌ Missing required email environment variables")
-            print(f"SMTP_SERVER: {smtp_server}")
-            print(f"SMTP_USERNAME: {smtp_username}")
-            print(f"EMAIL_FROM: {from_email}")
             return False
         
         print(f"🔗 Connecting to SMTP server: {smtp_server}:{smtp_port}")
-        print(f"👤 Username: {smtp_username}")
         print(f"📧 From email: {from_email}")
         
         # Create message
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From'] = from_email
+        
+        # 🔥 THIS IS THE FIX - Proper sender name formatting:
+        msg['From'] = f"GiverAI <{from_email}>"  # This sets the display name
+        # Alternative formats that work:
+        # msg['From'] = f'"GiverAI" <{from_email}>'
+        # msg['From'] = f'GiverAI Team <{from_email}>'
+        
         msg['To'] = to_email
+        msg['Reply-To'] = from_email  # Where replies go
         
         # Add HTML body
         html_part = MIMEText(body, 'html')
         msg.attach(html_part)
         
+        print(f"👤 Sender will show as: GiverAI <{from_email}>")
+        
         # Connect to server and send email
         with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()  # Enable security
+            server.starttls()
             server.login(smtp_username, smtp_password)
             server.send_message(msg)
             
@@ -1083,6 +1087,95 @@ def send_email_sync(to_email: str, subject: str, body: str) -> bool:
         import traceback
         traceback.print_exc()
         return False
+
+# Or even better - use environment variable for sender name
+def send_email_with_env_name(to_email: str, subject: str, body: str) -> bool:
+    """Send email with sender name from environment variable"""
+    try:
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = int(os.getenv("SMTP_PORT", 587))
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+        from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+        
+        # 🔥 NEW: Get sender name from environment
+        sender_name = os.getenv("EMAIL_SENDER_NAME", "GiverAI")
+        
+        if not all([smtp_server, smtp_username, smtp_password, from_email]):
+            print("❌ Missing required email environment variables")
+            return False
+        
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f"{sender_name} <{from_email}>"  # Use env variable
+        msg['To'] = to_email
+        
+        # Add HTML body
+        html_part = MIMEText(body, 'html')
+        msg.attach(html_part)
+        
+        print(f"👤 Email will show from: {sender_name} <{from_email}>")
+        
+        # Send email
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(msg)
+            
+        print(f"✅ Email sent successfully to {to_email}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to send email: {str(e)}")
+        return False
+
+# Quick test to see current vs fixed sender name
+@app.get("/test-sender-name")
+def test_sender_name():
+    """Test different sender name formats"""
+    
+    # Test current (broken) format
+    def test_broken():
+        msg = MIMEMultipart()
+        msg['From'] = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+        print(f"❌ Broken format: {msg['From']}")
+        return str(msg['From'])
+    
+    # Test fixed format
+    def test_fixed():
+        from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+        sender_display = f"GiverAI <{from_email}>"
+        print(f"✅ Fixed format: {sender_display}")
+        return sender_display
+    
+    return {
+        "current_broken": test_broken(),
+        "fixed_version": test_fixed(),
+        "recommendation": "Use the fixed version in your send_email function"
+    }
+
+# Updated test email route with proper sender name
+@app.get("/test-email-fixed-name")
+def test_email_fixed_name():
+    """Test email with proper sender name"""
+    
+    success = send_email_sync(
+        to_email="your-email@gmail.com",  # Replace with your email
+        subject="✅ Sender Name Test - GiverAI",
+        body="""
+        <h1>Sender Name Test</h1>
+        <p>If you see "GiverAI" as the sender (not ":5s"), then it's working!</p>
+        <p>Check who this email appears to be from.</p>
+        """
+    )
+    
+    return {
+        "message": "Test email sent with proper sender name",
+        "success": success,
+        "expected_sender": "GiverAI",
+        "check": "Look at the sender name in your email client"
+    }
         
     
 # Account Management Routes
