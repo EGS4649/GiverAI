@@ -147,7 +147,7 @@ class EmailService:
             print(f"❌ Failed to send {template_name} email: {str(e)}")
             return False
 
- def send_welcome_email(self, user):
+    def send_welcome_email(self, user):
         """Send welcome email to new user"""
         return self.send_email(
             to_email=user.email,
@@ -177,7 +177,7 @@ class EmailService:
             username=user.username,
             email=user.email,
             change_details=change_details,
-            timestamp=datetime.now().strftime("%B %d, %Y at %I:%M %p UTC"),
+            timestamp=datetime.datetime.now().strftime("%B %d, %Y at %I:%M %p UTC"),
             ip_address=ip_address,
             account_url="https://giverai.me/account"
         )
@@ -269,7 +269,7 @@ class EmailVerification(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     token = Column(String, unique=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
     expires_at = Column(DateTime)
     verified = Column(Boolean, default=False)
     user = relationship("User")
@@ -285,13 +285,18 @@ def create_verification_record(user_id: int, db):
     verification = EmailVerification(
         user_id=user_id,
         token=token,
-        expires_at=datetime.utcnow()
+        expires_at=datetime.datetime.utcnow() + timedelta(hours=24)
+    )
+    db.add(verification)
+    db.commit()
+    return verification
+
 # ----- Auth Setup -----
 SECRET_KEY = "your-secret-key-here"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 
-# Also update the hash_password function with better debugging
+# Password hashing function with better debugging
 def hash_password(password: str) -> bytes:
     """Hash a password and return bytes for database storage"""
     try:
@@ -342,21 +347,19 @@ def verify_password(plain_password: str, hashed_password: bytes) -> bool:
         else:
             plain_password_bytes = plain_password
         
-        # Handle case where hashed_password might be stored as string
+        # Handle case where hashed_password might be stored as string or memoryview
         if isinstance(hashed_password, str):
             print("WARNING: hashed_password is string, converting to bytes")
             hashed_password = hashed_password.encode('utf-8')
+        elif isinstance(hashed_password, memoryview):
+            print("Converting memoryview to bytes")
+            hashed_password = bytes(hashed_password)
         
         return bcrypt.checkpw(plain_password_bytes, hashed_password)
         
     except Exception as e:
         print(f"Password verification error: {str(e)}")
         return False
-
-def verify_password(plain_password: str, hashed_password: bytes) -> bool:
-    # Ensure plain_password is encoded to bytes
-    plain_password_bytes = plain_password.encode('utf-8')
-    return bcrypt.checkpw(plain_password_bytes, hashed_password)
 
 def create_access_token(data: dict, expires_delta=None):
     to_encode = data.copy()
@@ -502,7 +505,6 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY", "your-openrouter-api-key-here")
 )
 
-# Add this to your migrate_database function
 def migrate_database():
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
@@ -551,7 +553,13 @@ def migrate_database():
                 except Exception as e:
                     print(f"Error adding {col_name}: {e}")
 
-    # First, let's create a function to check and fix the database
+    # Check and create other tables if needed
+    if 'generated_tweets' not in inspector.get_table_names():
+        Base.metadata.tables["generated_tweets"].create(bind=engine)
+    
+    if 'team_members' not in inspector.get_table_names():
+        Base.metadata.tables["team_members"].create(bind=engine)
+
 def fix_corrupted_user_data():
     """Fix corrupted hashed_password data in the database"""
     from sqlalchemy import create_engine, text
@@ -604,250 +612,21 @@ def fix_corrupted_user_data():
         import traceback
         traceback.print_exc()
 
-# Modified registration function that avoids the corrupted data
-@app.post("/register", response_class=HTMLResponse)  
-def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
-    db = SessionLocal()
-    try:
-        print(f"Starting registration for username: {username}")
-        
-        # Use raw SQL to avoid SQLAlchemy processing corrupted data
-        from sqlalchemy import text
-        
-        # Check username exists using raw SQL
-        result = db.execute(text("""
-            SELECT COUNT(*) FROM users WHERE username = :username
-        """), {"username": username})
-        username_count = result.scalar()
-        
-        if username_count > 0:
-            print(f"Username {username} already exists")
-            return templates.TemplateResponse("register.html", {
-                "request": request, 
-                "error": "Username already exists"
-            })
-        
-        # Check email exists using raw SQL  
-        result = db.execute(text("""
-            SELECT COUNT(*) FROM users WHERE email = :email
-        """), {"email": email})
-        email_count = result.scalar()
-        
-        if email_count > 0:
-            print(f"Email {email} already registered")
-            return templates.TemplateResponse("register.html", {
-                "request": request, 
-                "error": "Email already registered"
-            })
-        
-        # Hash the password
-        print("Hashing password...")
-        hashed_password = hash_password(password)
-        print(f"Password hashed successfully, type: {type(hashed_password)}")
-        
-        # Insert using raw SQL to avoid SQLAlchemy ORM issues
-        result = db.execute(text("""
-            INSERT INTO users (username, email, hashed_password, plan, is_active, created_at)
-            VALUES (:username, :email, :hashed_password, :plan, :is_active, :created_at)
-            RETURNING id
-        """), {
-            "username": username,
-            "email": email, 
-            "hashed_password": hashed_password,
-            "plan": "free",
-            "is_active": True,
-            "created_at": datetime.datetime.utcnow()
-        })
-        
-        user_id = result.fetchone()[0]
-        db.commit()
-        
-        print(f"User registered successfully with ID: {user_id}")
-        return RedirectResponse("/login", status_code=302)
-        
-    except Exception as e:
-        db.rollback()
-        error_msg = str(e)
-        print(f"Registration error: {error_msg}")
-        import traceback
-        traceback.print_exc()
-        
-        return templates.TemplateResponse("register.html", {
-            "request": request,
-            "error": "Registration failed. Please try again."
-        })
-    finally:
-        db.close()
+# Run migrations
+migrate_database()
 
-# Also fix the get_user function to handle corrupted data
-def get_user_safe(db, username: str):
-    """Get user using raw SQL to avoid corrupted data issues"""
-    try:
-        from sqlalchemy import text
-        result = db.execute(text("""
-            SELECT id, username, email, plan, is_active, created_at,
-                   stripe_customer_id, api_key, is_admin, role, industry, goals, posting_frequency
-            FROM users 
-            WHERE username = :username
-        """), {"username": username})
-        
-        row = result.fetchone()
-        if not row:
-            return None
-            
-        # Create a user-like object
-        class SafeUser:
-            def __init__(self, row):
-                self.id = row[0]
-                self.username = row[1] 
-                self.email = row[2]
-                self.plan = row[3] or "free"
-                self.is_active = row[4]
-                self.created_at = row[5]
-                self.stripe_customer_id = row[6]
-                self.api_key = row[7]
-                self.is_admin = row[8] or False
-                self.role = row[9]
-                self.industry = row[10]
-                self.goals = row[11]
-                self.posting_frequency = row[12]
-                
-        return SafeUser(row)
-        
-    except Exception as e:
-        print(f"Error getting user safely: {e}")
-        return None
+# ---- ROUTES ----
 
-# Updated authenticate_user_safe function
-def authenticate_user_safe(db, username: str, password: str):
-    """Authenticate user avoiding corrupted password data"""
-    try:
-        from sqlalchemy import text
-        
-        # Get user data including hashed password using raw SQL
-        result = db.execute(text("""
-            SELECT id, username, email, hashed_password, plan, is_active, created_at,
-                   stripe_customer_id, api_key, is_admin, role, industry, goals, posting_frequency
-            FROM users 
-            WHERE username = :username
-        """), {"username": username})
-        
-        row = result.fetchone()
-        if not row:
-            return None
-        
-        hashed_password = row[3]
-        print(f"Retrieved password type: {type(hashed_password)}")
-        
-        # Handle different password storage formats
-        if isinstance(hashed_password, str):
-            # If stored as string, convert to bytes
-            hashed_password = hashed_password.encode('utf-8')
-        elif isinstance(hashed_password, memoryview):
-            # Convert memoryview to bytes - THIS IS THE FIX
-            hashed_password = bytes(hashed_password)
-            print(f"Converted memoryview to bytes: {type(hashed_password)}")
-        elif hashed_password is None:
-            print("Password is None")
-            return None
-        
-        # Verify password
-        password_valid = verify_password(password, hashed_password)
-        if not password_valid:
-            return None
-        
-        # Create user object
-        class SafeUser:
-            def __init__(self, row):
-                self.id = row[0]
-                self.username = row[1]
-                self.email = row[2] 
-                self.plan = row[4] or "free"
-                self.is_active = row[5]
-                self.created_at = row[6]
-                self.stripe_customer_id = row[7]
-                self.api_key = row[8]
-                self.is_admin = row[9] or False
-                self.role = row[10]
-                self.industry = row[11]
-                self.goals = row[12]
-                self.posting_frequency = row[13]
-                
-        return SafeUser(row)
-        
-    except Exception as e:
-        print(f"Authentication error: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    user = get_optional_user(request)
+    return templates.TemplateResponse("index.html", {"request": request, "user": user})
 
-# Updated verify_password function
-def verify_password(plain_password: str, hashed_password: bytes) -> bool:
-    """Verify a password against a hash"""
-    try:
-        print(f"verify_password called with hash type: {type(hashed_password)}")
-        
-        # Ensure plain_password is bytes
-        if isinstance(plain_password, str):
-            plain_password_bytes = plain_password.encode('utf-8')
-        else:
-            plain_password_bytes = plain_password
-        
-        # Handle case where hashed_password might be stored as string or memoryview
-        if isinstance(hashed_password, str):
-            print("WARNING: hashed_password is string, converting to bytes")
-            hashed_password = hashed_password.encode('utf-8')
-        elif isinstance(hashed_password, memoryview):
-            print("Converting memoryview to bytes")
-            hashed_password = bytes(hashed_password)
-        
-        return bcrypt.checkpw(plain_password_bytes, hashed_password)
-        
-    except Exception as e:
-        print(f"Password verification error: {str(e)}")
-        return False
+@app.get("/register", response_class=HTMLResponse)
+def register(request: Request):
+    user = get_optional_user(request)
+    return templates.TemplateResponse("register.html", {"request": request, "user": user})
 
-# Updated hash_password function to ensure proper bytes handling
-def hash_password(password: str) -> bytes:
-    """Hash a password and return bytes for database storage"""
-    try:
-        print(f"hash_password called with password type: {type(password)}")
-        
-        # Ensure we're working with bytes for bcrypt
-        if isinstance(password, str):
-            password_bytes = password.encode('utf-8')
-            print("Converted password string to bytes")
-        else:
-            password_bytes = password
-            print("Password was already bytes")
-        
-        print("Generating salt...")
-        salt = bcrypt.gensalt()
-        print(f"Salt type: {type(salt)}")
-        
-        print("Hashing password...")
-        hashed = bcrypt.hashpw(password_bytes, salt)
-        print(f"bcrypt.hashpw returned type: {type(hashed)}")
-        
-        # bcrypt should always return bytes, but let's be extra safe
-        if isinstance(hashed, str):
-            print("WARNING: bcrypt returned string, converting to bytes")
-            return hashed.encode('utf-8')
-        
-        if not isinstance(hashed, bytes):
-            raise ValueError(f"bcrypt returned unexpected type: {type(hashed)}")
-        
-        print(f"Returning hashed password of type: {type(hashed)}")
-        return hashed
-        
-    except Exception as e:
-        print(f"Password hashing error: {str(e)}")
-        print(f"Error type: {type(e)}")
-        import traceback
-        traceback.print_exc()
-        raise ValueError(f"Failed to hash password: {str(e)}")
-
-# Updated registration function with better error handling
 @app.post("/register", response_class=HTMLResponse)
 def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
@@ -926,231 +705,6 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
     finally:
         db.close()
 
-    # Check and create other tables if needed
-    if 'generated_tweets' not in inspector.get_table_names():
-        Base.metadata.tables["generated_tweets"].create(bind=engine)
-    
-    if 'team_members' not in inspector.get_table_names():
-        Base.metadata.tables["team_members"].create(bind=engine)
-
-# Alternative: Create a completely new User model to ensure proper types
-class UserV2(Base):
-    __tablename__ = "users_v2"
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(LargeBinary, nullable=False)  # Ensure this is LargeBinary
-    plan = Column(String, default="free")
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    stripe_customer_id = Column(String, nullable=True)
-    api_key = Column(String, nullable=True)
-    is_admin = Column(Boolean, default=False)
-    role = Column(String, nullable=True)
-    industry = Column(String, nullable=True)
-    goals = Column(String, nullable=True)
-    posting_frequency = Column(String, nullable=True)
-
-# Function to migrate existing users to new table structure
-def migrate_users_to_v2():
-    """Migrate users from old table to new table with proper binary storage"""
-    engine = create_engine(DATABASE_URL)
-    
-    # Create the new table
-    UserV2.__table__.create(engine, checkfirst=True)
-    
-    db = SessionLocal()
-    try:
-        # Get all existing users
-        old_users = db.query(User).all()
-        
-        for old_user in old_users:
-            # Check if user already exists in v2 table
-            existing = db.query(UserV2).filter(UserV2.username == old_user.username).first()
-            if existing:
-                continue
-            
-            # Handle the password - it might be stored as string in old table
-            if isinstance(old_user.hashed_password, str):
-                # If it's a bcrypt hash stored as string, encode it
-                hashed_password = old_user.hashed_password.encode('utf-8')
-            else:
-                hashed_password = old_user.hashed_password
-            
-            new_user = UserV2(
-                username=old_user.username,
-                email=old_user.email,
-                hashed_password=hashed_password,
-                plan=getattr(old_user, 'plan', 'free'),
-                is_active=old_user.is_active,
-                created_at=old_user.created_at,
-                stripe_customer_id=getattr(old_user, 'stripe_customer_id', None),
-                api_key=getattr(old_user, 'api_key', None),
-                is_admin=getattr(old_user, 'is_admin', False),
-                role=getattr(old_user, 'role', None),
-                industry=getattr(old_user, 'industry', None),
-                goals=getattr(old_user, 'goals', None),
-                posting_frequency=getattr(old_user, 'posting_frequency', None)
-            )
-            
-            db.add(new_user)
-        
-        db.commit()
-        print("Successfully migrated users to v2 table")
-        
-    except Exception as e:
-        print(f"Migration error: {e}")
-        db.rollback()
-    finally:
-        db.close()
-    
-    # Check and create other tables if needed
-    if 'generated_tweets' not in inspector.get_table_names():
-        Base.metadata.tables["generated_tweets"].create(bind=engine)
-    
-    if 'team_members' not in inspector.get_table_names():
-        Base.metadata.tables["team_members"].create(bind=engine)
-            
-    # Check if stripe_customer_id column exists
-    if 'users' in inspector.get_table_names():
-        columns = [col['name'] for col in inspector.get_columns('users')]
-        if 'stripe_customer_id' not in columns:
-            with engine.begin() as conn:
-                conn.execute(text("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR"))
-            print("Added stripe_customer_id column to users table")
-    
-    # Check if plan column exists
-    if 'users' in inspector.get_table_names():
-        columns = [col['name'] for col in inspector.get_columns('users')]
-        if 'plan' not in columns:
-            with engine.begin() as conn:
-                conn.execute(text("ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'"))
-            print("Added plan column to users table")
-            
-    # Check if generated_tweets table exists
-    if 'generated_tweets' not in inspector.get_table_names():
-        Base.metadata.tables["generated_tweets"].create(bind=engine)
-        print("Created generated_tweets table")
-    
-    # Add API key column to users
-    if 'users' in inspector.get_table_names():
-        columns = [col['name'] for col in inspector.get_columns('users')]
-        if 'api_key' not in columns:
-            with engine.begin() as conn:
-                conn.execute(text("ALTER TABLE users ADD COLUMN api_key VARCHAR"))
-            print("Added api_key column to users table")
-
-    # Check if team_members table exists
-    if 'team_members' not in inspector.get_table_names():
-        Base.metadata.tables["team_members"].create(bind=engine)
-        print("Created team_members table")
-
-    # Add sequence reset logic at the end
-    with engine.begin() as conn:
-        # Reset sequences for all tables
-        tables = ["users", "generated_tweets", "usage", "team_members"]
-        for table in tables:
-            try:
-                # Get current max ID
-                result = conn.execute(text(f"SELECT MAX(id) FROM {table}"))
-                max_id = result.scalar() or 0
-                
-                # Reset sequence to next available ID
-                conn.execute(
-                    text(f"ALTER SEQUENCE {table}_id_seq RESTART WITH {max_id + 1}")
-                )
-                print(f"Reset sequence for {table} to {max_id + 1}")
-            except Exception as e:
-                print(f"Error resetting sequence for {table}: {str(e)}")
-
-# Run migrations
-migrate_database()
-
-# ---- ROUTES ----
-
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request):
-    user = get_optional_user(request)
-    return templates.TemplateResponse("index.html", {"request": request, "user": user})
-
-@app.get("/register", response_class=HTMLResponse)
-def register(request: Request):
-    user = get_optional_user(request)
-    return templates.TemplateResponse("register.html", {"request": request, "user": user})
-
-@app.post("/register", response_class=HTMLResponse)
-def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
-    db = SessionLocal()
-    try:
-        print(f"Starting registration for username: {username}")
-        
-        # Check if username exists
-        existing_user = db.query(User).filter(User.username == username).first()
-        if existing_user:
-            print(f"Username {username} already exists")
-            return templates.TemplateResponse("register.html", {
-                "request": request, 
-                "error": "Username already exists"
-            })
-        
-        # Check if email exists
-        existing_email = db.query(User).filter(User.email == email).first()
-        if existing_email:
-            print(f"Email {email} already registered")
-            return templates.TemplateResponse("register.html", {
-                "request": request, 
-                "error": "Email already registered"
-            })
-        
-        # Hash the password with detailed debugging
-        print("Starting password hashing...")
-        hashed_password = hash_password(password)
-        print(f"Hashed password type: {type(hashed_password)}")
-        print(f"Hashed password length: {len(hashed_password) if hashed_password else 'None'}")
-        
-        # Double-check the type
-        if not isinstance(hashed_password, bytes):
-            print(f"ERROR: hashed_password is not bytes, it's {type(hashed_password)}")
-            if isinstance(hashed_password, str):
-                print("Converting string to bytes...")
-                hashed_password = hashed_password.encode('utf-8')
-            else:
-                raise ValueError(f"Unexpected password hash type: {type(hashed_password)}")
-        
-        print("Creating User object...")
-        user = User(
-            username=username, 
-            email=email, 
-            hashed_password=hashed_password
-        )
-        
-        print("Adding user to database...")
-        db.add(user)
-        
-        print("Committing transaction...")
-        db.commit()
-        
-        print("Registration successful!")
-        return RedirectResponse("/onboarding", status_code=302)
-        
-    except Exception as e:
-        db.rollback()
-        error_msg = str(e)
-        print(f"Registration error details: {error_msg}")
-        print(f"Error type: {type(e)}")
-        
-        # Print the full traceback for debugging
-        import traceback
-        print("Full traceback:")
-        traceback.print_exc()
-        
-        return templates.TemplateResponse("register.html", {
-            "request": request,
-            "error": f"Registration failed: {error_msg}"
-        })
-    finally:
-        db.close()
-        
 @app.get("/login", response_class=HTMLResponse)
 def login_get(request: Request):
     user = get_optional_user(request)
@@ -1226,126 +780,6 @@ def logout():
     response.delete_cookie("access_token")
     return response
 
-# email
-# Add this function first (before your routes)
-def send_email_sync(to_email: str, subject: str, body: str) -> bool:
-    """Send email with proper sender name display"""
-    try:
-        smtp_server = os.getenv("SMTP_SERVER")
-        smtp_port = int(os.getenv("SMTP_PORT", 587))
-        smtp_username = os.getenv("SMTP_USERNAME")
-        smtp_password = os.getenv("SMTP_PASSWORD")
-        from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
-        
-        # Validate required environment variables
-        if not all([smtp_server, smtp_username, smtp_password, from_email]):
-            print("❌ Missing required email environment variables")
-            return False
-        
-        print(f"🔗 Connecting to SMTP server: {smtp_server}:{smtp_port}")
-        print(f"📧 From email: {from_email}")
-        
-        # Create message
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        
-        # 🔥 THIS IS THE FIX - Proper sender name formatting:
-        msg['From'] = f"GiverAI <{from_email}>"  # This sets the display name
-        # Alternative formats that work:
-        # msg['From'] = f'"GiverAI" <{from_email}>'
-        # msg['From'] = f'GiverAI Team <{from_email}>'
-        
-        msg['To'] = to_email
-        msg['Reply-To'] = from_email  # Where replies go
-        
-        # Add HTML body
-        html_part = MIMEText(body, 'html')
-        msg.attach(html_part)
-        
-        print(f"👤 Sender will show as: GiverAI <{from_email}>")
-        
-        # Connect to server and send email
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-            server.send_message(msg)
-            
-        print(f"✅ Email sent successfully to {to_email}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Failed to send email: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-# Or even better - use environment variable for sender name
-def send_email_with_env_name(to_email: str, subject: str, body: str) -> bool:
-    """Send email with sender name from environment variable"""
-    try:
-        smtp_server = os.getenv("SMTP_SERVER")
-        smtp_port = int(os.getenv("SMTP_PORT", 587))
-        smtp_username = os.getenv("SMTP_USERNAME")
-        smtp_password = os.getenv("SMTP_PASSWORD")
-        from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
-        
-        # 🔥 NEW: Get sender name from environment
-        sender_name = os.getenv("EMAIL_SENDER_NAME", "GiverAI")
-        
-        if not all([smtp_server, smtp_username, smtp_password, from_email]):
-            print("❌ Missing required email environment variables")
-            return False
-        
-        # Create message
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = f"{sender_name} <{from_email}>"  # Use env variable
-        msg['To'] = to_email
-        
-        # Add HTML body
-        html_part = MIMEText(body, 'html')
-        msg.attach(html_part)
-        
-        print(f"👤 Email will show from: {sender_name} <{from_email}>")
-        
-        # Send email
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-            server.send_message(msg)
-            
-        print(f"✅ Email sent successfully to {to_email}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Failed to send email: {str(e)}")
-        return False
-
-# Quick test to see current vs fixed sender name
-@app.get("/test-sender-name")
-def test_sender_name():
-    """Test different sender name formats"""
-    
-    # Test current (broken) format
-    def test_broken():
-        msg = MIMEMultipart()
-        msg['From'] = os.getenv("EMAIL_FROM", "noreply@giverai.me")
-        print(f"❌ Broken format: {msg['From']}")
-        return str(msg['From'])
-    
-    # Test fixed format
-    def test_fixed():
-        from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
-        sender_display = f"GiverAI <{from_email}>"
-        print(f"✅ Fixed format: {sender_display}")
-        return sender_display
-    
-    return {
-        "current_broken": test_broken(),
-        "fixed_version": test_fixed(),
-        "recommendation": "Use the fixed version in your send_email function"
-    }
-    
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
 def account(request: Request, user: User = Depends(get_current_user)):
