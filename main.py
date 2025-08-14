@@ -659,9 +659,18 @@ def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "user": user})
 
 @app.get("/register", response_class=HTMLResponse)
-def register(request: Request):
+def register(request: Request, success: str = None):
     user = get_optional_user(request)
-    return templates.TemplateResponse("register.html", {"request": request, "user": user})
+    success_message = None
+    
+    if success == "registration_complete":
+        success_message = "Registration successful! Please check your email to verify your account."
+    
+    return templates.TemplateResponse("register.html", {
+        "request": request, 
+        "user": user,
+        "success": success_message
+    })
 
 @app.post("/register", response_class=HTMLResponse)
 def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
