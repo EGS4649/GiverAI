@@ -3,7 +3,7 @@ from datetime import timedelta
 import os
 import secrets
 import hashlib
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -273,6 +273,7 @@ class EmailVerification(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     expires_at = Column(DateTime)
     verified = Column(Boolean, default=False)
+    verified_at = Column(DateTime, nullable=True)  # Add this line
     user = relationship("User")
 
 # Helper functions
@@ -731,7 +732,7 @@ def verify_email(request: Request, token: str = Query(...)):
         
         # Mark email as verified
         verification.verified = True
-        verification.verified_at = datetime.datetime.utcnow()
+        verification.verified_at = datetime.datetime.utcnow()  # Set verification time
         db.commit()
         
         # Update user status
