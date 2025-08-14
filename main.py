@@ -514,7 +514,7 @@ def migrate_database():
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
     
-    # Check and add all missing columns
+    # Check and add all missing columns to users table
     if 'users' in inspector.get_table_names():
         columns = [col['name'] for col in inspector.get_columns('users')]
         
@@ -558,12 +558,43 @@ def migrate_database():
                 except Exception as e:
                     print(f"Error adding {col_name}: {e}")
 
-    # Check and create other tables if needed
-    if 'generated_tweets' not in inspector.get_table_names():
-        Base.metadata.tables["generated_tweets"].create(bind=engine)
+    # Get list of existing tables
+    existing_tables = inspector.get_table_names()
     
-    if 'team_members' not in inspector.get_table_names():
-        Base.metadata.tables["team_members"].create(bind=engine)
+    # Create missing tables
+    tables_to_create = []
+    
+    if 'generated_tweets' not in existing_tables:
+        tables_to_create.append('generated_tweets')
+    
+    if 'team_members' not in existing_tables:
+        tables_to_create.append('team_members')
+        
+    if 'email_verifications' not in existing_tables:
+        tables_to_create.append('email_verifications')
+    
+    if 'usage' not in existing_tables:
+        tables_to_create.append('usage')
+    
+    # Create the missing tables
+    if tables_to_create:
+        print(f"Creating missing tables: {tables_to_create}")
+        try:
+            # Create all tables defined in Base.metadata
+            Base.metadata.create_all(bind=engine)
+            print("All missing tables created successfully")
+        except Exception as e:
+            print(f"Error creating tables: {e}")
+            # Try creating them individually
+            for table_name in tables_to_create:
+                try:
+                    if table_name in Base.metadata.tables:
+                        Base.metadata.tables[table_name].create(bind=engine)
+                        print(f"Created {table_name} table")
+                except Exception as table_error:
+                    print(f"Error creating {table_name}: {table_error}")
+    
+    print("Database migration completed")
 
 def fix_corrupted_user_data():
     """Fix corrupted hashed_password data in the database"""
