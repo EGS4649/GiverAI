@@ -691,6 +691,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
             print(f"Username {username} already exists")
             return templates.TemplateResponse("register.html", {
                 "request": request, 
+                "user": None,
                 "error": "Username already exists"
             })
         
@@ -704,10 +705,11 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
             print(f"Email {email} already registered")
             return templates.TemplateResponse("register.html", {
                 "request": request, 
+                "user": None,
                 "error": "Email already registered"
             })
         
-         # Hash the password
+        # Hash the password
         print("Hashing password...")
         hashed_password = hash_password(password)
         print(f"Password hashed successfully, type: {type(hashed_password)}")
@@ -735,13 +737,28 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         # Send verification email
         db_user = db.query(User).filter(User.id == user_id).first()
         if db_user:
-            email_service.send_verification_email(db_user, verification.token)
+            try:
+                email_service.send_verification_email(db_user, verification.token)
+                print("✅ Verification email sent successfully")
+            except Exception as e:
+                print(f"❌ Failed to send verification email: {str(e)}")
         
         # Also send welcome email
-        email_service.send_welcome_email(db_user)
+        try:
+            email_service.send_welcome_email(db_user)
+            print("✅ Welcome email sent successfully")
+        except Exception as e:
+            print(f"❌ Failed to send welcome email: {str(e)}")
         
         print(f"User registered successfully with ID: {user_id}")
-        return RedirectResponse("/register", status_code=302)
+        
+        # Return success template instead of redirect
+        return templates.TemplateResponse("register_success.html", {
+            "request": request,
+            "user": None,
+            "username": username,
+            "email": email
+        })
         
     except Exception as e:
         db.rollback()
@@ -752,6 +769,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         
         return templates.TemplateResponse("register.html", {
             "request": request,
+            "user": None,
             "error": "Registration failed. Please try again."
         })
     finally:
@@ -1603,7 +1621,7 @@ async def generate(request: Request):
     finally:
         db.close()
         
-# Email Templates
+# Fixed Email Templates with simpler CSS
 EMAIL_TEMPLATES = {
     "welcome": {
         "subject": "Welcome to GiverAI! Your Twitter Content Creation Journey Starts Now 🚀",
@@ -1611,13 +1629,53 @@ EMAIL_TEMPLATES = {
         <html>
         <head>
             <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-                .button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 15px 0; }
-                .feature-box { background: #f8f9fa; padding: 15px; margin: 10px 0; border-left: 4px solid #667eea; border-radius: 4px; }
-                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+                body { 
+                    font-family: Arial, sans-serif; 
+                    line-height: 1.6; 
+                    color: #333; 
+                    margin: 0; 
+                    padding: 0; 
+                }
+                .container { 
+                    max-width: 600px; 
+                    margin: 0 auto; 
+                    padding: 20px; 
+                }
+                .header { 
+                    background: #667eea; 
+                    color: white; 
+                    padding: 30px; 
+                    text-align: center; 
+                    border-radius: 8px 8px 0 0; 
+                }
+                .content { 
+                    background: white; 
+                    padding: 30px; 
+                    border-radius: 0 0 8px 8px; 
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+                }
+                .button { 
+                    display: inline-block; 
+                    background: #667eea; 
+                    color: white; 
+                    padding: 12px 24px; 
+                    text-decoration: none; 
+                    border-radius: 6px; 
+                    margin: 15px 0; 
+                }
+                .feature-box { 
+                    background: #f8f9fa; 
+                    padding: 15px; 
+                    margin: 10px 0; 
+                    border-left: 4px solid #667eea; 
+                    border-radius: 4px; 
+                }
+                .footer { 
+                    text-align: center; 
+                    margin-top: 30px; 
+                    color: #666; 
+                    font-size: 12px; 
+                }
             </style>
         </head>
         <body>
@@ -1668,13 +1726,56 @@ EMAIL_TEMPLATES = {
         <html>
         <head>
             <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-                .verify-button { display: inline-block; background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-size: 18px; font-weight: bold; }
-                .verification-code { background: #f8f9fa; padding: 20px; margin: 20px 0; text-align: center; border-radius: 8px; border: 2px dashed #667eea; }
-                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+                body { 
+                    font-family: Arial, sans-serif; 
+                    line-height: 1.6; 
+                    color: #333; 
+                    margin: 0; 
+                    padding: 0; 
+                }
+                .container { 
+                    max-width: 600px; 
+                    margin: 0 auto; 
+                    padding: 20px; 
+                }
+                .header { 
+                    background: #667eea; 
+                    color: white; 
+                    padding: 30px; 
+                    text-align: center; 
+                    border-radius: 8px 8px 0 0; 
+                }
+                .content { 
+                    background: white; 
+                    padding: 30px; 
+                    border-radius: 0 0 8px 8px; 
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+                }
+                .verify-button { 
+                    display: inline-block; 
+                    background: #28a745; 
+                    color: white; 
+                    padding: 15px 30px; 
+                    text-decoration: none; 
+                    border-radius: 6px; 
+                    margin: 20px 0; 
+                    font-size: 18px; 
+                    font-weight: bold; 
+                }
+                .verification-code { 
+                    background: #f8f9fa; 
+                    padding: 20px; 
+                    margin: 20px 0; 
+                    text-align: center; 
+                    border-radius: 8px; 
+                    border: 2px dashed #667eea; 
+                }
+                .footer { 
+                    text-align: center; 
+                    margin-top: 30px; 
+                    color: #666; 
+                    font-size: 12px; 
+                }
             </style>
         </head>
         <body>
@@ -1711,7 +1812,8 @@ EMAIL_TEMPLATES = {
         </body>
         </html>
         """
-    },
+    }
+}
     
     "account_changed": {
         "subject": "Your GiverAI Account Was Updated 🔐",
