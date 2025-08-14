@@ -90,6 +90,111 @@ class TeamMember(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     user = relationship("User")
 
+# Simplified EmailService class
+class SimpleEmailService:
+    def __init__(self):
+        self.smtp_server = os.getenv("SMTP_SERVER")
+        self.smtp_port = int(os.getenv("SMTP_PORT", 587))
+        self.smtp_username = os.getenv("SMTP_USERNAME")
+        self.smtp_password = os.getenv("SMTP_PASSWORD")
+        self.from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+        
+    def send_simple_email(self, to_email: str, subject: str, html_body: str) -> bool:
+        """Send email with simple HTML"""
+        try:
+            if not all([self.smtp_server, self.smtp_username, self.smtp_password]):
+                print("❌ Missing email configuration")
+                return False
+            
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = self.from_email
+            msg['To'] = to_email
+            
+            html_part = MIMEText(html_body, 'html')
+            msg.attach(html_part)
+            
+            # Send email
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls()
+                server.login(self.smtp_username, self.smtp_password)
+                server.send_message(msg)
+                
+            print(f"✅ Simple email sent to {to_email}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to send simple email: {str(e)}")
+            return False
+    
+    def send_verification_email(self, user, verification_token):
+        """Send verification email with simple template"""
+        verification_code = verification_token[-6:]
+        verification_url = f"https://giverai.me/verify-email?token={verification_token}"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h1 style="color: #667eea;">Verify Your Email</h1>
+                <p>Hi {user.username}!</p>
+                <p>Please verify your email address by clicking the button below:</p>
+                <p>
+                    <a href="{verification_url}" 
+                       style="background: #28a745; color: white; padding: 12px 24px; 
+                              text-decoration: none; border-radius: 4px; display: inline-block;">
+                        Verify Email Address
+                    </a>
+                </p>
+                <p>Or use this verification code: <strong>{verification_code}</strong></p>
+                <p>This link expires in 24 hours.</p>
+                <p>Best regards,<br>The GiverAI Team</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self.send_simple_email(
+            user.email,
+            "Verify Your GiverAI Account",
+            html_body
+        )
+    
+    def send_welcome_email(self, user):
+        """Send welcome email with simple template"""
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h1 style="color: #667eea;">Welcome to GiverAI!</h1>
+                <p>Hi {user.username}!</p>
+                <p>Welcome to GiverAI - your AI-powered Twitter content creation platform.</p>
+                <h3>Your Free Plan Includes:</h3>
+                <ul>
+                    <li>15 AI-generated tweets per day</li>
+                    <li>Basic customization options</li>
+                    <li>1-day tweet history</li>
+                </ul>
+                <p>
+                    <a href="https://giverai.me/dashboard" 
+                       style="background: #667eea; color: white; padding: 12px 24px; 
+                              text-decoration: none; border-radius: 4px; display: inline-block;">
+                        Start Creating Tweets
+                    </a>
+                </p>
+                <p>Happy tweeting!<br>The GiverAI Team</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self.send_simple_email(
+            user.email,
+            "Welcome to GiverAI!",
+            html_body
+        )
+
 # Account Management Models
 class PasswordChange(BaseModel):
     current_password: str
@@ -260,6 +365,67 @@ class EmailService:
             feedback_url="https://giverai.me/feedback",
             signup_url="https://giverai.me/register"
         )
+        
+def test_simple_email(to_email: str):
+    """Simple email test with minimal HTML"""
+    try:
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = int(os.getenv("SMTP_PORT", 587))
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+        from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+        
+        print(f"📧 Email Config:")
+        print(f"   Server: {smtp_server}")
+        print(f"   Port: {smtp_port}")
+        print(f"   Username: {smtp_username}")
+        print(f"   From: {from_email}")
+        print(f"   To: {to_email}")
+        
+        if not all([smtp_server, smtp_username, smtp_password]):
+            print("❌ Missing email configuration")
+            return False
+        
+        # Create simple message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = "Test Email from GiverAI"
+        msg['From'] = from_email
+        msg['To'] = to_email
+        
+        # Simple HTML body
+        html_body = """
+        <html>
+        <body>
+            <h2>Test Email</h2>
+            <p>This is a test email from GiverAI.</p>
+            <p>If you see this, the email service is working!</p>
+        </body>
+        </html>
+        """
+        
+        html_part = MIMEText(html_body, 'html')
+        msg.attach(html_part)
+        
+        # Send email
+        print("📤 Connecting to SMTP server...")
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            print("🔒 Starting TLS...")
+            server.starttls()
+            print("🔑 Logging in...")
+            server.login(smtp_username, smtp_password)
+            print("📧 Sending message...")
+            server.send_message(msg)
+            print("✅ Email sent successfully!")
+            
+        return True
+        
+    except Exception as e:
+        print(f"❌ Email error: {str(e)}")
+        print(f"   Error type: {type(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
         
 # Initialize email service
 email_service = EmailService()
@@ -886,6 +1052,12 @@ def logout():
     response = RedirectResponse("/", status_code=302)
     response.delete_cookie("access_token")
     return response
+
+@app.get("/debug-email")
+def debug_email(email: str = "test@example.com"):
+    """Debug email configuration"""
+    result = test_simple_email(email)
+    return {"status": "success" if result else "failed"}
 
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
