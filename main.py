@@ -1116,6 +1116,37 @@ def team_management(request: Request, user: User = Depends(get_current_user)):
     finally:
         db.close()
 
+@app.get("/onboarding", response_class=HTMLResponse)
+def onboarding_get(request: Request):
+    user = get_optional_user(request)
+    return templates.TemplateResponse("onboarding.html", {"request": request, "user": user})
+
+@app.post("/onboarding", response_class=HTMLResponse)
+def onboarding_post(request: Request,
+                   role: str = Form(...),
+                   industry: str = Form(...),
+                   goals: str = Form(...),
+                   posting_frequency: str = Form(...)):
+    db = SessionLocal()
+    try:
+        user = get_optional_user(request)  
+        if user:
+            # Update existing user
+            db_user = db.query(User).filter(User.id == user.id).first()
+            if db_user:
+                db_user.role = role
+                db_user.industry = industry
+                db_user.goals = goals
+                db_user.posting_frequency = posting_frequency
+                db.commit()
+                print(f"Updated onboarding for user: {db_user.username}")
+                return RedirectResponse("/dashboard", status_code=302)
+        
+        # If no user (new registration flow), redirect to login
+        return RedirectResponse("/login", status_code=302)
+    finally:
+        db.close()
+
 @app.post("/account/change_password")
 async def change_password(
     request: Request,
