@@ -97,7 +97,8 @@ class SimpleEmailService:
         self.smtp_port = int(os.getenv("SMTP_PORT", 587))
         self.smtp_username = os.getenv("SMTP_USERNAME")
         self.smtp_password = os.getenv("SMTP_PASSWORD")
-        self.from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+        self.from_email = os.getenv("EMAIL_FROM")
+        self.from_name =  os.getenv("EMAIL_SENDER_NAME")
         
     def send_simple_email(self, to_email: str, subject: str, html_body: str) -> bool:
         """Send email with simple HTML"""
@@ -109,7 +110,7 @@ class SimpleEmailService:
             # Create message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
-            msg['From'] = self.from_email
+            msg['From'] = f"{self.from_name} <{self.from_email}>"
             msg['To'] = to_email
             
             html_part = MIMEText(html_body, 'html')
