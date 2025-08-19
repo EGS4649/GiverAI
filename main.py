@@ -1155,31 +1155,17 @@ async def change_password(
     new_password: str = Form(...),
     user: User = Depends(get_current_user)
 ):
-    # First get IP address from request
-    ip_address = request.client.host if request.client else "Unknown"
-
-     if not verify_password(current_password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Incorrect current password")
-        user.hashed_password = hash_password(new_password)
-        db.session.commit()
-
-    # Send email notification after password successfully changed
-    email_service = EmailService()
-    email_service.send_account_changed_email(
-        user,
-        change_details="Your password was changed successfully.",
-        ip_address=ip_address
-    )
-
-    return {"detail": "Password changed and notification sent."}
-
     db = SessionLocal()
     try:
-        # We need to load the hashed_password for verification
+        # Get IP address from request
+        ip_address = request.client.host if request.client else "Unknown"
+
+        # Load user from DB for verification
         db_user = db.query(User).filter(User.id == user.id).first()
-        
+
+        # Verify current password
         if not verify_password(current_password, db_user.hashed_password):
-            # Apply features to user object
+            # Apply features to user object for rendering
             db_user = apply_plan_features(db_user)
             return templates.TemplateResponse("account.html", {
                 "request": request,
@@ -1187,17 +1173,27 @@ async def change_password(
                 "error": "Current password is incorrect"
             })
 
-        # Update password
+        # Update user's hashed password
         db_user.hashed_password = hash_password(new_password)
         db.commit()
-        
-        # Apply features to user object
+
+        # Apply features to user object for rendering
         db_user = apply_plan_features(db_user)
+
+        # Send email notification after password successfully changed
+        email_service = EmailService()
+        email_service.send_account_changed_email(
+            user,
+            change_details="Your password was changed successfully.",
+            ip_address=ip_address
+        )
+
         return templates.TemplateResponse("account.html", {
             "request": request,
             "user": db_user,
             "success": "Password updated successfully!"
         })
+
     finally:
         db.close()
 
