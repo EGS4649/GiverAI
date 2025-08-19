@@ -98,119 +98,135 @@ class EmailService:
         self.smtp_password = os.getenv("SMTP_PASSWORD")
         self.from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
         self.sender_name = os.getenv("EMAIL_SENDER_NAME", "GiverAI")
-        
+
     def send_simple_email(self, to_email: str, subject: str, html_body: str) -> bool:
-        """Send email with simple HTML"""
+        """Send an email with simple HTML"""
         try:
             if not all([self.smtp_server, self.smtp_username, self.smtp_password]):
                 print("❌ Missing email configuration")
                 return False
-            
+
             # Create message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = f"{self.sender_name} <{self.from_email}>"
-            msg['To'] = to_email
-            
-            html_part = MIMEText(html_body, 'html')
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = f"{self.sender_name} <{self.from_email}>"
+            msg["To"] = to_email
+
+            html_part = MIMEText(html_body, "html")
             msg.attach(html_part)
-            
+
             # Send email
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()
                 server.login(self.smtp_username, self.smtp_password)
                 server.send_message(msg)
-                
+
             print(f"✅ Email sent to {to_email}")
             return True
-            
+
         except Exception as e:
             print(f"❌ Failed to send email: {str(e)}")
             return False
-    
+
     def send_verification_email(self, user, verification_token):
         """Send verification email with simple template"""
         verification_code = verification_token[-6:]
         verification_url = f"https://giverai.me/verify-email?token={verification_token}"
-        
+
         html_body = f"""
         <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
+          <body style="font-family: Arial, sans-serif; color: #333;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h1 style="color: #667eea;">Verify Your Email</h1>
-                <p>Hi {user.username}!</p>
-                <p>Please verify your email address by clicking the button below:</p>
-                <p>
-                    <a href="{verification_url}" 
-                       style="background: #28a745; color: white; padding: 12px 24px; 
-                              text-decoration: none; border-radius: 4px; display: inline-block;">
-                        Verify Email Address
-                    </a>
-                </p>
-                <p>Or use this verification code: <strong>{verification_code}</strong></p>
-                <p>This link expires in 24 hours.</p>
-                <p>Best regards,<br>The GiverAI Team</p>
+              <h1 style="color: #667eea;">Verify Your Email</h1>
+              <p>Hi {user.username}!</p>
+              <p>Please verify your email address by clicking the button below:</p>
+              <p>
+                <a href="{verification_url}"
+                   style="background: #28a745; color: white; padding: 12px 24px;
+                          text-decoration: none; border-radius: 4px;
+                          display: inline-block;">
+                  Verify Email Address
+                </a>
+              </p>
+              <p>Or use this verification code: <strong>{verification_code}</strong></p>
+              <p>This link expires in 24 hours.</p>
+              <p>Best regards,<br>The GiverAI Team</p>
             </div>
-        </body>
+          </body>
         </html>
         """
-        
+
         return self.send_simple_email(
             user.email,
             "Verify Your GiverAI Account",
             html_body
         )
-    
-   def send_welcome_email(self, user):
+
+  def send_welcome_email(self, user):
         """Send welcome email to new user"""
         html_body = f"""
         <html>
-        <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="background: #667eea; color: white; padding: 30px; text-align: center; border-radius: 8px;">
-                    <h1 style="margin: 0; color: white;">Welcome to GiverAI! 🎉</h1>
-                    <p style="margin: 10px 0 0 0; color: white;">Your AI-powered Twitter content creation platform</p>
+
+              <div style="background: #667eea; color: white; padding: 30px;
+                          text-align: center; border-radius: 8px;">
+                <h1 style="margin: 0; color: white;">Welcome to GiverAI! 🎉</h1>
+                <p style="margin: 10px 0 0 0; color: white;">
+                  Your AI-powered Twitter content creation platform
+                </p>
+              </div>
+
+              <div style="padding: 30px; background: white; border: 1px solid #eee;
+                          border-radius: 0 0 8px 8px;">
+                <h2 style="color: #333;">Hi {user.username}! 👋</h2>
+                <p>
+                  We're thrilled to have you join our community of content creators
+                  who are transforming their Twitter presence with AI.
+                </p>
+
+                <div style="background: #f8f9fa; padding: 15px; margin: 15px 0;
+                            border-radius: 6px; border-left: 4px solid #667eea;">
+                  <h3 style="margin-top: 0; color: #333;">✨ Your Free Plan Includes:</h3>
+                  <ul style="margin: 0; padding-left: 20px;">
+                    <li>15 AI-generated tweets per day</li>
+                    <li>Basic customization options</li>
+                    <li>1-day tweet history</li>
+                  </ul>
                 </div>
-                
-                <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-                    <h2 style="color: #333;">Hi {user.username}! 👋</h2>
-                    <p>We're thrilled to have you join our community of content creators who are transforming their Twitter presence with AI.</p>
-                    
-                    <div style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 6px; border-left: 4px solid #667eea;">
-                        <h3 style="margin-top: 0; color: #333;">✨ Your Free Plan Includes:</h3>
-                        <ul style="margin: 0; padding-left: 20px;">
-                            <li>15 AI-generated tweets per day</li>
-                            <li>Basic customization options</li>
-                            <li>1-day tweet history</li>
-                        </ul>
-                    </div>
-                    
-                    <p>Ready to create your first viral tweet?</p>
-                    <p style="text-align: center;">
-                        <a href="https://giverai.me/dashboard" 
-                           style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
-                            Start Creating Tweets
-                        </a>
-                    </p>
-                    
-                    <p>Happy tweeting!</p>
-                    <p><strong>The GiverAI Team</strong></p>
-                </div>
-                
-                <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
-                </div>
+
+                <p>Ready to create your first viral tweet?</p>
+                <p style="text-align: center;">
+                  <a href="https://giverai.me/dashboard"
+                     style="display: inline-block; background: #667eea;
+                            color: white; padding: 12px 24px;
+                            text-decoration: none; border-radius: 6px;">
+                    Start Creating Tweets
+                  </a>
+                </p>
+
+                <p>Happy tweeting!</p>
+                <p><strong>The GiverAI Team</strong></p>
+              </div>
+
+              <div style="text-align: center; margin-top: 20px; color: #666;
+                          font-size: 12px;">
+                <p>GiverAI - AI-Powered Twitter Content Creation</p>
+              </div>
+
             </div>
-        </body>
+          </body>
         </html>
         """
-        
+
         return self.send_simple_email(
             user.email,
-            "Welcome to GiverAI!",
+            "Welcome to GiverAI! Your Twitter Content Creation Journey Starts Now 🚀",
             html_body
         )
 
+    
+   
 # Account Management Models
 class PasswordChange(BaseModel):
     current_password: str
