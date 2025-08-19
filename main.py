@@ -90,15 +90,14 @@ class TeamMember(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     user = relationship("User")
 
-# Simplified EmailService class
-class SimpleEmailService:
+class EmailService:
     def __init__(self):
         self.smtp_server = os.getenv("SMTP_SERVER")
         self.smtp_port = int(os.getenv("SMTP_PORT", 587))
         self.smtp_username = os.getenv("SMTP_USERNAME")
         self.smtp_password = os.getenv("SMTP_PASSWORD")
-        self.from_email = os.getenv("EMAIL_FROM")
-        self.from_name =  os.getenv("EMAIL_SENDER_NAME")
+        self.from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+        self.sender_name = os.getenv("EMAIL_SENDER_NAME", "GiverAI")
         
     def send_simple_email(self, to_email: str, subject: str, html_body: str) -> bool:
         """Send email with simple HTML"""
@@ -110,7 +109,7 @@ class SimpleEmailService:
             # Create message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
-            msg['From'] = f"{self.from_name} <{self.from_email}>"
+            msg['From'] = f"{self.sender_name} <{self.from_email}>"
             msg['To'] = to_email
             
             html_part = MIMEText(html_body, 'html')
@@ -122,11 +121,11 @@ class SimpleEmailService:
                 server.login(self.smtp_username, self.smtp_password)
                 server.send_message(msg)
                 
-            print(f"✅ Simple email sent to {to_email}")
+            print(f"✅ Email sent to {to_email}")
             return True
             
         except Exception as e:
-            print(f"❌ Failed to send simple email: {str(e)}")
+            print(f"❌ Failed to send email: {str(e)}")
             return False
     
     def send_verification_email(self, user, verification_token):
@@ -162,29 +161,45 @@ class SimpleEmailService:
             html_body
         )
     
-    def send_welcome_email(self, user):
-        """Send welcome email with simple template"""
+   def send_welcome_email(self, user):
+        """Send welcome email to new user"""
         html_body = f"""
         <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
+        <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h1 style="color: #667eea;">Welcome to GiverAI!</h1>
-                <p>Hi {user.username}!</p>
-                <p>Welcome to GiverAI - your AI-powered Twitter content creation platform.</p>
-                <h3>Your Free Plan Includes:</h3>
-                <ul>
-                    <li>15 AI-generated tweets per day</li>
-                    <li>Basic customization options</li>
-                    <li>1-day tweet history</li>
-                </ul>
-                <p>
-                    <a href="https://giverai.me/dashboard" 
-                       style="background: #667eea; color: white; padding: 12px 24px; 
-                              text-decoration: none; border-radius: 4px; display: inline-block;">
-                        Start Creating Tweets
-                    </a>
-                </p>
-                <p>Happy tweeting!<br>The GiverAI Team</p>
+                <div style="background: #667eea; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+                    <h1 style="margin: 0; color: white;">Welcome to GiverAI! 🎉</h1>
+                    <p style="margin: 10px 0 0 0; color: white;">Your AI-powered Twitter content creation platform</p>
+                </div>
+                
+                <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                    <h2 style="color: #333;">Hi {user.username}! 👋</h2>
+                    <p>We're thrilled to have you join our community of content creators who are transforming their Twitter presence with AI.</p>
+                    
+                    <div style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 6px; border-left: 4px solid #667eea;">
+                        <h3 style="margin-top: 0; color: #333;">✨ Your Free Plan Includes:</h3>
+                        <ul style="margin: 0; padding-left: 20px;">
+                            <li>15 AI-generated tweets per day</li>
+                            <li>Basic customization options</li>
+                            <li>1-day tweet history</li>
+                        </ul>
+                    </div>
+                    
+                    <p>Ready to create your first viral tweet?</p>
+                    <p style="text-align: center;">
+                        <a href="https://giverai.me/dashboard" 
+                           style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                            Start Creating Tweets
+                        </a>
+                    </p>
+                    
+                    <p>Happy tweeting!</p>
+                    <p><strong>The GiverAI Team</strong></p>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                </div>
             </div>
         </body>
         </html>
@@ -276,17 +291,65 @@ class EmailService:
             verification_code=verification_code
         )
     
-    def send_account_changed_email(self, user, change_details, ip_address="Unknown"):
+   def send_account_changed_email(self, user, change_details, ip_address="Unknown"):
         """Send account security alert"""
-        return self.send_email(
-            to_email=user.email,
-            template_name="account_changed",
-            username=user.username,
-            email=user.email,
-            change_details=change_details,
-            timestamp=datetime.datetime.now().strftime("%B %d, %Y at %I:%M %p UTC"),
-            ip_address=ip_address,
-            account_url="https://giverai.me/account"
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+                    <h1 style="margin: 0; color: white;">Account Security Alert 🔒</h1>
+                    <p style="margin: 10px 0 0 0; color: white;">Important changes to your GiverAI account</p>
+                </div>
+                
+                <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                    <h2 style="color: #333;">Hi {user.username},</h2>
+                    
+                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                        <p style="margin: 0;"><strong>⚠️ Your account information was recently updated</strong></p>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 6px;">
+                        <h3 style="margin-top: 0; color: #333;">What Changed:</h3>
+                        <p style="margin: 5px 0;">{change_details}</p>
+                        <p style="margin: 5px 0;"><strong>When:</strong> {datetime.datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
+                        <p style="margin: 5px 0;"><strong>IP Address:</strong> {ip_address}</p>
+                    </div>
+                    
+                    <h3>Was this you?</h3>
+                    <p>If you made this change, no action is needed. Your account is secure.</p>
+                    
+                    <p><strong>If you didn't make this change:</strong></p>
+                    <ol>
+                        <li>Change your password immediately</li>
+                        <li>Review your account settings</li>
+                        <li>Contact our support team</li>
+                    </ol>
+                    
+                    <p style="text-align: center;">
+                        <a href="https://giverai.me/account" 
+                           style="display: inline-block; background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                            Secure My Account
+                        </a>
+                    </p>
+                    
+                    <p>If you need help, please contact us at support@giverai.me</p>
+                    
+                    <p>Stay secure,<br><strong>The GiverAI Security Team</strong></p>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+                    <p>This security alert was sent to {user.email}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self.send_simple_email(
+            user.email,
+            "Your GiverAI Account Was Updated 🔒",
+            html_body
         )
     
     def send_subscription_changed_email(self, user, old_plan, new_plan, next_billing_date, amount):
@@ -353,18 +416,70 @@ class EmailService:
             decline_url=f"https://giverai.me/decline-invitation?token={decline_token}"
         )
     
-    def send_goodbye_email(self, user, total_tweets, days_active):
+      def send_goodbye_email(self, user, total_tweets, days_active):
         """Send account deletion confirmation"""
-        return self.send_email(
-            to_email=user.email,
-            template_name="goodbye",
-            username=user.username,
-            email=user.email,
-            total_tweets=total_tweets,
-            days_active=days_active,
-            last_plan=user.plan.replace("_", " ").title(),
-            feedback_url="https://giverai.me/feedback",
-            signup_url="https://giverai.me/register"
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: #f5576c; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+                    <h1 style="margin: 0; color: white;">Account Deleted 😢</h1>
+                    <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go, {user.username}</p>
+                </div>
+                
+                <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                    <h2 style="color: #333;">Your GiverAI account has been successfully deleted</h2>
+                    
+                    <div style="background: #fff3cd; padding: 15px; margin: 20px 0; border-radius: 6px; border: 1px solid #ffeaa7;">
+                        <h3 style="margin-top: 0; color: #333;">🗂️ Data Removal</h3>
+                        <p>As requested, we have permanently deleted:</p>
+                        <ul style="margin: 0; padding-left: 20px;">
+                            <li>Your account profile and settings</li>
+                            <li>All generated tweets and content history</li>
+                            <li>Usage data and analytics</li>
+                            <li>Team memberships and collaborations</li>
+                            <li>Billing and subscription information</li>
+                        </ul>
+                        <p><strong>This action cannot be undone.</strong></p>
+                    </div>
+                    
+                    <h3>Thank You for Using GiverAI</h3>
+                    <p>We appreciate the time you spent with us. During your journey, you:</p>
+                    <ul style="padding-left: 20px;">
+                        <li>📝 Generated {total_tweets} tweets</li>
+                        <li>📅 Were with us for {days_active} days</li>
+                        <li>🎯 Used the {user.plan.replace('_', ' ').title()} plan</li>
+                    </ul>
+                    
+                    <h3>Changed Your Mind?</h3>
+                    <p>You're always welcome back! If you decide to return, you can create a new account anytime, though your previous data cannot be restored.</p>
+                    
+                    <p style="text-align: center;">
+                        <a href="https://giverai.me/register" 
+                           style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                            Return to GiverAI
+                        </a>
+                    </p>
+                    
+                    <p>We hope our paths cross again in the future. Until then, we wish you all the best with your content creation journey!</p>
+                    
+                    <p>Farewell and best wishes,</p>
+                    <p><strong>The GiverAI Team</strong></p>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+                    <p>This confirmation was sent to {user.email}</p>
+                    <p>You will not receive any further emails from us.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self.send_simple_email(
+            user.email,
+            "We're Sorry to See You Go - Your GiverAI Account Has Been Deleted 👋",
+            html_body
         )
         
 def test_simple_email(to_email: str):
