@@ -269,7 +269,7 @@ class EmailService:
             print(f"❌ Failed to send {template_name} email: {str(e)}")
             return False
 
-    def send_welcome_email(self, user):
+  def send_welcome_email(self, user):
         """Send welcome email to new user"""
         return self.send_email(
             to_email=user.email,
