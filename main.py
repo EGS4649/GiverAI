@@ -1522,7 +1522,7 @@ async def verify_cancellation(stripe_customer_id: str):
     finally:
         db.close()
 
-# Unified checkout endpoint for all plans
+# Updated checkout endpoint with coming soon restriction
 @app.post("/checkout/{plan_type}")
 async def create_checkout_session(request: Request, plan_type: str):
     try:
@@ -1531,17 +1531,30 @@ async def create_checkout_session(request: Request, plan_type: str):
         return RedirectResponse("/register", status_code=302)
 
     try:
-        # Map plan types to price IDs
+        # Only allow creator plan for now - others are coming soon
+        if plan_type in ["small_team", "agency", "enterprise"]:
+            return templates.TemplateResponse("pricing.html", {
+                "request": request,
+                "error": f"{plan_type.replace('_', ' ').title()} plan is coming soon! Currently only Creator plan is available.",
+                "user": user
+            })
+
+        # Map plan types to price IDs (only creator is active)
         price_map = {
             "creator": STRIPE_CREATOR_PRICE_ID,
-            "small_team": STRIPE_SMALL_TEAM_PRICE_ID,
-            "agency": STRIPE_AGENCY_PRICE_ID,
-            "enterprise": STRIPE_ENTERPRISE_PRICE_ID
+            # Commented out for coming soon:
+            # "small_team": STRIPE_SMALL_TEAM_PRICE_ID,
+            # "agency": STRIPE_AGENCY_PRICE_ID,
+            # "enterprise": STRIPE_ENTERPRISE_PRICE_ID
         }
         
         price_id = price_map.get(plan_type)
         if not price_id:
-            raise Exception("Invalid plan type")
+            return templates.TemplateResponse("pricing.html", {
+                "request": request,
+                "error": "This plan is not available yet. Coming soon!",
+                "user": user
+            })
             
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -1555,7 +1568,7 @@ async def create_checkout_session(request: Request, plan_type: str):
             customer_email=user.email,
             metadata={
                 "user_id": user.id,
-                "plan": plan_type  # Make sure this matches our plan names exactly
+                "plan": plan_type
             }
         )
         return RedirectResponse(checkout_session.url, status_code=303)
