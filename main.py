@@ -1148,6 +1148,7 @@ def onboarding_post(request: Request,
     finally:
         db.close()
 
+# Fix the change_password route (around line 787):
 @app.post("/account/change_password")
 async def change_password(
     request: Request,
@@ -1165,7 +1166,6 @@ async def change_password(
 
         # Verify current password
         if not verify_password(current_password, db_user.hashed_password):
-            # Apply features to user object for rendering
             db_user = apply_plan_features(db_user)
             return templates.TemplateResponse("account.html", {
                 "request": request,
@@ -1180,13 +1180,16 @@ async def change_password(
         # Apply features to user object for rendering
         db_user = apply_plan_features(db_user)
 
-        # Send email notification after password successfully changed
-        email_service = EmailService()
-        email_service.send_account_changed_email(
-            user,
-            change_details="Your password was changed successfully.",
-            ip_address=ip_address
-        )
+        # Send email notification using global email_service
+        try:
+            email_service.send_account_changed_email(
+                db_user,
+                change_details="Your password was changed successfully.",
+                ip_address=ip_address
+            )
+            print("✅ Password change notification email sent")
+        except Exception as e:
+            print(f"❌ Failed to send password change notification: {str(e)}")
 
         return templates.TemplateResponse("account.html", {
             "request": request,
@@ -1204,27 +1207,53 @@ async def change_email(
     user: User = Depends(get_current_user)
 ):
     db = SessionLocal()
-    db_user = db.query(User).filter(User.id == user.id).first()
+    try:
+        # Get IP address from request  
+        ip_address = request.client.host if request.client else "Unknown"
+        
+        db_user = db.query(User).filter(User.id == user.id).first()
 
-    if db.query(User).filter(User.email == new_email).first():
-        db_user.features = get_plan_features(db_user.plan)   # ✅ PATCH
+        if db.query(User).filter(User.email == new_email).first():
+            db_user.features = get_plan_features(db_user.plan)
+            return templates.TemplateResponse("account.html", {
+                "request": request,
+                "user": db_user,
+                "error": "Email already in use"
+            })
+
+        old_email = db_user.email  # Store old email for notification
+        db_user.email = new_email
+        db.commit()
+
+        db_user.features = get_plan_features(db_user.plan)
+        
+        # Send email notification to BOTH old and new email addresses
+        try:
+            # Send to old email
+            email_service.send_account_changed_email(
+                user=type('User', (), {'username': db_user.username, 'email': old_email})(),
+                change_details=f"Your email address was changed from {old_email} to {new_email}.",
+                ip_address=ip_address
+            )
+            
+            # Send to new email
+            email_service.send_account_changed_email(
+                db_user,
+                change_details=f"Your email address was changed from {old_email} to {new_email}.",
+                ip_address=ip_address
+            )
+            print("✅ Email change notification sent to both addresses")
+        except Exception as e:
+            print(f"❌ Failed to send email change notification: {str(e)}")
+
         return templates.TemplateResponse("account.html", {
             "request": request,
             "user": db_user,
-            "features": db_user.features,                   # ✅ PATCH
-            "error": "Email already in use"
+            "success": "Email updated successfully!"
         })
-
-    db_user.email = new_email
-    db.commit()
-
-    db_user.features = get_plan_features(db_user.plan)       # ✅ PATCH
-    return templates.TemplateResponse("account.html", {
-        "request": request,
-        "user": db_user,
-        "features": db_user.features,                       # ✅ PATCH
-        "success": "Email updated successfully!"
-    })
+    
+    finally:
+        db.close()
 
 
 @app.get("/api-docs", response_class=HTMLResponse)
@@ -1234,17 +1263,34 @@ def api_docs(request: Request, user: User = Depends(get_optional_user)):
 @app.post("/account/delete")
 async def delete_account(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
-    db_user = db.query(User).filter(User.id == user.id).first()
-    
-    # Delete user and their usage
-    db.query(Usage).filter(Usage.user_id == user.id).delete()
-    db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).delete()
-    db.delete(db_user)
-    db.commit()
-    
-    response = RedirectResponse("/", status_code=302)
-    response.delete_cookie("access_token")
-    return response
+    try:
+        db_user = db.query(User).filter(User.id == user.id).first()
+        
+        # Calculate stats for goodbye email
+        total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).count()
+        days_active = (datetime.datetime.utcnow() - db_user.created_at).days
+        
+        # Send goodbye email before deleting
+        try:
+            email_service.send_goodbye_email(db_user, total_tweets, days_active)
+            print("✅ Goodbye email sent")
+        except Exception as e:
+            print(f"❌ Failed to send goodbye email: {str(e)}")
+        
+        # Delete user and their data
+        db.query(Usage).filter(Usage.user_id == user.id).delete()
+        db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).delete()
+        db.query(TeamMember).filter(TeamMember.user_id == user.id).delete()
+        db.query(EmailVerification).filter(EmailVerification.user_id == user.id).delete()
+        db.delete(db_user)
+        db.commit()
+        
+        response = RedirectResponse("/", status_code=302)
+        response.delete_cookie("access_token")
+        return response
+        
+    finally:
+        db.close()
         
 @app.get("/export-tweets")
 def export_tweets(user: User = Depends(get_current_user)):
