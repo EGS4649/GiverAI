@@ -891,7 +891,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
             "email": email, 
             "hashed_password": hashed_password,
             "plan": "free",
-            "is_active": True,
+            "is_active": False,
             "created_at": datetime.datetime.utcnow()
         })
         
