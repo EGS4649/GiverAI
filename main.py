@@ -429,7 +429,7 @@ def test_simple_email(to_email: str):
 
         
 # Initialize email service
-email_service = SimpleEmailService()
+email_service = EmailService()
 
 # Database models for email verification
 class EmailVerification(Base):
