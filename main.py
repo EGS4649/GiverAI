@@ -103,7 +103,7 @@ class EmailService:
         """Send an email with simple HTML"""
         try:
             if not all([self.smtp_server, self.smtp_username, self.smtp_password]):
-                print("❌ Missing email configuration")
+                print("⛔ Missing email configuration")
                 return False
 
             # Create message
@@ -125,7 +125,7 @@ class EmailService:
             return True
 
         except Exception as e:
-            print(f"❌ Failed to send email: {str(e)}")
+            print(f"⛔ Failed to send email: {str(e)}")
             return False
 
     def send_verification_email(self, user, verification_token):
@@ -162,7 +162,7 @@ class EmailService:
             html_body
         )
 
-  def send_welcome_email(self, user):
+    def send_welcome_email(self, user):
         """Send welcome email to new user"""
         html_body = f"""
         <html>
@@ -225,36 +225,16 @@ class EmailService:
             html_body
         )
 
-    
-   
-# Account Management Models
-class PasswordChange(BaseModel):
-    current_password: str
-    new_password: str
-
-class EmailChange(BaseModel):
-    new_email: str
-
-# Enhanced Email Functions
-class EmailService:
-    def __init__(self):
-        self.smtp_server = os.getenv("SMTP_SERVER")
-        self.smtp_port = int(os.getenv("SMTP_PORT", 587))
-        self.smtp_username = os.getenv("SMTP_USERNAME")
-        self.smtp_password = os.getenv("SMTP_PASSWORD")
-        self.from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
-        self.sender_name = os.getenv("EMAIL_SENDER_NAME", "GiverAI")
-        
     def send_email(self, to_email: str, template_name: str, **kwargs) -> bool:
         """Send email using specified template"""
         try:
             if not all([self.smtp_server, self.smtp_username, self.smtp_password]):
-                print("❌ Missing email configuration")
+                print("⛔ Missing email configuration")
                 return False
                 
             template = EMAIL_TEMPLATES.get(template_name)
             if not template:
-                print(f"❌ Email template '{template_name}' not found")
+                print(f"⛔ Email template '{template_name}' not found")
                 return False
             
             # Format template with provided variables
@@ -282,32 +262,10 @@ class EmailService:
             return True
             
         except Exception as e:
-            print(f"❌ Failed to send {template_name} email: {str(e)}")
+            print(f"⛔ Failed to send {template_name} email: {str(e)}")
             return False
 
-  def send_welcome_email(self, user):
-        """Send welcome email to new user"""
-        return self.send_email(
-            to_email=user.email,
-            template_name="welcome",
-            username=user.username,
-            dashboard_url="https://giverai.me/dashboard",
-            help_url="https://giverai.me/help"
-        )
-    
-    def send_verification_email(self, user, verification_token):
-        """Send email verification"""
-        verification_code = verification_token[-6:]  # Last 6 chars as code
-        return self.send_email(
-            to_email=user.email,
-            template_name="verification",
-            username=user.username,
-            email=user.email,
-            verification_url=f"https://giverai.me/verify-email?token={verification_token}",
-            verification_code=verification_code
-        )
-    
-   def send_account_changed_email(self, user, change_details, ip_address="Unknown"):
+    def send_account_changed_email(self, user, change_details, ip_address="Unknown"):
         """Send account security alert"""
         html_body = f"""
         <html>
@@ -432,7 +390,7 @@ class EmailService:
             decline_url=f"https://giverai.me/decline-invitation?token={decline_token}"
         )
     
-      def send_goodbye_email(self, user, total_tweets, days_active):
+    def send_goodbye_email(self, user, total_tweets, days_active):
         """Send account deletion confirmation"""
         html_body = f"""
         <html>
@@ -497,7 +455,7 @@ class EmailService:
             "We're Sorry to See You Go - Your GiverAI Account Has Been Deleted 👋",
             html_body
         )
-        
+
 def test_simple_email(to_email: str):
     """Simple email test with minimal HTML"""
     try:
@@ -515,7 +473,7 @@ def test_simple_email(to_email: str):
         print(f"   To: {to_email}")
         
         if not all([smtp_server, smtp_username, smtp_password]):
-            print("❌ Missing email configuration")
+            print("⛔ Missing email configuration")
             return False
         
         # Create simple message
@@ -552,7 +510,7 @@ def test_simple_email(to_email: str):
         return True
         
     except Exception as e:
-        print(f"❌ Email error: {str(e)}")
+        print(f"⛔ Email error: {str(e)}")
         print(f"   Error type: {type(e)}")
         import traceback
         traceback.print_exc()
