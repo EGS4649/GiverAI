@@ -85,7 +85,7 @@ class PasswordReset(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     token = Column(String, unique=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow())
     expires_at = Column(DateTime)
     used = Column(Boolean, default=False)
     used_at = Column(DateTime, nullable=True)
