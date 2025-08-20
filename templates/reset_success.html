@@ -1,0 +1,54 @@
+<!-- reset_success.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Reset Successful - GiverAI</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Optional: Auto redirect back to login after 8 seconds -->
+    <meta http-equiv="refresh" content="8;url=/login">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-2xl font-bold text-indigo-600">GiverAI</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full bg-white shadow rounded-lg p-8 space-y-6 text-center">
+            <div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-green-100">
+                <i class="fas fa-check text-green-600 text-3xl"></i>
+            </div>
+
+            <h2 class="mt-6 text-2xl font-extrabold text-gray-900">
+                Password Reset Successful
+            </h2>
+            <p class="mt-2 text-sm text-gray-600">
+                Your password has been updated. You can now log in with your new credentials.
+            </p>
+
+            <div class="mt-6">
+                <a href="/login" class="group relative w-full inline-flex justify-center py-3 px-5 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                        <i class="fas fa-sign-in-alt group-hover:text-indigo-300 text-indigo-500"></i>
+                    </span>
+                    Go to Login
+                </a>
+            </div>
+
+            <p class="text-xs text-gray-400 mt-4">
+                You will be redirected automatically in a few seconds...
+            </p>
+        </div>
+    </div>
+</body>
+</html>
