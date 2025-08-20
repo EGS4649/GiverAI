@@ -910,7 +910,7 @@ def migrate_database():
     if 'usage' not in existing_tables:
         tables_to_create.append('usage')
 
-     if 'password_resets' not in existing_tables:
+    if 'password_resets' not in existing_tables:
         print("Creating password_resets table...")
         try:
             Base.metadata.tables['password_resets'].create(bind=engine)
