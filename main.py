@@ -80,6 +80,47 @@ class Usage(Base):
     count = Column(Integer, default=0)
     user = relationship("User")
 
+class PasswordReset(Base):
+    __tablename__ = "password_resets"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    token = Column(String, unique=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime)
+    used = Column(Boolean, default=False)
+    used_at = Column(DateTime, nullable=True)
+    user = relationship("User")
+
+# Helper functions for password reset
+def generate_reset_token():
+    """Generate secure password reset token"""
+    return secrets.token_urlsafe(32)
+
+def create_password_reset_record(user_id: int, db):
+    """Create password reset record"""
+    # Invalidate any existing tokens for this user
+    existing_tokens = db.query(PasswordReset).filter(
+        PasswordReset.user_id == user_id,
+        PasswordReset.used == False,
+        PasswordReset.expires_at > datetime.utcnow()
+    ).all()
+    
+    for token in existing_tokens:
+        token.used = True
+        token.used_at = datetime.utcnow()
+    
+    # Create new token
+    token = generate_reset_token()
+    reset_record = PasswordReset(
+        user_id=user_id,
+        token=token,
+        expires_at=datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
+    )
+    db.add(reset_record)
+    db.commit()
+    return reset_record
+
+
 class TeamMember(Base):
     __tablename__ = "team_members"
     id = Column(Integer, primary_key=True, index=True)
@@ -127,7 +168,44 @@ class EmailService:
         except Exception as e:
             print(f"⛔ Failed to send email: {str(e)}")
             return False
+    # Add methods to EmailService class
+def send_password_reset_email(self, user, reset_token, ip_address="Unknown"):
+    """Send password reset email"""
+    reset_url = f"https://giverai.me/reset-password?token={reset_token}"
+    
+    return self.send_email(
+        to_email=user.email,
+        template_name="forgot_password",
+        username=user.username,
+        email=user.email,
+        reset_url=reset_url,
+        ip_address=ip_address
+    )
 
+def send_username_reminder_email(self, user):
+    """Send username reminder email"""
+    return self.send_email(
+        to_email=user.email,
+        template_name="forgot_username",
+        username=user.username,
+        email=user.email,
+        plan=user.plan.replace("_", " ").title(),
+        member_since=user.created_at.strftime("%B %d, %Y"),
+        login_url="https://giverai.me/login",
+        forgot_password_url="https://giverai.me/forgot-password"
+    )
+
+def send_password_reset_success_email(self, user, ip_address="Unknown"):
+    """Send password reset success confirmation"""
+    return self.send_email(
+        to_email=user.email,
+        template_name="password_reset_success",
+        username=user.username,
+        email=user.email,
+        timestamp=datetime.utcnow().strftime("%B %d, %Y at %I:%M %p UTC"),
+        ip_address=ip_address
+    )
+    
     def send_verification_email(self, user, verification_token):
         """Send verification email with simple template"""
         verification_code = verification_token[-6:]
@@ -831,6 +909,14 @@ def migrate_database():
     
     if 'usage' not in existing_tables:
         tables_to_create.append('usage')
+
+     if 'password_resets' not in existing_tables:
+        print("Creating password_resets table...")
+        try:
+            Base.metadata.tables['password_resets'].create(bind=engine)
+            print("✅ password_resets table created")
+        except Exception as e:
+            print(f"❌ Error creating password_resets table: {e}")
     
     # Create the missing tables
     if tables_to_create:
@@ -1028,6 +1114,155 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
             "user": None,
             "error": "Registration failed. Please try again."
         })
+    finally:
+        db.close()
+
+# Forgot Password/Username Form
+@app.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_get(request: Request):
+    user = get_optional_user(request)
+    if user:  # If already logged in, redirect to dashboard
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse("forgot_password.html", {"request": request, "user": user})
+
+@app.post("/forgot-password")
+async def forgot_password_post(
+    request: Request,
+    email_or_username: str = Form(...),
+    reset_type: str = Form(...)  # 'password' or 'username'
+):
+    db = SessionLocal()
+    try:
+        # Get IP address
+        ip_address = request.client.host if request.client else "Unknown"
+        
+        # Find user by email or username
+        user = db.query(User).filter(
+            (User.email == email_or_username) | (User.username == email_or_username)
+        ).first()
+        
+        if not user:
+            # Don't reveal if user exists or not for security
+            return templates.TemplateResponse("forgot_password.html", {
+                "request": request,
+                "user": None,
+                "success": "If an account with that email/username exists, we've sent you an email."
+            })
+        
+        if reset_type == "password":
+            # Send password reset email
+            reset_record = create_password_reset_record(user.id, db)
+            try:
+                email_service.send_password_reset_email(user, reset_record.token, ip_address)
+                success_message = "Password reset email sent! Check your inbox."
+            except Exception as e:
+                print(f"Failed to send password reset email: {str(e)}")
+                success_message = "If an account exists, we've sent a reset email."
+                
+        elif reset_type == "username":
+            # Send username reminder email
+            try:
+                email_service.send_username_reminder_email(user)
+                success_message = "Username reminder sent! Check your inbox."
+            except Exception as e:
+                print(f"Failed to send username reminder: {str(e)}")
+                success_message = "If an account exists, we've sent a username reminder."
+        
+        return templates.TemplateResponse("forgot_password.html", {
+            "request": request,
+            "user": None,
+            "success": success_message
+        })
+        
+    finally:
+        db.close()
+
+# Reset Password Form
+@app.get("/reset-password", response_class=HTMLResponse)
+def reset_password_get(request: Request, token: str = Query(...)):
+    db = SessionLocal()
+    try:
+        # Verify token
+        reset_record = db.query(PasswordReset).filter(
+            PasswordReset.token == token,
+            PasswordReset.used == False,
+            PasswordReset.expires_at > datetime.utcnow()
+        ).first()
+        
+        if not reset_record:
+            return templates.TemplateResponse("reset_password_error.html", {
+                "request": request,
+                "error": "Invalid or expired reset token"
+            })
+        
+        return templates.TemplateResponse("reset_password.html", {
+            "request": request,
+            "token": token,
+            "username": reset_record.user.username
+        })
+    finally:
+        db.close()
+
+@app.post("/reset-password")
+async def reset_password_post(
+    request: Request,
+    token: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...)
+):
+    db = SessionLocal()
+    try:
+        # Get IP address
+        ip_address = request.client.host if request.client else "Unknown"
+        
+        if new_password != confirm_password:
+            return templates.TemplateResponse("reset_password.html", {
+                "request": request,
+                "token": token,
+                "error": "Passwords don't match"
+            })
+        
+        if len(new_password) < 8:
+            return templates.TemplateResponse("reset_password.html", {
+                "request": request,
+                "token": token,
+                "error": "Password must be at least 8 characters long"
+            })
+        
+        # Verify and use token
+        reset_record = db.query(PasswordReset).filter(
+            PasswordReset.token == token,
+            PasswordReset.used == False,
+            PasswordReset.expires_at > datetime.utcnow()
+        ).first()
+        
+        if not reset_record:
+            return templates.TemplateResponse("reset_password_error.html", {
+                "request": request,
+                "error": "Invalid or expired reset token"
+            })
+        
+        # Update user's password
+        user = reset_record.user
+        user.hashed_password = hash_password(new_password)
+        
+        # Mark token as used
+        reset_record.used = True
+        reset_record.used_at = datetime.utcnow()
+        
+        db.commit()
+        
+        # Send confirmation email
+        try:
+            email_service.send_password_reset_success_email(user, ip_address)
+        except Exception as e:
+            print(f"Failed to send password reset confirmation: {str(e)}")
+        
+        return templates.TemplateResponse("reset_password_success.html", {
+            "request": request,
+            "username": user.username
+        })
+        
     finally:
         db.close()
 
@@ -2343,6 +2578,182 @@ EMAIL_TEMPLATES = {
         </html>
         """
     },
+
+    "forgot_password": {
+        "subject": "Reset Your GiverAI Password 🔐",
+        "body": """
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #667eea; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .reset-button { display: inline-block; background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-size: 18px; font-weight: bold; }
+                .security-notice { background: #fff3cd; padding: 15px; margin: 20px 0; border-radius: 6px; border: 1px solid #ffeaa7; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Password Reset Request 🔐</h1>
+                    <p>Reset your GiverAI password</p>
+                </div>
+                <div class="content">
+                    <h2>Hi {username}!</h2>
+                    <p>We received a request to reset your password for your GiverAI account.</p>
+                    
+                    <div style="text-align: center;">
+                        <a href="{reset_url}" class="reset-button">Reset My Password</a>
+                    </div>
+                    
+                    <div class="security-notice">
+                        <h3>🛡️ Security Information:</h3>
+                        <ul>
+                            <li>This link expires in <strong>1 hour</strong></li>
+                            <li>Request made from IP: <strong>{ip_address}</strong></li>
+                            <li>If you didn't request this, please ignore this email</li>
+                        </ul>
+                    </div>
+                    
+                    <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+                    <p style="word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                        {reset_url}
+                    </p>
+                    
+                    <p>If you didn't request a password reset, your account is still secure and no action is needed.</p>
+                    
+                    <p>Need help? Contact us at support@giverai.me</p>
+                    
+                    <p>Best regards,<br><strong>The GiverAI Security Team</strong></p>
+                </div>
+                <div class="footer">
+                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                    <p>This password reset email was sent to {email}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    },
+    
+    "forgot_username": {
+        "subject": "Your GiverAI Username Reminder 👤",
+        "body": """
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #667eea; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .username-box { background: #e3f2fd; padding: 20px; margin: 20px 0; text-align: center; border-radius: 8px; border: 2px solid #2196f3; }
+                .login-button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 15px 0; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Username Reminder 👤</h1>
+                    <p>Here's your GiverAI username</p>
+                </div>
+                <div class="content">
+                    <h2>Hi there!</h2>
+                    <p>You requested a reminder of your GiverAI username. Here it is:</p>
+                    
+                    <div class="username-box">
+                        <h3>Your Username:</h3>
+                        <h2 style="color: #667eea; font-size: 24px; margin: 10px 0;">{username}</h2>
+                    </div>
+                    
+                    <p>Now you can log in to your GiverAI account:</p>
+                    <div style="text-align: center;">
+                        <a href="{login_url}" class="login-button">Log In to GiverAI</a>
+                    </div>
+                    
+                    <p><strong>Account Details:</strong></p>
+                    <ul>
+                        <li>Username: <strong>{username}</strong></li>
+                        <li>Email: <strong>{email}</strong></li>
+                        <li>Plan: <strong>{plan}</strong></li>
+                        <li>Member since: <strong>{member_since}</strong></li>
+                    </ul>
+                    
+                    <p>If you also forgot your password, you can <a href="{forgot_password_url}">reset it here</a>.</p>
+                    
+                    <p>If you didn't request this reminder, please ignore this email.</p>
+                    
+                    <p>Happy tweeting!</p>
+                    <p><strong>The GiverAI Team</strong></p>
+                </div>
+                <div class="footer">
+                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                    <p>This username reminder was sent to {email}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    },
+    
+    "password_reset_success": {
+        "subject": "Your GiverAI Password Has Been Changed ✅",
+        "body": """
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #28a745; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .success-box { background: #d4edda; padding: 15px; margin: 20px 0; border-radius: 6px; border: 1px solid #c3e6cb; }
+                .security-tips { background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 6px; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Password Changed Successfully! ✅</h1>
+                    <p>Your GiverAI account is secure</p>
+                </div>
+                <div class="content">
+                    <h2>Hi {username}!</h2>
+                    
+                    <div class="success-box">
+                        <h3>🎉 Password Updated!</h3>
+                        <p>Your GiverAI password has been successfully changed.</p>
+                        <p><strong>When:</strong> {timestamp}</p>
+                        <p><strong>IP Address:</strong> {ip_address}</p>
+                    </div>
+                    
+                    <div class="security-tips">
+                        <h3>🛡️ Security Tips:</h3>
+                        <ul>
+                            <li>Keep your password private and secure</li>
+                            <li>Use a unique password for your GiverAI account</li>
+                            <li>Consider using a password manager</li>
+                            <li>Log out from shared or public computers</li>
+                        </ul>
+                    </div>
+                    
+                    <p>If you didn't change your password, please contact our support team immediately at support@giverai.me</p>
+                    
+                    <p>Your account security is our priority. Thank you for keeping your account safe!</p>
+                    
+                    <p>Best regards,<br><strong>The GiverAI Security Team</strong></p>
+                </div>
+                <div class="footer">
+                    <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                    <p>This notification was sent to {email}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+          },
     
     "goodbye": {
         "subject": "We're Sorry to See You Go - Your GiverAI Account Has Been Deleted 👋",
