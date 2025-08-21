@@ -64,7 +64,7 @@ class User(Base):
     hashed_password = Column(LargeBinary, nullable=False)
     plan = Column(String, default="free")  # Now supports: free, creator, small_team, agency, enterprise
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
     stripe_customer_id = Column(String, nullable=True)  
     api_key = Column(String, nullable=True)  # Added API key column
     is_admin = Column(Boolean, default=False)
@@ -86,7 +86,7 @@ class PasswordReset(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     token = Column(String, unique=True, index=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow())
+    created_at = Column(DateTime, default=datetime.utcnow())
     expires_at = Column(DateTime)
     used = Column(Boolean, default=False)
     used_at = Column(DateTime, nullable=True)
@@ -103,19 +103,19 @@ def create_password_reset_record(user_id: int, db):
     existing_tokens = db.query(PasswordReset).filter(
         PasswordReset.user_id == user_id,
         PasswordReset.used == False,
-        PasswordReset.expires_at > datetime.datetime.utcnow()  # Fixed this line
+        PasswordReset.expires_at > datetime.utcnow()  # Fixed this line
     ).all()
     
     for token in existing_tokens:
         token.used = True
-        token.used_at = datetime.datetime.utcnow()  # Fixed this line
+        token.used_at = datetime.utcnow()  # Fixed this line
     
     # Create new token
     token = generate_reset_token()
     reset_record = PasswordReset(
         user_id=user_id,
         token=token,
-        expires_at=datetime.datetime.utcnow() + timedelta(hours=1)  # Fixed this line
+        expires_at=datetime.utcnow() + timedelta(hours=1)  # Fixed this line
     )
     db.add(reset_record)
     db.commit()
@@ -129,7 +129,7 @@ class TeamMember(Base):
     email = Column(String, index=True)
     role = Column(String, default="editor")
     status = Column(String, default="pending")  # pending, active, removed
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User")
 
 class EmailService:
@@ -249,7 +249,7 @@ class EmailService:
               <p>Hi {user.username}!</p>
               <p>Your GiverAI password has been successfully changed.</p>
               <div style="background: #d4edda; padding: 15px; margin: 20px 0; border-radius: 6px;">
-                <p><strong>When:</strong> {datetime.datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
+                <p><strong>When:</strong> {datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
                 <p><strong>IP Address:</strong> {ip_address}</p>
               </div>
               <p>If you didn't change your password, please contact our support team immediately.</p>
@@ -663,7 +663,7 @@ class EmailVerification(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     token = Column(String, unique=True, index=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime)
     verified = Column(Boolean, default=False)
     verified_at = Column(DateTime, nullable=True)  # Add this line
@@ -680,7 +680,7 @@ def create_verification_record(user_id: int, db):
     verification = EmailVerification(
         user_id=user_id,
         token=token,
-        expires_at=datetime.datetime.utcnow() + timedelta(hours=24)
+        expires_at=datetime.utcnow() + timedelta(hours=24)
     )
     db.add(verification)
     db.commit()
@@ -759,9 +759,9 @@ def verify_password(plain_password: str, hashed_password: bytes) -> bool:
 def create_access_token(data: dict, expires_delta=None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.datetime.utcnow() + expires_delta
+        expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
+        expire = datetime.utcnow() + datetime.timedelta(minutes=15)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -1126,7 +1126,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
             "hashed_password": hashed_password,
             "plan": "free",
             "is_active": False,
-            "created_at": datetime.datetime.utcnow()
+            "created_at": datetime.utcnow()
         })
         
         user_id = result.fetchone()[0]
@@ -1333,7 +1333,7 @@ def verify_email(request: Request, token: str = Query(...)):
     try:
         verification = db.query(EmailVerification).filter(
             EmailVerification.token == token,
-            EmailVerification.expires_at > datetime.datetime.utcnow()
+            EmailVerification.expires_at > datetime.utcnow()
         ).first()
         
         if not verification:
@@ -1344,7 +1344,7 @@ def verify_email(request: Request, token: str = Query(...)):
         
         # Mark email as verified
         verification.verified = True
-        verification.verified_at = datetime.datetime.utcnow()  # Set verification time
+        verification.verified_at = datetime.utcnow()  # Set verification time
         db.commit()
         
         # Update user status
@@ -1460,7 +1460,7 @@ def tweet_history(request: Request, user: User = Depends(get_current_user)):
     try:
         # Use user.features instead of get_plan_features()
         days = user.features["history_days"]
-        cutoff_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+        cutoff_date = datetime.utcnow() - datetime.timedelta(days=days)
         
         tweets = db.query(GeneratedTweet).filter(
             GeneratedTweet.user_id == user.id,
@@ -1653,7 +1653,7 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         
         # Calculate stats for goodbye email
         total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).count()
-        days_active = (datetime.datetime.utcnow() - db_user.created_at).days
+        days_active = (datetime.utcnow() - db_user.created_at).days
         
         # Send goodbye email before deleting
         try:
@@ -1698,7 +1698,7 @@ def export_tweets(user: User = Depends(get_current_user)):
             "date": tweet.generated_at.strftime("%Y-%m-%d %H:%M:%S")
         } for tweet in tweets]
         
-        filename = f"tweets_export_{user.username}_{datetime.datetime.utcnow().strftime('%Y%m%d')}.json"
+        filename = f"tweets_export_{user.username}_{datetime.utcnow().strftime('%Y%m%d')}.json"
         
         return Response(
             content=json.dumps(tweet_data, indent=2),
@@ -2053,7 +2053,7 @@ async def generate_tweet_api(
             generated_tweet = GeneratedTweet(
                 user_id=user.id,
                 tweet_text=tweets[0],
-                generated_at=datetime.datetime.utcnow()
+                generated_at=datetime.utcnow()
             )
             db.add(generated_tweet)
             db.commit()
@@ -2229,7 +2229,7 @@ async def generate(request: Request):
             generated_tweet = GeneratedTweet(
                 user_id=user.id,
                 tweet_text=tweet_text,
-                generated_at=datetime.datetime.utcnow()
+                generated_at=datetime.utcnow()
             )
             db.add(generated_tweet)
 
