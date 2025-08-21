@@ -102,19 +102,19 @@ def create_password_reset_record(user_id: int, db):
     existing_tokens = db.query(PasswordReset).filter(
         PasswordReset.user_id == user_id,
         PasswordReset.used == False,
-        PasswordReset.expires_at > datetime.utcnow()
+        PasswordReset.expires_at > datetime.datetime.utcnow()  # Fixed this line
     ).all()
     
     for token in existing_tokens:
         token.used = True
-        token.used_at = datetime.utcnow()
+        token.used_at = datetime.datetime.utcnow()  # Fixed this line
     
     # Create new token
     token = generate_reset_token()
     reset_record = PasswordReset(
         user_id=user_id,
         token=token,
-        expires_at=datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
+        expires_at=datetime.datetime.utcnow() + timedelta(hours=1)  # Fixed this line
     )
     db.add(reset_record)
     db.commit()
@@ -168,45 +168,103 @@ class EmailService:
         except Exception as e:
             print(f"⛔ Failed to send email: {str(e)}")
             return False
-    # Add methods to EmailService class
-def send_password_reset_email(self, user, reset_token, ip_address="Unknown"):
-    """Send password reset email"""
-    reset_url = f"https://giverai.me/reset-password?token={reset_token}"
-    
-    return self.send_email(
-        to_email=user.email,
-        template_name="forgot_password",
-        username=user.username,
-        email=user.email,
-        reset_url=reset_url,
-        ip_address=ip_address
-    )
 
-def send_username_reminder_email(self, user):
-    """Send username reminder email"""
-    return self.send_email(
-        to_email=user.email,
-        template_name="forgot_username",
-        username=user.username,
-        email=user.email,
-        plan=user.plan.replace("_", " ").title(),
-        member_since=user.created_at.strftime("%B %d, %Y"),
-        login_url="https://giverai.me/login",
-        forgot_password_url="https://giverai.me/forgot-password"
-    )
+    def send_password_reset_email(self, user, reset_token, ip_address="Unknown"):
+        """Send password reset email"""
+        reset_url = f"https://giverai.me/reset-password?token={reset_token}"
+        
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h1 style="color: #667eea;">Password Reset Request</h1>
+              <p>Hi {user.username}!</p>
+              <p>We received a request to reset your password for your GiverAI account.</p>
+              <p>
+                <a href="{reset_url}"
+                   style="background: #28a745; color: white; padding: 12px 24px;
+                          text-decoration: none; border-radius: 4px;
+                          display: inline-block;">
+                  Reset My Password
+                </a>
+              </p>
+              <p>This link expires in 1 hour.</p>
+              <p>Request made from IP: {ip_address}</p>
+              <p>If you didn't request this, please ignore this email.</p>
+              <p>Best regards,<br>The GiverAI Team</p>
+            </div>
+          </body>
+        </html>
+        """
+        
+        return self.send_simple_email(
+            user.email,
+            "Reset Your GiverAI Password 🔑",
+            html_body
+        )
 
-def send_password_reset_success_email(self, user, ip_address="Unknown"):
-    """Send password reset success confirmation"""
-    return self.send_email(
-        to_email=user.email,
-        template_name="password_reset_success",
-        username=user.username,
-        email=user.email,
-        timestamp=datetime.utcnow().strftime("%B %d, %Y at %I:%M %p UTC"),
-        ip_address=ip_address
-    )
-    
-    def send_verification_email(self, user, verification_token):
+    def send_username_reminder_email(self, user):
+        """Send username reminder email"""
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h1 style="color: #667eea;">Username Reminder</h1>
+              <p>Hi there!</p>
+              <p>You requested a reminder of your GiverAI username. Here it is:</p>
+              <div style="background: #e3f2fd; padding: 20px; margin: 20px 0; text-align: center; border-radius: 8px;">
+                <h2 style="color: #667eea; margin: 10px 0;">{user.username}</h2>
+              </div>
+              <p>
+                <a href="https://giverai.me/login"
+                   style="background: #667eea; color: white; padding: 12px 24px;
+                          text-decoration: none; border-radius: 4px;
+                          display: inline-block;">
+                  Log In to GiverAI
+                </a>
+              </p>
+              <p>Plan: {user.plan.replace('_', ' ').title()}</p>
+              <p>Member since: {user.created_at.strftime('%B %d, %Y')}</p>
+              <p>If you also forgot your password, you can <a href="https://giverai.me/forgot-password">reset it here</a>.</p>
+              <p>Best regards,<br>The GiverAI Team</p>
+            </div>
+          </body>
+        </html>
+        """
+        
+        return self.send_simple_email(
+            user.email,
+            "Your GiverAI Username Reminder 👤",
+            html_body
+        )
+
+    def send_password_reset_success_email(self, user, ip_address="Unknown"):
+        """Send password reset success confirmation"""
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h1 style="color: #28a745;">Password Changed Successfully!</h1>
+              <p>Hi {user.username}!</p>
+              <p>Your GiverAI password has been successfully changed.</p>
+              <div style="background: #d4edda; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                <p><strong>When:</strong> {datetime.datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
+                <p><strong>IP Address:</strong> {ip_address}</p>
+              </div>
+              <p>If you didn't change your password, please contact our support team immediately.</p>
+              <p>Best regards,<br>The GiverAI Security Team</p>
+            </div>
+          </body>
+        </html>
+        """
+        
+        return self.send_simple_email(
+            user.email,
+            "Your GiverAI Password Has Been Changed ✅",
+            html_body
+        )
+
+  def send_verification_email(self, user, verification_token):
         """Send verification email with simple template"""
         verification_code = verification_token[-6:]
         verification_url = f"https://giverai.me/verify-email?token={verification_token}"
@@ -1118,12 +1176,57 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         db.close()
 
 # Forgot Password/Username Form
-@app.get("/forgot-password", response_class=HTMLResponse)
-def forgot_password_get(request: Request):
-    user = get_optional_user(request)
-    if user:  # If already logged in, redirect to dashboard
-        return RedirectResponse("/dashboard", status_code=302)
-    return templates.TemplateResponse("forgot_password.html", {"request": request, "user": user})
+@app.post("/forgot-password")
+async def forgot_password_post(
+    request: Request,
+    email_or_username: str = Form(...),
+    reset_type: str = Form(...)  # 'password' or 'username'
+):
+    db = SessionLocal()
+    try:
+        # Get IP address
+        ip_address = request.client.host if request.client else "Unknown"
+        
+        # Find user by email or username
+        user = db.query(User).filter(
+            (User.email == email_or_username) | (User.username == email_or_username)
+        ).first()
+        
+        if not user:
+            # Don't reveal if user exists or not for security
+            return templates.TemplateResponse("forgot_password.html", {
+                "request": request,
+                "user": None,
+                "success": "If an account with that email/username exists, we've sent you an email."
+            })
+        
+        if reset_type == "password":
+            # Send password reset email
+            reset_record = create_password_reset_record(user.id, db)
+            try:
+                email_service.send_password_reset_email(user, reset_record.token, ip_address)
+                success_message = "Password reset email sent! Check your inbox."
+            except Exception as e:
+                print(f"Failed to send password reset email: {str(e)}")
+                success_message = "If an account exists, we've sent a reset email."
+                
+        elif reset_type == "username":
+            # Send username reminder email
+            try:
+                email_service.send_username_reminder_email(user)
+                success_message = "Username reminder sent! Check your inbox."
+            except Exception as e:
+                print(f"Failed to send username reminder: {str(e)}")
+                success_message = "If an account exists, we've sent a username reminder."
+        
+        return templates.TemplateResponse("forgot_password.html", {
+            "request": request,
+            "user": None,
+            "success": success_message
+        })
+        
+    finally:
+        db.close()
 
 @app.post("/forgot-password")
 async def forgot_password_post(
