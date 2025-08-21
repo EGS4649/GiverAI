@@ -1459,7 +1459,7 @@ def tweet_history(request: Request, user: User = Depends(get_current_user)):
     try:
         # Use user.features instead of get_plan_features()
         days = user.features["history_days"]
-        cutoff_date = datetime.utcnow() - datetime.timedelta(days=days)
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
         
         tweets = db.query(GeneratedTweet).filter(
             GeneratedTweet.user_id == user.id,
