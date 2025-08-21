@@ -264,39 +264,39 @@ class EmailService:
             html_body
         )
 
-   def send_verification_email(self, user, verification_token):
-        """Send verification email with simple template"""
-        verification_code = verification_token[-6:]
-        verification_url = f"https://giverai.me/verify-email?token={verification_token}"
+    def send_verification_email(self, user, verification_token):
+    """Send verification email with simple template"""
+    verification_code = verification_token[-6:]
+    verification_url = f"https://giverai.me/verify-email?token={verification_token}"
 
-        html_body = f"""
-        <html>
-          <body style="font-family: Arial, sans-serif; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h1 style="color: #667eea;">Verify Your Email</h1>
-              <p>Hi {user.username}!</p>
-              <p>Please verify your email address by clicking the button below:</p>
-              <p>
-                <a href="{verification_url}"
-                   style="background: #28a745; color: white; padding: 12px 24px;
-                          text-decoration: none; border-radius: 4px;
-                          display: inline-block;">
-                  Verify Email Address
-                </a>
-              </p>
-              <p>Or use this verification code: <strong>{verification_code}</strong></p>
-              <p>This link expires in 24 hours.</p>
-              <p>Best regards,<br>The GiverAI Team</p>
-            </div>
-          </body>
-        </html>
-        """
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #667eea;">Verify Your Email</h1>
+          <p>Hi {user.username}!</p>
+          <p>Please verify your email address by clicking the button below:</p>
+          <p>
+            <a href="{verification_url}"
+               style="background: #28a745; color: white; padding: 12px 24px;
+                      text-decoration: none; border-radius: 4px;
+                      display: inline-block;">
+              Verify Email Address
+            </a>
+          </p>
+          <p>Or use this verification code: <strong>{verification_code}</strong></p>
+          <p>This link expires in 24 hours.</p>
+          <p>Best regards,<br>The GiverAI Team</p>
+        </div>
+      </body>
+    </html>
+    """
 
-        return self.send_simple_email(
-            user.email,
-            "Verify Your GiverAI Account",
-            html_body
-        )
+    return self.send_simple_email(
+        user.email,
+        "Verify Your GiverAI Account",
+        html_body
+    )
 
     def send_welcome_email(self, user):
         """Send welcome email to new user"""
