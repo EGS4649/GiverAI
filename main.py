@@ -53,7 +53,7 @@ class GeneratedTweet(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     tweet_text = Column(String)
-    generated_at = Column(DateTime, default=datetime.datetime.utcnow)
+    generated_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User")
     
 class User(Base):
