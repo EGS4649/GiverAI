@@ -2195,7 +2195,7 @@ async def generate(request: Request):
             tweet_count = 1  # fallback to 1 if invalid
 
         # Get usage for today
-        today = str(datetime.date.today())
+        today = str(date.today())
         usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
         if not usage:
             usage = Usage(user_id=user.id, date=today, count=0)
