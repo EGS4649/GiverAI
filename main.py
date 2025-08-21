@@ -422,7 +422,7 @@ class EmailService:
                     <div style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 6px;">
                         <h3 style="margin-top: 0; color: #333;">What Changed:</h3>
                         <p style="margin: 5px 0;">{change_details}</p>
-                        <p style="margin: 5px 0;"><strong>When:</strong> {datetime.datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
+                        <p style="margin: 5px 0;"><strong>When:</strong> {datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
                         <p style="margin: 5px 0;"><strong>IP Address:</strong> {ip_address}</p>
                     </div>
                     
@@ -758,7 +758,7 @@ def verify_password(plain_password: str, hashed_password: bytes) -> bool:
 def create_access_token(data: dict, expires_delta=None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.datetime.utcnow() + expires_delta
+        expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
