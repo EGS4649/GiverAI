@@ -239,38 +239,38 @@ class EmailService:
         )
 
     def send_password_reset_success_email(self, user, ip_address="Unknown"):
-        """Send password reset success confirmation"""
-        html_body = f"""
-        <html>
-          <body style="font-family: Arial, sans-serif; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h1 style="color: #28a745;">Password Changed Successfully!</h1>
-              <p>Hi {user.username}!</p>
-              <p>Your GiverAI password has been successfully changed.</p>
-              <div style="background: #d4edda; padding: 15px; margin: 20px 0; border-radius: 6px;">
-                <p><strong>When:</strong> {datetime.datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
-                <p><strong>IP Address:</strong> {ip_address}</p>
-              </div>
-              <p>If you didn't change your password, please contact our support team immediately.</p>
-              <p>Best regards,<br>The GiverAI Security Team</p>
-            </div>
-          </body>
-        </html>
-        """
-        
-        return self.send_simple_email(
-            user.email,
-            "Your GiverAI Password Has Been Changed ✅",
-            html_body
-        )
+    """Send password reset success confirmation"""
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #28a745;">Password Changed Successfully!</h1>
+          <p>Hi {user.username}!</p>
+          <p>Your GiverAI password has been successfully changed.</p>
+          <div style="background: #d4edda; padding: 15px; margin: 20px 0; border-radius: 6px;">
+            <p><strong>When:</strong> {datetime.datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
+            <p><strong>IP Address:</strong> {ip_address}</p>
+          </div>
+          <p>If you didn't change your password, please contact our support team immediately.</p>
+          <p>Best regards,<br>The GiverAI Security Team</p>
+        </div>
+      </body>
+    </html>
+    """
 
-    def send_verification_email(self, user, verification_token):
-      """Send verification email with simple template"""
-      verification_code = verification_token[-6:]
-      verification_url = f"https://giverai.me/verify-email?token={verification_token}"
+    return self.send_simple_email(
+        user.email,
+        "Your GiverAI Password Has Been Changed ✅",
+        html_body
+    )
 
-      html_body = f"""
-      <html>
+def send_verification_email(self, user, verification_token):
+    """Send verification email with simple template"""
+    verification_code = verification_token[-6:]
+    verification_url = f"https://giverai.me/verify-email?token={verification_token}"
+
+    html_body = f"""
+    <html>
       <body style="font-family: Arial, sans-serif; color: #333;">
         <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
           <h1 style="color: #667eea;">Verify Your Email</h1>
@@ -292,12 +292,12 @@ class EmailService:
     </html>
     """
 
-        return self.send_simple_email(
-            user.email,
-            "Verify Your GiverAI Account",
-            html_body
-          )
- 
+    return self.send_simple_email(
+        user.email,
+        "Verify Your GiverAI Account",
+        html_body
+    )
+
     def send_welcome_email(self, user):
         """Send welcome email to new user"""
         html_body = f"""
