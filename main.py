@@ -264,7 +264,7 @@ class EmailService:
             html_body
         )
 
-  def send_verification_email(self, user, verification_token):
+   def send_verification_email(self, user, verification_token):
         """Send verification email with simple template"""
         verification_code = verification_token[-6:]
         verification_url = f"https://giverai.me/verify-email?token={verification_token}"
