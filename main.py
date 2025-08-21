@@ -1176,58 +1176,15 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         db.close()
 
 # Forgot Password/Username Form
-@app.post("/forgot-password")
-async def forgot_password_post(
-    request: Request,
-    email_or_username: str = Form(...),
-    reset_type: str = Form(...)  # 'password' or 'username'
-):
-    db = SessionLocal()
-    try:
-        # Get IP address
-        ip_address = request.client.host if request.client else "Unknown"
-        
-        # Find user by email or username
-        user = db.query(User).filter(
-            (User.email == email_or_username) | (User.username == email_or_username)
-        ).first()
-        
-        if not user:
-            # Don't reveal if user exists or not for security
-            return templates.TemplateResponse("forgot_password.html", {
-                "request": request,
-                "user": None,
-                "success": "If an account with that email/username exists, we've sent you an email."
-            })
-        
-        if reset_type == "password":
-            # Send password reset email
-            reset_record = create_password_reset_record(user.id, db)
-            try:
-                email_service.send_password_reset_email(user, reset_record.token, ip_address)
-                success_message = "Password reset email sent! Check your inbox."
-            except Exception as e:
-                print(f"Failed to send password reset email: {str(e)}")
-                success_message = "If an account exists, we've sent a reset email."
-                
-        elif reset_type == "username":
-            # Send username reminder email
-            try:
-                email_service.send_username_reminder_email(user)
-                success_message = "Username reminder sent! Check your inbox."
-            except Exception as e:
-                print(f"Failed to send username reminder: {str(e)}")
-                success_message = "If an account exists, we've sent a username reminder."
-        
-        return templates.TemplateResponse("forgot_password.html", {
-            "request": request,
-            "user": None,
-            "success": success_message
-        })
-        
-    finally:
-        db.close()
-
+@app.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_get(request: Request):
+    """Display the forgot password form"""
+    user = get_optional_user(request)
+    return templates.TemplateResponse("forgot_password.html", {
+        "request": request,
+        "user": user
+    })
+                      
 @app.post("/forgot-password")
 async def forgot_password_post(
     request: Request,
