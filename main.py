@@ -1,6 +1,5 @@
 import datetime
-from datetime import timedelta
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import secrets
 import hashlib
@@ -761,7 +760,7 @@ def create_access_token(data: dict, expires_delta=None):
     if expires_delta:
         expire = datetime.datetime.utcnow() + expires_delta
     else:
-        expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -1386,7 +1385,7 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
         
         access_token = create_access_token(
             data={"sub": user.username},
-            expires_delta=datetime.timedelta(days=2)
+            expires_delta=timedelta(days=2)
         )
         
         response = RedirectResponse("/dashboard", status_code=302)
