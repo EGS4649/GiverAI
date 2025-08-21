@@ -292,12 +292,12 @@ class EmailService:
     </html>
     """
 
-    return self.send_simple_email(
-        user.email,
-        "Verify Your GiverAI Account",
-        html_body
-    )
-
+        return self.send_simple_email(
+            user.email,
+            "Verify Your GiverAI Account",
+            html_body
+          )
+ 
     def send_welcome_email(self, user):
         """Send welcome email to new user"""
         html_body = f"""
