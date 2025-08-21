@@ -1,5 +1,5 @@
 import datetime
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import os
 import secrets
 import hashlib
@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Back
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, , ForeignKey, text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import LargeBinary
 from sqlalchemy import inspect
@@ -2154,7 +2154,7 @@ def dashboard(request: Request, user: User = Depends(get_current_user)):
             return RedirectResponse("/complete-onboarding", status_code=302)
         
         # Your existing dashboard logic
-        today = str(datetime.date.today())
+        today = str(date.today())
         usage = db.query(Usage).filter(
             Usage.user_id == user.id,
             Usage.date == today
