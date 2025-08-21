@@ -1318,7 +1318,7 @@ async def reset_password_post(
         except Exception as e:
             print(f"Failed to send password reset confirmation: {str(e)}")
         
-        return templates.TemplateResponse("reset_password_success.html", {
+        return templates.TemplateResponse("reset_success.html", {
             "request": request,
             "username": user.username
         })
