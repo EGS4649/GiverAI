@@ -294,10 +294,10 @@ def send_welcome_email(self, user):
         </html>
         """
 
-        return self.send_simple_email(
-            user.email,
-            "Welcome to GiverAI! Your Twitter Content Creation Journey Starts Now 🚀",
-            html_body
+    return self.send_simple_email(
+        user.email,
+        "Welcome to GiverAI! Your Twitter Content Creation Journey Starts Now 🚀",
+        html_body
         )
          
     def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
