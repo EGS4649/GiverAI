@@ -202,7 +202,224 @@ class EmailService:
             "Reset Your GiverAI Password 🔑",
             html_body
         )
+    def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
+    """Send subscription upgrade notification"""
+    plan_features = get_plan_features(new_plan)
+    feature_list = []
+    
+    if plan_features["daily_limit"] == float('inf'):
+        feature_list.append("• Unlimited daily tweets")
+    else:
+        feature_list.append(f"• {plan_features['daily_limit']} tweets per day")
         
+    if plan_features["team_seats"] > 1:
+        feature_list.append(f"• {plan_features['team_seats']} team seats")
+        
+    if plan_features["export"]:
+        feature_list.append("• Export tweet history")
+        
+    if plan_features["analytics"]:
+        feature_list.append("• Advanced analytics")
+        
+    if plan_features["api_access"]:
+        feature_list.append("• API access")
+    
+    plan_descriptions = {
+        "creator": "Perfect for individual creators and influencers",
+        "small_team": "Ideal for small teams and growing businesses", 
+        "agency": "Built for agencies managing multiple clients",
+        "enterprise": "Complete solution for large organizations"
+    }
+    
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; color: white;">Subscription Upgraded! 🎉</h1>
+            <p style="margin: 10px 0 0 0; color: white;">Welcome to {new_plan.replace('_', ' ').title()}</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #333;">Hi {user.username}!</h2>
+            
+            <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
+              <h2 style="margin: 0; color: white;">🚀 Welcome to {new_plan.replace('_', ' ').title()}!</h2>
+              <p style="margin: 10px 0 0 0; color: white;">{plan_descriptions.get(new_plan, '')}</p>
+            </div>
+            
+            <h3>🎯 Your New Features:</h3>
+            <div style="background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 6px;">
+              {"<br>".join(feature_list)}
+            </div>
+            
+            <h3>💳 Billing Details:</h3>
+            <div style="background: #e8f5e8; padding: 15px; margin: 15px 0; border-radius: 6px;">
+              <p><strong>Previous Plan:</strong> {old_plan.replace('_', ' ').title()}</p>
+              <p><strong>New Plan:</strong> {new_plan.replace('_', ' ').title()}</p>
+              <p><strong>Amount:</strong> ${amount}/month</p>
+              <p><strong>Next Billing Date:</strong> {next_billing_date}</p>
+            </div>
+            
+            <p>Your new features are active immediately! Start exploring them now.</p>
+            
+            <p style="text-align: center;">
+              <a href="https://giverai.me/dashboard" 
+                 style="display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Explore New Features
+              </a>
+            </p>
+            
+            <p>Questions about your subscription? Visit your <a href="https://giverai.me/account">account settings</a> or contact support.</p>
+            
+            <p>Thanks for upgrading and supporting GiverAI!</p>
+            <p><strong>The GiverAI Team</strong></p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+            <p>GiverAI - AI-Powered Twitter Content Creation</p>
+            <p>Manage your subscription: <a href="https://giverai.me/account">Account Settings</a></p>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+    
+    return self.send_simple_email(
+        user.email,
+        f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
+        html_body
+    )
+
+def send_subscription_cancellation_email(self, user, plan, cancellation_date, reason=None):
+    """Send subscription cancellation notification"""
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #f39c12; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; color: white;">Subscription Cancelled 😔</h1>
+            <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #333;">Hi {user.username},</h2>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
+              <p style="margin: 0;"><strong>⚠️ Your {plan.replace('_', ' ').title()} subscription has been cancelled</strong></p>
+            </div>
+            
+            <h3>📅 What Happens Next:</h3>
+            <div style="background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 6px;">
+              <p><strong>• Current Plan:</strong> {plan.replace('_', ' ').title()} (until {cancellation_date})</p>
+              <p><strong>• After {cancellation_date}:</strong> Automatic downgrade to Free Plan</p>
+              <p><strong>• Your Data:</strong> All your tweet history will be preserved</p>
+              <p><strong>• Reactivation:</strong> You can resubscribe anytime</p>
+            </div>
+            
+            <h3>📊 Free Plan Features:</h3>
+            <div style="background: #e3f2fd; padding: 15px; margin: 15px 0; border-radius: 6px;">
+              <p>• 15 tweets per day</p>
+              <p>• Basic customization</p>
+              <p>• 1-day tweet history</p>
+            </div>
+            
+            <p>We understand plans change! If you'd like to share why you cancelled, it helps us improve GiverAI for everyone.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://giverai.me/feedback?type=cancellation" 
+                 style="display: inline-block; background: #6c757d; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-right: 10px;">
+                Share Feedback
+              </a>
+              <a href="https://giverai.me/pricing" 
+                 style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                Reactivate Plan
+              </a>
+            </div>
+            
+            <p>If you change your mind, you can reactivate your subscription anytime before {cancellation_date} without losing any features.</p>
+            
+            <p>Thanks for being part of the GiverAI community. We hope to see you again soon!</p>
+            <p><strong>The GiverAI Team</strong></p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+            <p>GiverAI - AI-Powered Twitter Content Creation</p>
+            <p>Questions? Contact us at support@giverai.me</p>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+    
+    return self.send_simple_email(
+        user.email,
+        f"Your {plan.replace('_', ' ').title()} Subscription Has Been Cancelled",
+        html_body
+    )
+
+def send_subscription_downgrade_email(self, user, old_plan):
+    """Send notification when user is downgraded to free plan"""
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #6c757d; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; color: white;">Plan Downgraded ⬇️</h1>
+            <p style="margin: 10px 0 0 0; color: white;">You're now on the Free Plan</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #333;">Hi {user.username},</h2>
+            
+            <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; margin: 20px 0; border-radius: 6px;">
+              <p style="margin: 0;"><strong>ℹ️ Your subscription period has ended</strong></p>
+              <p>Your {old_plan.replace('_', ' ').title()} plan has expired and you've been moved to our Free Plan.</p>
+            </div>
+            
+            <h3>🎯 Your Current Free Plan Features:</h3>
+            <div style="background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 6px;">
+              <p>• 15 AI-generated tweets per day</p>
+              <p>• Basic customization options</p>
+              <p>• 1-day tweet history</p>
+              <p>• Community support</p>
+            </div>
+            
+            <h3>💡 Want More?</h3>
+            <p>Upgrade anytime to get back your premium features:</p>
+            <div style="background: #fff3cd; padding: 15px; margin: 15px 0; border-radius: 6px;">
+              <p><strong>Creator Plan:</strong> Unlimited tweets, 60-day history, advanced customization</p>
+              <p><strong>Small Team:</strong> Team collaboration + all Creator features</p>
+              <p><strong>Agency:</strong> Advanced analytics + white label options</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://giverai.me/pricing" 
+                 style="display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                View Pricing Plans
+              </a>
+            </div>
+            
+            <p><strong>Good News:</strong> All your tweet history and account data are safe and will be restored when you upgrade!</p>
+            
+            <p>Questions? We're here to help at support@giverai.me</p>
+            
+            <p>Thanks for being part of GiverAI!</p>
+            <p><strong>The GiverAI Team</strong></p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+            <p>GiverAI - AI-Powered Twitter Content Creation</p>
+          </div>
+        </div>
+      </body>
+    </html>
+    """ 
+    return self.send_simple_email(
+        user.email,
+        "Your GiverAI Plan Has Changed to Free Plan",
+        html_body
+    )
     def send_username_reminder_email(self, user):
         """Send username reminder email"""
         html_body = f"""
@@ -3177,25 +3394,156 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
     except stripe.error.SignatureVerificationError as e:
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-    # Handle subscription events
-    if event['type'] == 'customer.subscription.updated':
-        subscription = event['data']['object']
-        if subscription.cancel_at_period_end:
-            background_tasks.add_task(
-                handle_subscription_cancellation,
-                subscription.customer
-            )
+    print(f"📧 Received Stripe webhook: {event['type']}")
 
-    # FIXED: Proper indentation for this block
-    if event['type'] == 'customer.subscription.deleted':
+    # Handle subscription creation (upgrade)
+    if event['type'] == 'customer.subscription.created':
         subscription = event['data']['object']
         background_tasks.add_task(
-            downgrade_user_plan,
-            subscription.customer
+            handle_subscription_created,
+            subscription
         )
     
-    return {"status": "success"}
+    # Handle subscription updates (plan changes)
+    elif event['type'] == 'customer.subscription.updated':
+        subscription = event['data']['object']
+        background_tasks.add_task(
+            handle_subscription_updated,
+            subscription
+        )
     
+    # Handle subscription cancellation
+    elif event['type'] == 'customer.subscription.deleted':
+        subscription = event['data']['object']
+        background_tasks.add_task(
+            handle_subscription_deleted,
+            subscription
+        )
+    
+    # Handle successful payment (for upgrade confirmations)
+    elif event['type'] == 'invoice.payment_succeeded':
+        invoice = event['data']['object']
+        if invoice['billing_reason'] == 'subscription_create':
+            background_tasks.add_task(
+                handle_first_payment_success,
+                invoice
+            )
+
+    return {"status": "success"}
+               
+# Background task functions
+async def handle_subscription_created(subscription):
+    """Handle new subscription creation"""
+    db = SessionLocal()
+    try:
+        customer_id = subscription['customer']
+        
+        # Get the user
+        user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        if not user:
+            print(f"❌ User not found for customer {customer_id}")
+            return
+            
+        # Determine plan from price ID
+        price_id = subscription['items']['data'][0]['price']['id']
+        new_plan = get_plan_from_price_id(price_id)
+        old_plan = user.plan
+        
+        if new_plan and new_plan != old_plan:
+            # Update user plan
+            user.plan = new_plan
+            db.commit()
+            
+            # Get billing info
+            amount = subscription['items']['data'][0]['price']['unit_amount'] / 100  # Convert from cents
+            next_billing = datetime.fromtimestamp(subscription['current_period_end']).strftime('%B %d, %Y')
+            
+            # Send upgrade email
+            try:
+                email_service.send_subscription_upgrade_email(
+                    user, old_plan, new_plan, amount, next_billing
+                )
+                print(f"✅ Upgrade email sent to {user.email}")
+            except Exception as e:
+                print(f"❌ Failed to send upgrade email: {str(e)}")
+                
+    except Exception as e:
+        print(f"❌ Error in handle_subscription_created: {str(e)}")
+    finally:
+        db.close()
+            
+async def handle_subscription_updated(subscription):
+    """Handle subscription updates"""
+    db = SessionLocal()
+    try:
+        customer_id = subscription['customer']
+        user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        
+        if not user:
+            return
+            
+        # Check if subscription is being cancelled
+        if subscription.get('cancel_at_period_end'):
+            # Mark as canceling and send cancellation email
+            old_plan = user.plan
+            user.plan = "canceling"
+            db.commit()
+            
+            cancellation_date = datetime.fromtimestamp(subscription['current_period_end']).strftime('%B %d, %Y')
+            
+            try:
+                email_service.send_subscription_cancellation_email(
+                    user, old_plan, cancellation_date
+                )
+                print(f"✅ Cancellation email sent to {user.email}")
+            except Exception as e:
+                print(f"❌ Failed to send cancellation email: {str(e)}")
+                
+    except Exception as e:
+        print(f"❌ Error in handle_subscription_updated: {str(e)}")
+    finally:
+        db.close()
+            
+async def handle_subscription_deleted(subscription):
+    """Handle subscription deletion (immediate downgrade)"""
+    db = SessionLocal()
+    try:
+        customer_id = subscription['customer']
+        user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        
+        if user:
+            old_plan = user.plan if user.plan != "canceling" else subscription.get('metadata', {}).get('original_plan', 'creator')
+            user.plan = "free"
+            db.commit()
+            
+            # Send downgrade notification
+            try:
+                email_service.send_subscription_downgrade_email(user, old_plan)
+                print(f"✅ Downgrade email sent to {user.email}")
+            except Exception as e:
+                print(f"❌ Failed to send downgrade email: {str(e)}")
+                
+    except Exception as e:
+        print(f"❌ Error in handle_subscription_deleted: {str(e)}")
+    finally:
+        db.close()
+            
+async def handle_first_payment_success(invoice):
+    """Handle successful first payment for new subscriptions"""
+    db = SessionLocal()
+    try:
+        customer_id = invoice['customer']
+        user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        
+        if user and user.plan != "free":
+            # Additional welcome email or confirmation
+            print(f"✅ First payment successful for {user.email} on {user.plan} plan")
+            
+    except Exception as e:
+        print(f"❌ Error in handle_first_payment_success: {str(e)}")
+    finally:
+        db.close()
+            
 async def handle_subscription_cancellation(stripe_customer_id: str):
     db = SessionLocal()
     try:
@@ -3207,7 +3555,17 @@ async def handle_subscription_cancellation(stripe_customer_id: str):
             db.commit()
     finally:
         db.close()
-        
+            
+def get_plan_from_price_id(price_id):
+    """Map Stripe price ID to plan name"""
+    price_map = {
+        os.getenv("STRIPE_CREATOR_PRICE_ID"): "creator",
+        os.getenv("STRIPE_SMALL_TEAM_PRICE_ID"): "small_team",
+        os.getenv("STRIPE_AGENCY_PRICE_ID"): "agency",
+        os.getenv("STRIPE_ENTERPRISE_PRICE_ID"): "enterprise"
+    }
+    return price_map.get(price_id)    
+            
 async def downgrade_user_plan(stripe_customer_id: str):
     db = SessionLocal()
     try:
