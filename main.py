@@ -1880,7 +1880,7 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
             email_service.send_goodbye_email(db_user, total_tweets, days_active)
             print("✅ Goodbye email sent")
         except Exception as e:
-            print(f"❌ Failed to send goodbye email: {str(e)}")
+            print(f"⚠ Failed to send goodbye email: {str(e)}")
         
         # Delete user and their data in the correct order (child records first)
         # Delete all foreign key references first
@@ -1888,7 +1888,8 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).delete()
         db.query(TeamMember).filter(TeamMember.user_id == user.id).delete()
         db.query(EmailVerification).filter(EmailVerification.user_id == user.id).delete()
-        db.query(PasswordReset).filter(PasswordReset.user_id == user.id).delete()  # Added this line
+        db.query(EmailChangeRequest).filter(EmailChangeRequest.user_id == user.id).delete()  # ADD THIS LINE
+        db.query(PasswordReset).filter(PasswordReset.user_id == user.id).delete()
         
         # Now delete the user record
         db.delete(db_user)
@@ -1897,6 +1898,17 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         response = RedirectResponse("/", status_code=302)
         response.delete_cookie("access_token")
         return response
+        
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting account: {str(e)}")
+        # Return user to account page with error
+        db_user = apply_plan_features(db_user)
+        return templates.TemplateResponse("account.html", {
+            "request": request,
+            "user": db_user,
+            "error": "Failed to delete account. Please try again or contact support."
+        })
         
     finally:
         db.close()
