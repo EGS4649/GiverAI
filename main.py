@@ -3343,68 +3343,55 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
 
 @app.post("/stripe-webhook")
 async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
-    """
-    Robust webhook handler:
-    - Logs event type and object keys
-    - Detects cancel_at_period_end toggles on customer.subscription.updated
-    - Schedules async handlers with asyncio.create_task so they actually run
-    """
     payload = await request.body()
-    sig_header = request.headers.get("stripe-signature")
-    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+    sig_header = request.headers.get('stripe-signature')
+    webhook_secret = os.getenv('STRIPE_WEBHOOK_SECRET')
 
-    # Verify signature (this uses your existing `stripe` client)
     try:
-        event = stripe.Webhook.construct_event(payload=payload, sig_header=sig_header, secret=webhook_secret)
-    except Exception as e:
-        # Signature verification failed
-        print("⛔ Stripe webhook signature verification failed:", repr(e))
-        return Response(status_code=400)
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, webhook_secret
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError as e:
+        raise HTTPException(status_code=400, detail="Invalid signature")
 
-    # Helpful logging for debugging
-    etype = event.get("type")
-    obj = event.get("data", {}).get("object", {}) or {}
-    prev = event.get("data", {}).get("previous_attributes", {}) or {}
+    print(f"📧 Received Stripe webhook: {event['type']}")
 
-    print("📧 Received Stripe webhook:", etype)
-    print("📧 object id:", obj.get("id"), "object keys:", list(obj.keys()))
-    # optional: uncomment to pretty-print object in dev only (beware large payloads)
-    # import json; print("📧 object:", json.dumps(obj, indent=2))
+    # Handle subscription creation (upgrade)
+    if event['type'] == 'customer.subscription.created':
+        subscription = event['data']['object']
+        background_tasks.add_task(
+            handle_subscription_created,
+            subscription
+        )
+    
+    # Handle subscription updates (plan changes)
+    elif event['type'] == 'customer.subscription.updated':
+        subscription = event['data']['object']
+        background_tasks.add_task(
+            handle_subscription_updated,
+            subscription
+        )
+    
+    # Handle subscription cancellation
+    elif event['type'] == 'customer.subscription.deleted':
+        subscription = event['data']['object']
+        background_tasks.add_task(
+            handle_subscription_deleted,
+            subscription
+        )
+    
+    # Handle successful payment (for upgrade confirmations)
+    elif event['type'] == 'invoice.payment_succeeded':
+        invoice = event['data']['object']
+        if invoice['billing_reason'] == 'subscription_create':
+            background_tasks.add_task(
+                handle_first_payment_success,
+                invoice
+            )
 
-    # === Handle events ===
-    try:
-        # Subscription updated (e.g., user toggled cancel_at_period_end)
-        if etype == "customer.subscription.updated":
-            # If cancel_at_period_end was toggled to True, send a "cancellation scheduled" email now
-            if "cancel_at_period_end" in prev and obj.get("cancel_at_period_end") is True:
-                print("🔔 Cancellation scheduled (cancel_at_period_end set) for subscription", obj.get("id"))
-                # schedule the proper async handler (replace with your existing handler name if different)
-                background_tasks.add_task(asyncio.create_task, handle_cancellation_scheduled(obj))
-            else:
-                # generic subscription update handling
-                print("🔔 Subscription updated (non-cancellation toggle) for", obj.get("id"))
-                background_tasks.add_task(asyncio.create_task, handle_subscription_updated(obj))
-
-        # Subscription actually deleted — final cancellation
-        elif etype == "customer.subscription.deleted":
-            print("🔔 Subscription deleted — finalizing cancellation", obj.get("id"))
-            background_tasks.add_task(asyncio.create_task, handle_subscription_deleted(obj))
-
-        # Invoice paid — useful if you want to send first-payment / receipt emails
-        elif etype == "invoice.paid":
-            print("🔔 Invoice paid for invoice id:", obj.get("id"), "subscription:", obj.get("subscription"))
-            background_tasks.add_task(asyncio.create_task, handle_first_payment_success(obj))
-
-        else:
-            # fallback for events you don't explicitly handle
-            print("ℹ️ Unhandled Stripe event type:", etype)
-
-    except Exception as e:
-        # Log handler scheduling issues (won't reveal internal infra secrets)
-        print("⛔ Error while dispatching webhook handlers:", repr(e))
-
-    # Return 2xx so Stripe won't keep retrying for expected/handled events
-    return {"received": True}
+    return {"status": "success"}
                
 # Background task functions
 async def handle_subscription_created(subscription):
