@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Changed Successfully - GiverAI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+        .success-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #28a745;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+        .email-change-summary {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .email-change-summary h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 16px;
+        }
+        .email-item {
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .email-item:last-child {
+            border-bottom: none;
+        }
+        .email-label {
+            font-weight: bold;
+            color: #555;
+            font-size: 14px;
+        }
+        .email-value {
+            color: #333;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        .button {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            display: inline-block;
+            margin: 20px 10px 10px 0;
+            font-weight: bold;
+        }
+        .button:hover {
+            background: #5a67d8;
+        }
+        .notice {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #0c5460;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>Email Changed Successfully!</h1>
+        <p class="subtitle">Your GiverAI email address has been updated</p>
+        
+        <div class="email-change-summary">
+            <h3>📋 Change Summary</h3>
+            <div class="email-item">
+                <div class="email-label">Username:</div>
+                <div class="email-value">{{ username }}</div>
+            </div>
+            <div class="email-item">
+                <div class="email-label">Previous Email:</div>
+                <div class="email-value">{{ old_email }}</div>
+            </div>
+            <div class="email-item">
+                <div class="email-label">New Email:</div>
+                <div class="email-value">{{ new_email }}</div>
+            </div>
+        </div>
+        
+        <div class="notice">
+            <strong>🔐 Security Notice:</strong><br>
+            A confirmation email has been sent to your previous email address ({{ old_email }}) 
+            for security purposes. Future notifications will be sent to your new email address.
+        </div>
+        
+        <a href="/dashboard" class="button">Go to Dashboard</a>
+        <a href="/account" class="button" style="background: #6c757d;">Account Settings</a>
+        
+        <div class="footer">
+            <p><strong>GiverAI</strong> - AI-Powered Twitter Content Creation</p>
+            <p>Your email change was completed successfully.</p>
+        </div>
+    </div>
+</body>
+</html>
