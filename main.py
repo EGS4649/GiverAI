@@ -205,7 +205,6 @@ class EmailService:
 
     def send_verification_email(self, user, verification_token):
         """Send verification email with simple template"""
-        verification_code = verification_token[-6:]
         verification_url = f"https://giverai.me/verify-email?token={verification_token}"
 
         html_body = f"""
@@ -223,7 +222,6 @@ class EmailService:
                   Verify Email Address
                 </a>
               </p>
-              <p>Or use this verification code: <strong>{verification_code}</strong></p>
               <p>This link expires in 24 hours.</p>
               <p>Best regards,<br>The GiverAI Team</p>
             </div>
