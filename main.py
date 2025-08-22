@@ -203,9 +203,9 @@ class EmailService:
             html_body
         )
     def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
-    """Send subscription upgrade notification"""
-    plan_features = get_plan_features(new_plan)
-    feature_list = []
+        """Send subscription upgrade notification"""
+        plan_features = get_plan_features(new_plan)
+        feature_list = []
     
     if plan_features["daily_limit"] == float('inf'):
         feature_list.append("• Unlimited daily tweets")
