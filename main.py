@@ -196,12 +196,13 @@ class EmailService:
           </body>
         </html>
     """
-
+    
     return self.send_simple_email(
          user.email,
          "Reset Your GiverAI Password 🔑",
          html_body
          )
+         
     def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
         """Send subscription upgrade notification"""
         plan_features = get_plan_features(new_plan)
