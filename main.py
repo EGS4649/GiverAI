@@ -169,39 +169,39 @@ class EmailService:
             print(f"⛔ Failed to send email: {str(e)}")
             return False
 
-    def send_password_reset_email(self, user, reset_token, ip_address="Unknown"):
-        """Send password reset email"""
-        reset_url = f"https://giverai.me/reset-password?token={reset_token}"
+def send_password_reset_email(self, user, reset_token, ip_address="Unknown"):
+    """Send password reset email"""
+    reset_url = f"https://giverai.me/reset-password?token={reset_token}"
 
-        html_body = f"""
-        <html>
-          <body style="font-family: Arial, sans-serif; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h1 style="color: #667eea;">Password Reset Request</h1>
-              <p>Hi {user.username}!</p>
-              <p>We received a request to reset your password for your GiverAI account.</p>
-              <p>
-                <a href="{reset_url}"
-                   style="background: #28a745; color: white; padding: 12px 24px;
-                          text-decoration: none; border-radius: 4px;
-                          display: inline-block;">
-                  Reset My Password
-                </a>
-              </p>
-              <p>This link expires in 1 hour.</p>
-              <p>Request made from IP: {ip_address}</p>
-              <p>If you didn't request this, please ignore this email.</p>
-              <p>Best regards,<br>The GiverAI Team</p>
-            </div>
-          </body>
-        </html>
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #667eea;">Password Reset Request</h1>
+          <p>Hi {user.username}!</p>
+          <p>We received a request to reset your password for your GiverAI account.</p>
+          <p>
+            <a href="{reset_url}"
+               style="background: #28a745; color: white; padding: 12px 24px;
+                      text-decoration: none; border-radius: 4px;
+                      display: inline-block;">
+              Reset My Password
+            </a>
+          </p>
+          <p>This link expires in 1 hour.</p>
+          <p>Request made from IP: {ip_address}</p>
+          <p>If you didn't request this, please ignore this email.</p>
+          <p>Best regards,<br>The GiverAI Team</p>
+        </div>
+      </body>
+    </html>
     """
-    
+
     return self.send_simple_email(
-         user.email,
-         "Reset Your GiverAI Password 🔑",
-         html_body
-         )
+        user.email,
+        "Reset Your GiverAI Password 🔑",
+        html_body
+    )
          
     def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
         """Send subscription upgrade notification"""
