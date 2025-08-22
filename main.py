@@ -868,9 +868,9 @@ def send_subscription_downgrade_email(self, user, old_plan):
         """
         
         return self.send_simple_email(
-            new_email,
-            "Verify Your New GiverAI Email Address 📧",
-            html_body
+        new_email,
+        "Verify Your New GiverAI Email Address 📧",
+        html_body
         )
 
     def send_email_changed_notification(self, user, old_email, new_email, ip_address="Unknown"):
