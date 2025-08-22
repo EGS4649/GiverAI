@@ -223,6 +223,7 @@ class EmailService:
                   Verify Email Address
                 </a>
               </p>
+              <p>Or use this verification code: <strong>{verification_code}</strong></p>
               <p>This link expires in 24 hours.</p>
               <p>Best regards,<br>The GiverAI Team</p>
             </div>
