@@ -1661,11 +1661,15 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         except Exception as e:
             print(f"❌ Failed to send goodbye email: {str(e)}")
         
-        # Delete user and their data
+        # Delete user and their data in the correct order (child records first)
+        # Delete all foreign key references first
         db.query(Usage).filter(Usage.user_id == user.id).delete()
         db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).delete()
         db.query(TeamMember).filter(TeamMember.user_id == user.id).delete()
         db.query(EmailVerification).filter(EmailVerification.user_id == user.id).delete()
+        db.query(PasswordReset).filter(PasswordReset.user_id == user.id).delete()  # Added this line
+        
+        # Now delete the user record
         db.delete(db_user)
         db.commit()
         
