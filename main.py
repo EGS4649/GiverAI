@@ -169,7 +169,7 @@ class EmailService:
             print(f"⛔ Failed to send email: {str(e)}")
             return False
 
-  def send_password_reset_email(self, user, reset_token, ip_address="Unknown"):
+ def send_password_reset_email(self, user, reset_token, ip_address="Unknown"):
         """Send password reset email"""
         reset_url = f"https://giverai.me/reset-password?token={reset_token}"
 
