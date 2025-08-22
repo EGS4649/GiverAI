@@ -202,7 +202,7 @@ class EmailService:
              "Reset Your GiverAI Password 🔑",
              html_body
         )
-yourmom
+        
     def send_verification_email(self, user, verification_token):
         """Send verification email with simple template"""
         verification_url = f"https://giverai.me/verify-email?token={verification_token}"
