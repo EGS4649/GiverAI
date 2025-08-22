@@ -197,7 +197,7 @@ class EmailService:
         </html>
         """
 
-        return self.send_simple_email(
+    return self.send_simple_email(
             user.email,
             "Reset Your GiverAI Password 🔑",
             html_body
@@ -927,9 +927,9 @@ def send_subscription_downgrade_email(self, user, old_plan):
         """
         
         return self.send_simple_email(
-            old_email,
-            "Your GiverAI Email Address Was Changed 📧",
-            html_body
+        old_email,
+        "Your GiverAI Email Address Was Changed 📧",
+        html_body
         )
 
 def test_simple_email(to_email: str):
