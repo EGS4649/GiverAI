@@ -697,6 +697,17 @@ class EmailService:
         )
     
     def send_goodbye_email(self, user, total_tweets, days_active, plan):
+
+    plan_display_names = {
+        "creator": "Creator",
+        "small_team": "Small Team",
+        "agency": "Agency",
+        "enterprise": "Enterprise",
+    }
+    
+    plan_name = plan_display_names.get(plan, plan.replace("_", " ").title())
+    print(f"📧 Goodbye email using plan name: {plan_name} (from plan: {plan})")
+    
         """Send account deletion confirmation"""
         html_body = f"""
         <html>
@@ -708,7 +719,7 @@ class EmailService:
             </div>
 
             <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-                <h2 style="color: край#333;">Your GiverAI account has been successfully deleted</h2>
+                <h2 style="color: #333;">Your GiverAI account has been successfully deleted</h2>
 
                 <div style="background: #fff3cd; padding: 15px; margin: 20px 0; border-radius: 6px; border: 1px solid #ffeaa7;">
                     <h3 style="margin-top: 0; color: #333;">🗂️ Data Removal</h3>
