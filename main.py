@@ -387,72 +387,65 @@ class EmailService:
             html_body
         )
 
-    def send_subscription_cancellation_email(self, user, plan, cancellation_date, reason=None):
-        """Send subscription cancellation notification"""
-        html_body = f"""
-        <html>
-          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: #f39c12; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="margin: 0; color: white;">Subscription Cancelled 😔</h1>
-                <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go</p>
-              </div>
+def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
+    """Send subscription cancellation notification"""
+    plan_display_names = {
+        "creator": "Creator",
+        "small_team": "Small Team", 
+        "agency": "Agency",
+        "enterprise": "Enterprise"
+    }
+    
+    plan_name = plan_display_names.get(original_plan, original_plan.replace('_', ' ').title())
+    
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; color: white;">Subscription Cancelled 😢</h1>
+            <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go</p>
+          </div>
 
-              <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-                <h2 style="color: #333;">Hi {user.username},</h2>
+          <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #333;">Hi {user.username},</h2>
 
-                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
-                  <p style="margin: 0;"><strong>⚠️ Your {plan.replace('_', ' ').title()} subscription has been cancelled</strong></p>
-                </div>
-
-                <h3>📅 What Happens Next:</h3>
-                <div style="background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 6px;">
-                  <p><strong>• Current Plan:</strong> {plan.replace('_', ' ').title()} (until {cancellation_date})</p>
-                  <p><strong>• After {cancellation_date}:</strong> Automatic downgrade to Free Plan</p>
-                  <p><strong>• Your Data:</strong> All your tweet history will be preserved</p>
-                  <p><strong>• Reactivation:</strong> You can resubscribe anytime</p>
-                </div>
-
-                <h3>📊 Free Plan Features:</h3>
-                <div style="background: #e3f2fd; padding: 15px; margin: 15px 0; border-radius: 6px;">
-                  <p>• 15 tweets per day</p>
-                  <p>• Basic customization</p>
-                  <p>• 1-day tweet history</p>
-                </div>
-
-                <p>We understand plans change! If you'd like to share why you cancelled, it helps us improve GiverAI for everyone.</p>
-
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="https://giverai.me/feedback?type=cancellation" 
-                     style="display: inline-block; background: #6c757d; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-right: 10px;">
-                    Share Feedback
-                  </a>
-                  <a href="https://giverai.me/pricing" 
-                     style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
-                    Reactivate Plan
-                  </a>
-                </div>
-
-                <p>If you change your mind, you can reactivate your subscription anytime before {cancellation_date} without losing any features.</p>
-
-                <p>Thanks for being part of the GiverAI community. We hope to see you again soon!</p>
-                <p><strong>The GiverAI Team</strong></p>
-              </div>
-
-              <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-                <p>GiverAI - AI-Powered Twitter Content Creation</p>
-                <p>Questions? Contact us at support@giverai.me</p>
-              </div>
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
+              <p style="margin: 0;"><strong>⚠️ Your {plan_name} subscription has been cancelled</strong></p>
             </div>
-          </body>
-        </html>
-        """
 
-        return self.send_simple_email(
-            user.email,
-            f"Your {plan.replace('_', ' ').title()} Subscription Has Been Cancelled",
-            html_body
-        )
+            <p>Your subscription will remain active until <strong>{cancellation_date}</strong>. After that, your account will be downgraded to the free plan.</p>
+
+            <h3>What happens next?</h3>
+            <ul>
+              <li>✅ Continue using all premium features until {cancellation_date}</li>
+              <li>📅 No more charges after your current period ends</li>  
+              <li>🔄 Automatic downgrade to free plan on {cancellation_date}</li>
+            </ul>
+
+            <h3>Changed your mind?</h3>
+            <p>You can reactivate your subscription anytime before {cancellation_date}.</p>
+
+            <p style="text-align: center;">
+              <a href="{self.billing_url or 'https://giverai.me/account'}" 
+                 style="display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                Reactivate Subscription
+              </a>
+            </p>
+
+            <p>Thanks for being part of GiverAI. We hope to see you again!</p>
+            <p><strong>The GiverAI Team</strong></p>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    return self.send_simple_email(
+        user.email,
+        f"Your {plan_name} Subscription Has Been Cancelled",
+        html_body
+    )
 
     def send_subscription_downgrade_email(self, user, old_plan):
         """Send notification when user is downgraded to free plan"""
@@ -2442,9 +2435,13 @@ async def create_checkout_session(request: Request, plan_type: str):
                 customer_id = customer.id
                 
                 # Save the customer ID to the user
-                user.stripe_customer_id = customer_id
+                db_user = db.query(User).filter(User.id == user.id).first()
+                db_user.stripe_customer_id = customer_id
                 db.commit()
                 print(f"✅ Created new customer {customer_id} for user {user.email}")
+                
+                # Update the user object as well so it's available for the checkout session
+                user.stripe_customer_id = customer_id
                 
             except Exception as e:
                 print(f"❌ Failed to create Stripe customer: {str(e)}")
