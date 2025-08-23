@@ -477,7 +477,7 @@ class EmailService:
     </html>
     """
 
-        return self.send_simple_email(
+    return self.send_simple_email(
             user.email,
             f"Your {plan_name} Subscription Has Been Cancelled",
             html_body,
