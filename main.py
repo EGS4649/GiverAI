@@ -236,13 +236,12 @@ class EmailService:
         )
 
    def send_welcome_email(self, user):
-    """Send welcome email to new user"""
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-
-          <div style="background: #667eea; color: white; padding: 30px;
+        """Send welcome email to new user"""
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: #667eea; color: white; padding: 30px;
                       text-align: center; border-radius: 8px;">
             <h1 style="margin: 0; color: white;">Welcome to GiverAI! 🎉</h1>
             <p style="margin: 10px 0 0 0; color: white;">
@@ -298,13 +297,10 @@ class EmailService:
         html_body,
     )
 
-def send_subscription_upgrade_email(
-    self, user, old_plan, new_plan, amount, next_billing_date
-):
-    """Send subscription upgrade notification."""
-
-    plan_features = get_plan_features(new_plan)
-    feature_list = []
+   def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
+        """Send subscription upgrade notification."""
+        plan_features = get_plan_features(new_plan)
+        feature_list = []
 
     # Build feature list dynamically
     if plan_features["daily_limit"] == float("inf"):
@@ -410,23 +406,18 @@ def send_subscription_upgrade_email(
         html_body,
     )
 
-def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
-    """Send subscription cancellation notification."""
+    def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
+        """Send subscription cancellation notification."""
 
-    plan_display_names = {
-        "creator": "Creator",
-        "small_team": "Small Team",
-        "agency": "Agency",
-        "enterprise": "Enterprise",
-    }
+        plan_display_names = {
+            "creator": "Creator",
+            "small_team": "Small Team",
+            "agency": "Agency",
+            "enterprise": "Enterprise",
+            }
 
-    plan_name = plan_display_names.get(
-        original_plan, original_plan.replace("_", " ").title()
-    )
-
-    print(
-        f"📧 Email using plan name: {plan_name} (from original_plan: {original_plan})"
-    )
+        plan_name = plan_display_names.get(original_plan, original_plan.replace("_", " ").title())
+        print(f"📧 Email using plan name: {plan_name} (from original_plan: {original_plan})")
 
     html_body = f"""
     <html>
