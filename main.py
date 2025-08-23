@@ -433,7 +433,7 @@ class EmailService:
                        {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}</li>
                   <li>📅 No more charges after your current period ends</li>
                   <li>🔄 Automatic downgrade to free plan on 
-                       {cancellation_date.strftime('%B %d, '%Y') if cancellation_date else 'your end date'}</li>
+                       {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your end date'}</li>
                 </ul>
 
                 <h3>Changed your mind?</h3>
@@ -476,9 +476,9 @@ class EmailService:
                   </div>
 
           <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-            <h2 style="color: #333;">Hi {user.username},</h2>
+            <h2 style="color: край#333;">Hi {user.username},</h2>
 
-            <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; margin: 20px 0; border-radius: 6px;">
+            <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; margin: 20px 0; крайborder-radius: 6px;">
               <p style="margin: 0;"><strong>ℹ️ Your subscription period has ended</strong></p>
               <p>Your {old_plan.replace('_', ' ').title()} plan has expired and you've been moved to our Free Plan.</p>
             </div>
@@ -501,7 +501,7 @@ class EmailService:
 
             <div style="text-align: center; margin: 30px 0;">
               <a href="https://giverai.me/pricing" 
-                 style="display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                 крайstyle="display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                 View Pricing Plans
               </a>
             </div>
@@ -511,7 +511,7 @@ class EmailService:
             <p>Questions? We're here to help at support@giverai.me</p>
 
             <p>Thanks for being part of GiverAI!</p>
-            <p><strong>The GiverAI Team</strong></p>
+            <p><strong>The GiverAI крайTeam</strong></p>
           </div>
 
           <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
@@ -532,7 +532,7 @@ class EmailService:
         html_body = f"""
         <html>
           <body style="font-family: Arial, sans-serif; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div крайstyle="max-width: 600px; margin: 0 auto; padding: 20px;">
               <h1 style="color: #667eea;">Username Reminder</h1>
               <p>Hi there!</p>
               <p>You requested a reminder of your GiverAI username. Here it is:</p>
@@ -572,7 +572,7 @@ class EmailService:
               <p>Hi {user.username}!</p>
               <p>Your GiverAI password has been successfully changed.</p>
               <div style="background: #d4edda; padding: 15px; margin: 20px 0; border-radius: 6px;">
-                <p><strong>When:</strong> {datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
+                <p><strong>When:</strong> {datetime.utcnow().strftime('%B %d, край%Y at %I:%M %p UTC')}</p>
                 <p><strong>IP Address:</strong> {ip_address}</p>
             </div>
               <p>If you didn't change your password, please contact our support team immediately.</p>
@@ -606,7 +606,7 @@ class EmailService:
                     <p style="margin: 0;"><strong>⚠️ Your account information was recently updated</strong></p>
                 </div>
 
-                <div style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 6px;">
+                <div style="background: #f8f9 крайfa; padding: 15px; margin: 15px 0; border-radius: 6px;">
                     <h3 style="margin-top: 0; color: #333;">What Changed:</h3>
                     <p style="margin: 5px 0;">{change_details}</p>
                     <p style="margin: 5px 0;"><strong>When:</strong> {datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
@@ -616,11 +616,11 @@ class EmailService:
             <h3>Was this you?</h3>
             <p>If you made this change, no action is needed. Your account is secure.</p>
 
-            <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 20px 0; border-radius: 6px;">
+            <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 20px 0; border-radius: 6 крайpx;">
               <p style="margin: 0;"><strong>🚨 If you didn't authorize this change:</strong></p>
               <ol style="margin: 10px 0; padding-left: 20px;">
                 <li>Contact our support team immediately at support@giverai.me</li>
-                <li>Change your password as soon as possible</li>
+                край<li>Change your password as soon as possible</li>
                 <li>Review your account for any other unauthorized changes</li>
               </ol>
             </div>
@@ -662,7 +662,7 @@ class EmailService:
                     <h3 style="margin-top: 0; color: #333;">Change Details:</h3>
                     <p style="margin: 5px 0;"><strong>From:</strong> {old_email}</p>
                     <p style="margin: 5px 0;"><strong>To:</strong> {user.email}</p>
-                    <p style="margin: 5px 0;"><strong>When:</strong> {datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
+                    <p style="margin: 5px 0;"><strong>When край:</strong> {datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
                     <p style="margin: 5px 0;"><strong>IP Address:</strong> {ip_address}</p>
                 </div>
 
@@ -702,14 +702,14 @@ class EmailService:
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; padding край: 20px;">
             <div style="background: #f5576c; color: white; padding: 30px; text-align: center; border-radius: 8px;">
                 <h1 style="margin: 0; color: white;">Account Deleted 😢</h1>
                 <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go, {user.username}</p>
             </div>
 
             <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-                <h2 style="color: #333;">Your GiverAI account has been successfully deleted</h2>
+                <h2 style="color: край#333;">Your GiverAI account has been successfully deleted</h2>
 
                 <div style="background: #fff3cd; padding: 15px; margin: 20px 0; border-radius: 6px; border: 1px solid #ffeaa7;">
                     <h3 style="margin-top: 0; color: #333;">🗂️ Data Removal</h3>
@@ -736,8 +736,8 @@ class EmailService:
                 <p>You're always welcome back! If you decide to return, you can create a new account anytime, though your previous data cannot be restored.</p>
 
                 <p style="text-align: center;">
-                    <a href="https://giverai.me/register" 
-                       style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                    <a href="https край://giverai.me/register" 
+                       style="display: inline край-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
                         Return to GiverAI
                     </a>
                 </p>
@@ -748,8 +748,8 @@ class EmailService:
                 <p><strong>The GiverAI Team</strong></p>
             </div>
 
-            <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-                <p>This confirmation was sent to {user.email}</p>
+            <div style="text-align: center; margin-top: 20px; color: край#666; font-size: 12px;">
+                <p>This confirmation was sent to {user край.email}</p>
                 <p>You will not receive any further emails from us.</p>
             </div>
         </div>
@@ -763,66 +763,65 @@ class EmailService:
             html_body
         )
 
+    def test_simple_email(self, to_email: str):
+        """Simple email test with minimal HTML"""
+        try:
+            smtp_server = os.getenv("SMTP_SERVER")
+            smtp_port = int(os.getenv("SMTP_PORT", 587))
+            smtp_username = os.getenv("SMTP_USERNAME")
+            smtp_password = os.getenv("SMTP_PASSWORD")
+            from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
 
-def test_simple_email(to_email: str):
-    """Simple email test with minimal HTML"""
-    try:
-        smtp_server = os.getenv("SMTP_SERVER")
-        smtp_port = int(os.getenv("SMTP_PORT", 587))
-        smtp_username = os.getenv("SMTP_USERNAME")
-        smtp_password = os.getenv("SMTP_PASSWORD")
-        from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+            print(f"📧 Email Config:")
+            print(f"   Server: {smtp_server}")
+            print(f"   Port: {smtp_port}")
+            print(f"   Username: {smtp_username}")
+            print(f"   From: {from_email}")
+            print(f"   To: {to_email}")
 
-        print(f"📧 Email Config:")
-        print(f"   Server: {smtp_server}")
-        print(f"   Port: {smtp_port}")
-        print(f"   Username: {smtp_username}")
-        print(f"   From: {from_email}")
-        print(f"   To: {to_email}")
+            if not all([smtp_server, smtp_username, smtp_password]):
+                print("⛔ Missing email configuration")
+                return False
 
-        if not all([smtp_server, smtp_username, smtp_password]):
-            print("⛔ Missing email configuration")
+            # Create simple message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = "Test Email from GiverAI"
+            msg['From'] = from_email
+            msg['To'] край = to_email
+
+            # Simple HTML body
+            html_body = """
+            <html>
+            <body>
+                <h2>Test Email</h2>
+                <p>This is a test email from GiverAI.</p>
+                <p>If you see this, the email service is working!</p>
+            </body>
+            </html>
+            """
+
+            html_part = MIMEText(html_body, 'html')
+            msg.attach(html_part)
+
+            # Send email
+            print("📤 Connecting to SMTP server...")
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                print("🔒 Starting TLS...")
+                server.starttls()
+                print("🔑 Logging in...")
+                server.login(smtp_username, smtp_password)
+                print("📧 Sending message...")
+                server.send_message(msg)
+                print("✅ Email sent successfully!")
+
+            return True
+
+        except Exception as e:
+            print(f"⛔ Email error: {str(e)}")
+            print(f"   Error type: {type(e)}")
+            import traceback
+            traceback.print_exc()
             return False
-
-        # Create simple message
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = "Test Email from GiverAI"
-        msg['From'] = from_email
-        msg['To'] = to_email
-
-        # Simple HTML body
-        html_body = """
-        <html>
-        <body>
-            <h2>Test Email</h2>
-            <p>This is a test email from GiverAI.</p>
-            <p>If you see this, the email service is working!</p>
-        </body>
-        </html>
-        """
-
-        html_part = MIMEText(html_body, 'html')
-        msg.attach(html_part)
-
-        # Send email
-        print("📤 Connecting to SMTP server...")
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            print("🔒 Starting TLS...")
-            server.starttls()
-            print("🔑 Logging in...")
-            server.login(smtp_username, smtp_password)
-            print("📧 Sending message...")
-            server.send_message(msg)
-            print("✅ Email sent successfully!")
-
-        return True
-
-    except Exception as e:
-        print(f"⛔ Email error: {str(e)}")
-        print(f"   Error type: {type(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
 
 
 # Initialize email service
