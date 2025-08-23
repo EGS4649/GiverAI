@@ -400,11 +400,11 @@ class EmailService:
     </html>
     """
 
-    return self.send_simple_email(
-        user.email,
-        f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
-        html_body,
-    )
+        return self.send_simple_email(
+            user.email,
+            f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
+            html_body,
+            )
 
     def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
         """Send subscription cancellation notification."""
@@ -477,11 +477,11 @@ class EmailService:
     </html>
     """
 
-    return self.send_simple_email(
-        user.email,
-        f"Your {plan_name} Subscription Has Been Cancelled",
-        html_body,
-    )
+        return self.send_simple_email(
+            user.email,
+            f"Your {plan_name} Subscription Has Been Cancelled",
+            html_body,
+            )
 
     def send_subscription_downgrade_email(self, user, old_plan):
         """Send notification when user is downgraded to free plan"""
