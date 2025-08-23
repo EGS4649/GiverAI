@@ -3516,34 +3516,15 @@ async def handle_subscription_updated(subscription):
             
         # Check if subscription is being cancelled
         if subscription.get('cancel_at_period_end'):
-            # IMPORTANT: Save the original plan BEFORE updating to "canceling"
-            original_plan = user.plan if user.plan != "canceling" else "creator"
-            
-            # Mark as canceling
-            user.plan = "canceling"
-            db.commit()
-            
-            # Safely get cancellation date with fallback
-            current_period_end = subscription.get('current_period_end')
-            if current_period_end:
-                cancellation_date = datetime.fromtimestamp(current_period_end).strftime('%B %d, %Y')
-            else:
-                # Fallback to a generic message or try to get it from other fields
-                cancellation_date = "at the end of your current billing period"
-            
-            try:
-                # Use original_plan instead of user.plan (which is now "canceling")
-                email_service.send_subscription_cancellation_email(
-                    user, original_plan, cancellation_date
-                )
-                print(f"✅ Cancellation email sent to {user.email} for {original_plan} plan")
-            except Exception as e:
-                print(f"❌ Failed to send cancellation email: {str(e)}")
-                
-    except Exception as e:
-        print(f"❌ Error in handle_subscription_updated: {str(e)}")
-    finally:
-        db.close()
+    # Better logic to get the original plan
+    if user.plan == "canceling":
+        original_plan = "creator" 
+    else:
+        original_plan = user.plan
+    
+    # Mark as canceling
+    user.plan = "canceling"
+    db.commit()
 
 async def handle_subscription_created(subscription):
     """Handle new subscription creation"""
