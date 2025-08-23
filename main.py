@@ -656,56 +656,56 @@ class EmailService:
             smtp_password = os.getenv("SMTP_PASSWORD")
             from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
 
-        print(f"📧 Email Config:")
-        print(f"   Server: {smtp_server}")
-        print(f"   Port: {smtp_port}")
-        print(f"   Username: {smtp_username}")
-        print(f"   From: {from_email}")
-        print(f"   To: {to_email}")
+            print(f"📧 Email Config:")
+            print(f"   Server: {smtp_server}")
+            print(f"   Port: {smtp_port}")
+            print(f"   Username: {smtp_username}")
+            print(f"   From: {from_email}")
+            print(f"   To: {to_email}")
 
-        if not all([smtp_server, smtp_username, smtp_password]):
-            print("⛔ Missing email configuration")
+            if not all([smtp_server, smtp_username, smtp_password]):
+                print("⛔ Missing email configuration")
+                return False
+
+            # Create simple message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = "Test Email from GiverAI"
+            msg['From'] = from_email
+            msg['To'] = to_email
+
+            # Simple HTML body
+            html_body = """
+            <html>
+            <body>
+                <h2>Test Email</h2>
+                <p>This is a test email from GiverAI.</p>
+                <p>If you see this, the email service is working!</p>
+            </body>
+            </html>
+            """
+
+            html_part = MIMEText(html_body, 'html')
+            msg.attach(html_part)
+
+            # Send email
+            print("📤 Connecting to SMTP server...")
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                print("🔒 Starting TLS...")
+                server.starttls()
+                print("🔑 Logging in...")
+                server.login(smtp_username, smtp_password)
+                print("📧 Sending message...")
+                server.send_message(msg)
+                print("✅ Email sent successfully!")
+
+            return True
+
+        except Exception as e:
+            print(f"⛔ Email error: {str(e)}")
+            print(f"   Error type: {type(e)}")
+            import traceback
+            traceback.print_exc()
             return False
-
-        # Create simple message
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = "Test Email from GiverAI"
-        msg['From'] = from_email
-        msg['To'] = to_email
-
-        # Simple HTML body
-        html_body = """
-        <html>
-        <body>
-            <h2>Test Email</h2>
-            <p>This is a test email from GiverAI.</p>
-            <p>If you see this, the email service is working!</p>
-        </body>
-        </html>
-        """
-
-        html_part = MIMEText(html_body, 'html')
-        msg.attach(html_part)
-
-        # Send email
-        print("📤 Connecting to SMTP server...")
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            print("🔒 Starting TLS...")
-            server.starttls()
-            print("🔑 Logging in...")
-            server.login(smtp_username, smtp_password)
-            print("📧 Sending message...")
-            server.send_message(msg)
-            print("✅ Email sent successfully!")
-
-        return True
-
-    except Exception as e:
-        print(f"⛔ Email error: {str(e)}")
-        print(f"   Error type: {type(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
 
 
 # Initialize email service
