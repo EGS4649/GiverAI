@@ -130,7 +130,7 @@ class TeamMember(Base):
     status = Column(String, default="pending")  # pending, active, removed
     created_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User")
-
+    
 class EmailService:
     def __init__(self):
         self.smtp_server = os.getenv("SMTP_SERVER")
@@ -291,178 +291,178 @@ class EmailService:
     </html>
     """
 
-    return self.send_simple_email(
-        user.email,
-        "Welcome to GiverAI! Your Twitter Content Creation Journey Starts Now 🚀",
-        html_body,
-    )
+        return self.send_simple_email(
+            user.email,
+            "Welcome to GiverAI! Your Twitter Content Creation Journey Starts Now 🚀",
+            html_body,
+        )
 
     def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
         """Send subscription upgrade notification."""
         plan_features = get_plan_features(new_plan)
         feature_list = []
 
-    # Build feature list dynamically
-    if plan_features["daily_limit"] == float("inf"):
-        feature_list.append("• Unlimited daily tweets")
-    else:
-        feature_list.append(f"• {plan_features['daily_limit']} tweets per day")
+        # Build feature list dynamically
+        if plan_features["daily_limit"] == float("inf"):
+            feature_list.append("• Unlimited daily tweets")
+        else:
+            feature_list.append(f"• {plan_features['daily_limit']} tweets per day")
 
-    if plan_features["team_seats"] > 1:
-        feature_list.append(f"• {plan_features['team_seats']} team seats")
+        if plan_features["team_seats"] > 1:
+            feature_list.append(f"• {plan_features['team_seats']} team seats")
 
-    if plan_features["export"]:
-        feature_list.append("• Export tweet history")
+        if plan_features["export"]:
+            feature_list.append("• Export tweet history")
 
-    if plan_features["analytics"]:
-        feature_list.append("• Advanced analytics")
+        if plan_features["analytics"]:
+            feature_list.append("• Advanced analytics")
 
-    if plan_features["api_access"]:
-        feature_list.append("• API access")
+        if plan_features["api_access"]:
+            feature_list.append("• API access")
 
-    plan_descriptions = {
-        "creator": "Perfect for individual creators and influencers",
-        "small_team": "Ideal for small teams and growing businesses",
-        "agency": "Built for agencies managing multiple clients",
-        "enterprise": "Complete solution for large organizations",
-    }
+        plan_descriptions = {
+            "creator": "Perfect for individual creators and influencers",
+            "small_team": "Ideal for small teams and growing businesses",
+            "agency": "Built for agencies managing multiple clients",
+            "enterprise": "Complete solution for large organizations",
+        }
 
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="margin: 0; color: white;">Subscription Upgraded! 🎉</h1>
-            <p style="margin: 10px 0 0 0; color: white;">Welcome to {new_plan.replace('_', ' ').title()}</p>
-          </div>
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; color: white;">Subscription Upgraded! 🎉</h1>
+                <p style="margin: 10px 0 0 0; color: white;">Welcome to {new_plan.replace('_', ' ').title()}</p>
+              </div>
 
-          <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-            <h2 style="color: #333;">Hi {user.username}!</h2>
+              <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                <h2 style="color: #333;">Hi {user.username}!</h2>
 
-            <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
-              <h2 style="margin: 0; color: white;">🚀 Welcome to {new_plan.replace('_', ' ').title()}!</h2>
-              <p style="margin: 10px 0 0 0; color: white;">{plan_descriptions.get(new_plan, '')}</p>
+                <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
+                  <h2 style="margin: 0; color: white;">🚀 Welcome to {new_plan.replace('_', ' ').title()}!</h2>
+                  <p style="margin: 10px 0 0 0; color: white;">{plan_descriptions.get(new_plan, '')}</p>
+                </div>
+
+                <h3>🎯 Your New Features:</h3>
+                <div style="background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 6px;">
+                  {"<br>".join(feature_list)}
+                </div>
+
+                <h3>💳 Billing Details:</h3>
+                <div style="background: #e8f5e8; padding: 15px; margin: 15px 0; border-radius: 6px;">
+                  <p><strong>Previous Plan:</strong> {old_plan.replace('_', ' ').title()}</p>
+                  <p><strong>New Plan:</strong> {new_plan.replace('_', ' ').title()}</p>
+                  <p><strong>Amount:</strong> ${amount}/month</p>
+                  <p><strong>Next Billing Date:</strong> {next_billing_date}</p>
+                </div>
+
+                <p>Your new features are active immediately! Start exploring them now.</p>
+
+                <p style="text-align: center;">
+                  <a href="https://giverai.me/dashboard" 
+                     style="display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                    Explore New Features
+                  </a>
+                </p>
+
+                <p>Questions about your subscription? Visit your <a href="https://giverai.me/account">account settings</a> or contact support.</p>
+
+                <p>Thanks for upgrading and supporting GiverAI!</p>
+                <p><strong>The GiverAI Team</strong></p>
+              </div>
+
+              <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+                <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                <p>Manage your subscription: <a href="https://giverai.me/account">Account Settings</a></p>
+              </div>
             </div>
+          </body>
+        </html>
+        """
 
-            <h3>🎯 Your New Features:</h3>
-            <div style="background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 6px;">
-              {"<br>".join(feature_list)}
-            </div>
-
-            <h3>💳 Billing Details:</h3>
-            <div style="background: #e8f5e8; padding: 15px; margin: 15px 0; border-radius: 6px;">
-              <p><strong>Previous Plan:</strong> {old_plan.replace('_', ' ').title()}</p>
-              <p><strong>New Plan:</strong> {new_plan.replace('_', ' ').title()}</p>
-              <p><strong>Amount:</strong> ${amount}/month</p>
-              <p><strong>Next Billing Date:</strong> {next_billing_date}</p>
-            </div>
-
-            <p>Your new features are active immediately! Start exploring them now.</p>
-
-            <p style="text-align: center;">
-              <a href="https://giverai.me/dashboard" 
-                 style="display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                Explore New Features
-              </a>
-            </p>
-
-            <p>Questions about your subscription? Visit your <a href="https://giverai.me/account">account settings</a> or contact support.</p>
-
-            <p>Thanks for upgrading and supporting GiverAI!</p>
-            <p><strong>The GiverAI Team</strong></p>
-          </div>
-
-          <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-            <p>GiverAI - AI-Powered Twitter Content Creation</p>
-            <p>Manage your subscription: <a href="https://giverai.me/account">Account Settings</a></p>
-          </div>
-        </div>
-      </body>
-    </html>
-    """
-
-    return self.send_simple_email(
-        user.email,
-        f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
-        html_body,
-    )
+        return self.send_simple_email(
+            user.email,
+            f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
+            html_body,
+        )
 
     def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
         """Send subscription cancellation notification."""
     
-    plan_display_names = {
-        "creator": "Creator",
-        "small_team": "Small Team",
-        "agency": "Agency",
-        "enterprise": "Enterprise",
-    }
+        plan_display_names = {
+            "creator": "Creator",
+            "small_team": "Small Team",
+            "agency": "Agency",
+            "enterprise": "Enterprise",
+        }
 
-    plan_name = plan_display_names.get(original_plan, original_plan.replace("_", " ").title())
-    print(f"📧 Email using plan name: {plan_name} (from original_plan: {original_plan})")
+        plan_name = plan_display_names.get(original_plan, original_plan.replace("_", " ").title())
+        print(f"📧 Email using plan name: {plan_name} (from original_plan: {original_plan})")
 
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-          
-          <!-- Header Section -->
-          <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="margin: 0; color: white;">Subscription Cancelled 😢</h1>
-            <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go</p>
-          </div>
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              
+              <!-- Header Section -->
+              <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; color: white;">Subscription Cancelled 😢</h1>
+                <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go</p>
+              </div>
 
-          <!-- Main Body -->
-          <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-            <h2 style="color: #333;">Hi {user.username},</h2>
+              <!-- Main Body -->
+              <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                <h2 style="color: #333;">Hi {user.username},</h2>
 
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
-              <p style="margin: 0;">
-                <strong>⚠️ Your {plan_name} subscription has been cancelled</strong>
-              </p>
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                  <p style="margin: 0;">
+                    <strong>⚠️ Your {plan_name} subscription has been cancelled</strong>
+                  </p>
+                </div>
+
+                <p>
+                  Your subscription will remain active until 
+                  <strong>{cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'the end of your billing period'}</strong>.
+                  After that, your account will be downgraded to the free plan.
+                </p>
+
+                <h3>What happens next?</h3>
+                <ul>
+                  <li>✅ Continue using all premium features until 
+                       {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}</li>
+                  <li>📅 No more charges after your current period ends</li>
+                  <li>🔄 Automatic downgrade to free plan on 
+                       {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your end date'}</li>
+                </ul>
+
+                <h3>Changed your mind?</h3>
+                <p>
+                  You can reactivate your subscription anytime before 
+                  {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}.
+                </p>
+
+                <p style="text-align: center;">
+                  <a href="https://giverai.me/account" 
+                     style="display: inline-block; background: #28a745; color: white; 
+                            padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                    Reactivate Subscription
+                  </a>
+                </p>
+
+                <p>Thanks for being part of GiverAI. We hope to see you again!</p>
+                <p><strong>The GiverAI Team</strong></p>
+              </div>
             </div>
+          </body>
+        </html>
+        """
 
-            <p>
-              Your subscription will remain active until 
-              <strong>{cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'the end of your billing period'}</strong>.
-              After that, your account will be downgraded to the free plan.
-            </p>
-
-            <h3>What happens next?</h3>
-            <ul>
-              <li>✅ Continue using all premium features until 
-                   {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}</li>
-              <li>📅 No more charges after your current period ends</li>
-              <li>🔄 Automatic downgrade to free plan on 
-                   {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your end date'}</li>
-            </ul>
-
-            <h3>Changed your mind?</h3>
-            <p>
-              You can reactivate your subscription anytime before 
-              {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}.
-            </p>
-
-            <p style="text-align: center;">
-              <a href="https://giverai.me/account" 
-                 style="display: inline-block; background: #28a745; color: white; 
-                        padding: 12px 24px; text-decoration: none; border-radius: 6px;">
-                Reactivate Subscription
-              </a>
-            </p>
-
-            <p>Thanks for being part of GiverAI. We hope to see you again!</p>
-            <p><strong>The GiverAI Team</strong></p>
-          </div>
-        </div>
-      </body>
-    </html>
-    """
-
-    return self.send_simple_email(
-        user.email,
-        f"Your {plan_name} Subscription Has Been Cancelled",
-        html_body,
-    )
+        return self.send_simple_email(
+            user.email,
+            f"Your {plan_name} Subscription Has Been Cancelled",
+            html_body,
+        )
     
     def send_subscription_downgrade_email(self, user, old_plan):
         """Send notification when user is downgraded to free plan"""
@@ -520,12 +520,12 @@ class EmailService:
         </div>
       </body>
     </html>
-    """
-    return self.send_simple_email(
-        user.email,
-        "Your GiverAI Plan Has Changed to Free Plan",
-        html_body
-    )
+        """
+        return self.send_simple_email(
+            user.email,
+            "Your GiverAI Plan Has Changed to Free Plan",
+            html_body
+        )
 
     def send_username_reminder_email(self, user):
         """Send username reminder email"""
@@ -554,13 +554,13 @@ class EmailService:
         </div>
       </body>
     </html>
-    """
+        """
 
-    return self.send_simple_email(
-        user.email,
-        "Your GiverAI Username Reminder 👤",
-        html_body
-    )
+        return self.send_simple_email(
+            user.email,
+            "Your GiverAI Username Reminder 👤",
+            html_body
+        )
 
     def send_password_reset_success_email(self, user, ip_address="Unknown"):
         """Send password reset success confirmation"""
@@ -582,11 +582,11 @@ class EmailService:
         </html>
         """
 
-    return self.send_simple_email(
-        user.email,
-        "Your GiverAI Password Has Been Changed ✅",
-        html_body
-    )
+        return self.send_simple_email(
+            user.email,
+            "Your GiverAI Password Has Been Changed ✅",
+            html_body
+        )
 
     def send_account_changed_email(self, user, change_details, ip_address="Unknown"):
         """Send account security alert"""
@@ -625,87 +625,138 @@ class EmailService:
               </ol>
             </div>
 
-            <p><strong>Note:</strong> Future notifications will be sent to your new email address: {new_email}</p>
-
             <p>Your account security is our priority. If you have any concerns, please don't hesitate to contact us.</p>
 
             <p>Best regards,<br><strong>The GiverAI Security Team</strong></p>
           </div>
-
-          <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-            <p>This notification was sent to your previous email address: {old_email}</p>
-          </div>
         </div>
       </body>
     </html>
-    """
+        """
 
-    return self.send_simple_email(
-        old_email,
-        "Your GiverAI Email Address Was Changed 📧",
-        html_body
-    )
+        return self.send_simple_email(
+            user.email,
+            "Important Changes to Your GiverAI Account",
+            html_body
+        )
+
+    def send_email_changed_notification(self, user, old_email, ip_address="Unknown"):
+        """Send notification to old email address when email is changed"""
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+                    <h1 style="margin: 0; color: white;">Email Address Changed 🔒</h1>
+                    <p style="margin: 10px 0 0 0; color: white;">Your GiverAI account email was updated</p>
+                </div>
+
+                <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                    <h2 style="color: #333;">Hi {user.username},</h2>
+
+                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                        <p style="margin: 0;"><strong>⚠️ Your account email address was recently changed</strong></p>
+                    </div>
+
+                    <div style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 6px;">
+                        <h3 style="margin-top: 0; color: #333;">Change Details:</h3>
+                        <p style="margin: 5px 0;"><strong>From:</strong> {old_email}</p>
+                        <p style="margin: 5px 0;"><strong>To:</strong> {user.email}</p>
+                        <p style="margin: 5px 0;"><strong>When:</strong> {datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
+                        <p style="margin: 5px 0;"><strong>IP Address:</strong> {ip_address}</p>
+                    </div>
+
+                    <h3>Was this you?</h3>
+                    <p>If you made this change, no action is needed. Future notifications will be sent to your new email address.</p>
+
+                    <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                        <p style="margin: 0;"><strong>🚨 If you didn't authorize this change:</strong></p>
+                        <ol style="margin: 10px 0; padding-left: 20px;">
+                            <li>Contact our support team immediately at support@giverai.me</li>
+                            <li>Change your password as soon as possible</li>
+                            <li>Review your account for any other unauthorized changes</li>
+                        </ol>
+                    </div>
+
+                    <p>Your account security is our priority. If you have any concerns, please don't hesitate to contact us.</p>
+
+                    <p>Best regards,<br><strong>The GiverAI Security Team</strong></p>
+                </div>
+
+                <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+                    <p>This notification was sent to your previous email address: {old_email}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        return self.send_simple_email(
+            old_email,
+            "Your GiverAI Email Address Was Changed 📧",
+            html_body
+        )
 
 
-    def test_simple_email(to_email: str):
-        """Simple email test with minimal HTML"""
-        try:
-            smtp_server = os.getenv("SMTP_SERVER")
-            smtp_port = int(os.getenv("SMTP_PORT", 587))
-            smtp_username = os.getenv("SMTP_USERNAME")
-            smtp_password = os.getenv("SMTP_PASSWORD")
-            from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+def test_simple_email(to_email: str):
+    """Simple email test with minimal HTML"""
+    try:
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = int(os.getenv("SMTP_PORT", 587))
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+        from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
 
-            print(f"📧 Email Config:")
-            print(f"   Server: {smtp_server}")
-            print(f"   Port: {smtp_port}")
-            print(f"   Username: {smtp_username}")
-            print(f"   From: {from_email}")
-            print(f"   To: {to_email}")
+        print(f"📧 Email Config:")
+        print(f"   Server: {smtp_server}")
+        print(f"   Port: {smtp_port}")
+        print(f"   Username: {smtp_username}")
+        print(f"   From: {from_email}")
+        print(f"   To: {to_email}")
 
-            if not all([smtp_server, smtp_username, smtp_password]):
-                print("⛔ Missing email configuration")
-                return False
-
-            # Create simple message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = "Test Email from GiverAI"
-            msg['From'] = from_email
-            msg['To'] = to_email
-
-            # Simple HTML body
-            html_body = """
-            <html>
-            <body>
-                <h2>Test Email</h2>
-                <p>This is a test email from GiverAI.</p>
-                <p>If you see this, the email service is working!</p>
-            </body>
-            </html>
-            """
-
-            html_part = MIMEText(html_body, 'html')
-            msg.attach(html_part)
-
-            # Send email
-            print("📤 Connecting to SMTP server...")
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                print("🔒 Starting TLS...")
-                server.starttls()
-                print("🔑 Logging in...")
-                server.login(smtp_username, smtp_password)
-                print("📧 Sending message...")
-                server.send_message(msg)
-                print("✅ Email sent successfully!")
-
-            return True
-
-        except Exception as e:
-            print(f"⛔ Email error: {str(e)}")
-            print(f"   Error type: {type(e)}")
-            import traceback
-            traceback.print_exc()
+        if not all([smtp_server, smtp_username, smtp_password]):
+            print("⛔ Missing email configuration")
             return False
+
+        # Create simple message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = "Test Email from GiverAI"
+        msg['From'] = from_email
+        msg['To'] = to_email
+
+        # Simple HTML body
+        html_body = """
+        <html>
+        <body>
+            <h2>Test Email</h2>
+            <p>This is a test email from GiverAI.</p>
+            <p>If you see this, the email service is working!</p>
+        </body>
+        </html>
+        """
+
+        html_part = MIMEText(html_body, 'html')
+        msg.attach(html_part)
+
+        # Send email
+        print("📤 Connecting to SMTP server...")
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            print("🔒 Starting TLS...")
+            server.starttls()
+            print("🔑 Logging in...")
+            server.login(smtp_username, smtp_password)
+            print("📧 Sending message...")
+            server.send_message(msg)
+            print("✅ Email sent successfully!")
+
+        return True
+
+    except Exception as e:
+        print(f"⛔ Email error: {str(e)}")
+        print(f"   Error type: {type(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 # Initialize email service
