@@ -411,7 +411,7 @@ class EmailService:
                 <h2 style="color: #333;">Hi {user.username},</h2>
 
                 <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
-                  <p style="margin: 0;"><strong>⚠️ Your {plan_name} subscription has been cancelled</strong></p>
+                  <p style="margin: 0;"><strong>⚠️ Your {original_plan} subscription has been cancelled</strong></p>
                 </div>
 
                 <p>Your subscription will remain active until <strong>{cancellation_date}</strong>. After that, your account will be downgraded to the free plan.</p>
