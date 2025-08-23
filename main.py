@@ -696,7 +696,7 @@ class EmailService:
             html_body
         )
     
-    def send_goodbye_email(self, user, total_tweets, days_active):
+    def send_goodbye_email(self, user, total_tweets, days_active, plan):
         """Send account deletion confirmation"""
         html_body = f"""
         <html>
@@ -728,7 +728,7 @@ class EmailService:
                 <ul style="padding-left: 20px;">
                     <li>📝 Generated {total_tweets} tweets</li>
                     <li>📅 Were with us for {days_active} days</li>
-                    <li>🎯 Used the {user.plan.replace('_', ' ').title()} plan</li>
+                    <li>🎯 Used the {plan.replace('_', ' ').title()} plan</li>
                 </ul>
 
                 <h3>Changed Your Mind?</h3>
