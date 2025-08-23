@@ -3385,57 +3385,93 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
     )
 
 @app.post("/stripe-webhook")
-async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
+async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get('stripe-signature')
-    webhook_secret = os.getenv('STRIPE_WEBHOOK_SECRET')
-
+    
     try:
         event = stripe.Webhook.construct_event(
-            payload, sig_header, webhook_secret
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
         )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError as e:
+    except (ValueError, stripe.error.SignatureVerificationError):
         raise HTTPException(status_code=400, detail="Invalid signature")
-
-    print(f"📧 Received Stripe webhook: {event['type']}")
-
-    # Handle subscription creation (upgrade)
-    if event['type'] == 'customer.subscription.created':
-        subscription = event['data']['object']
-        background_tasks.add_task(
-            handle_subscription_created,
-            subscription
-        )
     
-    # Handle subscription updates (plan changes)
-    elif event['type'] == 'customer.subscription.updated':
-        subscription = event['data']['object']
-        background_tasks.add_task(
-            handle_subscription_updated,
-            subscription
-        )
+    db = SessionLocal()
+    try:
+        if event['type'] == 'invoice.payment_succeeded':
+            invoice = event['data']['object']
+            customer_id = invoice['customer']
+            subscription_id = invoice['subscription']
+            
+            # Get the subscription details to find the next billing date
+            subscription = stripe.Subscription.retrieve(subscription_id)
+            
+            # Find user by customer ID
+            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+            if user:
+                old_plan = user.plan
+                
+                # Determine new plan from subscription
+                new_plan = get_plan_from_price_id(subscription.items.data[0].price.id)
+                
+                # Update user's plan
+                user.plan = new_plan
+                db.commit()
+                
+                # Get the actual next billing date from Stripe
+                next_billing_timestamp = subscription.current_period_end
+                next_billing_date = datetime.fromtimestamp(next_billing_timestamp)
+                
+                # Get the amount from the subscription
+                amount = subscription.items.data[0].price.unit_amount / 100  # Convert from cents
+                
+                # Send upgrade email with actual billing date
+                try:
+                    email_service.send_subscription_upgrade_email(
+                        user=user,
+                        old_plan=old_plan,
+                        new_plan=new_plan,
+                        amount=amount,
+                        next_billing_date=next_billing_date  # This is now the actual date
+                    )
+                    print(f"✅ Upgrade email sent to {user.email}")
+                except Exception as e:
+                    print(f"❌ Failed to send upgrade email: {str(e)}")
+        
+        return {"status": "success"}
+        
+    finally:
+        db.close()
+        
+def get_plan_from_price_id(price_id):
+    """Map Stripe price IDs back to plan names"""
+    price_to_plan = {
+        STRIPE_CREATOR_PRICE_ID: "creator",
+        STRIPE_SMALL_TEAM_PRICE_ID: "small_team", 
+        STRIPE_AGENCY_PRICE_ID: "agency",
+        STRIPE_ENTERPRISE_PRICE_ID: "enterprise"
+    }
+    return price_to_plan.get(price_id, "creator")
     
-    # Handle subscription cancellation
-    elif event['type'] == 'customer.subscription.deleted':
-        subscription = event['data']['object']
-        background_tasks.add_task(
-            handle_subscription_deleted,
-            subscription
+def get_next_billing_date(stripe_customer_id):
+    """Get the next billing date for a customer's active subscription"""
+    try:
+        subscriptions = stripe.Subscription.list(
+            customer=stripe_customer_id,
+            status="active",
+            limit=1
         )
-    
-    # Handle successful payment (for upgrade confirmations)
-    elif event['type'] == 'invoice.payment_succeeded':
-        invoice = event['data']['object']
-        if invoice['billing_reason'] == 'subscription_create':
-            background_tasks.add_task(
-                handle_first_payment_success,
-                invoice
-            )
+        
+        if subscriptions.data:
+            subscription = subscriptions.data[0]
+            next_billing_timestamp = subscription.current_period_end
+            return datetime.fromtimestamp(next_billing_timestamp)
+        
+        return None
+    except Exception as e:
+        print(f"Error getting billing date: {str(e)}")
+        return None
 
-    return {"status": "success"}
-               
 # Background task functions
 async def handle_subscription_created(subscription):
     """Handle new subscription creation"""
