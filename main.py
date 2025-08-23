@@ -354,7 +354,7 @@ class EmailService:
                   <p><strong>Previous Plan:</strong> {old_plan.replace('_', ' ').title()}</p>
                   <p><strong>New Plan:</strong> {new_plan.replace('_', ' ').title()}</p>
                   <p><strong>Amount:</strong> ${amount}/month</p>
-                  <p><strong>Next Billing Date:</strong> {next_billing_date}</p>
+                  <p><strong>Next Billing Date:</strong> {next_billing_date.strftime('%B %d, %Y') if hasattr(next_billing_date, 'strftime') else next_billing_date}</p>
                 </div>
 
                 <p>Your new features are active immediately! Start exploring them now.</p>
@@ -668,7 +668,7 @@ class EmailService:
             new_plan=new_plan.replace("_", " ").title(),
             plan_description=plan_descriptions.get(new_plan, ""),
             new_features="<br>".join(feature_list),
-            next_billing_date=next_billing_date,
+            next_billing_date=next_billing,
             amount=amount,
             dashboard_url="https://giverai.me/dashboard",
             billing_url="https://giverai.me/account"
