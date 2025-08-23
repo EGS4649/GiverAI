@@ -235,74 +235,74 @@ class EmailService:
             html_body
         )
 
-    def send_welcome_email(self, user):
-        """Send welcome email to new user"""
-        html_body = f"""
-        <html>
-          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+   def send_welcome_email(self, user):
+    """Send welcome email to new user"""
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
 
-              <div style="background: #667eea; color: white; padding: 30px;
-                          text-align: center; border-radius: 8px;">
-                <h1 style="margin: 0; color: white;">Welcome to GiverAI! 🎉</h1>
-                <p style="margin: 10px 0 0 0; color: white;">
-                  Your AI-powered Twitter content creation platform
-                </p>
-              </div>
+          <div style="background: #667eea; color: white; padding: 30px;
+                      text-align: center; border-radius: 8px;">
+            <h1 style="margin: 0; color: white;">Welcome to GiverAI! 🎉</h1>
+            <p style="margin: 10px 0 0 0; color: white;">
+              Your AI-powered Twitter content creation platform
+            </p>
+          </div>
 
-              <div style="padding: 30px; background: white; border: 1px solid #eee;
-                          border-radius: 0 0 8px 8px;">
-                <h2 style="color: #333;">Hi {user.username}! 👋</h2>
-                <p>
-                  We're thrilled to have you join our community of content creators
-                  who are transforming their Twitter presence with AI.
-                </p>
+          <div style="padding: 30px; background: white; border: 1px solid #eee;
+                      border-radius: 0 0 8px 8px;">
+            <h2 style="color: #333;">Hi {user.username}! 👋</h2>
+            <p>
+              We're thrilled to have you join our community of content creators
+              who are transforming their Twitter presence with AI.
+            </p>
 
-                <div style="background: #f8f9fa; padding: 15px; margin: 15px 0;
-                            border-radius: 6px; border-left: 4px solid #667eea;">
-                  <h3 style="margin-top: 0; color: #333;">✨ Your Free Plan Includes:</h3>
-                  <ul style="margin: 0; padding-left: 20px;">
-                    <li>15 AI-generated tweets per day</li>
-                    <li>Basic customization options</li>
-                    <li>1-day tweet history</li>
-                  </ul>
-                </div>
-
-                <p>Ready to create your first viral tweet?</p>
-                <p style="text-align: center;">
-                  <a href="https://giverai.me/dashboard"
-                     style="display: inline-block; background: #667eea;
-                            color: white; padding: 12px 24px;
-                            text-decoration: none; border-radius: 6px;">
-                    Start Creating Tweets
-                  </a>
-                </p>
-
-                <p>Happy tweeting!</p>
-                <p><strong>The GiverAI Team</strong></p>
-              </div>
-
-              <div style="text-align: center; margin-top: 20px; color: #666;
-                          font-size: 12px;">
-                <p>GiverAI - AI-Powered Twitter Content Creation</p>
-              </div>
-
+            <div style="background: #f8f9fa; padding: 15px; margin: 15px 0;
+                        border-radius: 6px; border-left: 4px solid #667eea;">
+              <h3 style="margin-top: 0; color: #333;">✨ Your Free Plan Includes:</h3>
+              <ul style="margin: 0; padding-left: 20px;">
+                <li>15 AI-generated tweets per day</li>
+                <li>Basic customization options</li>
+                <li>1-day tweet history</li>
+              </ul>
             </div>
-          </body>
-        </html>
-        """
 
-        return self.send_simple_email(
-            user.email,
-            "Welcome to GiverAI! Your Twitter Content Creation Journey Starts Now 🚀",
-            html_body
-        )
+            <p>Ready to create your first viral tweet?</p>
+            <p style="text-align: center;">
+              <a href="https://giverai.me/dashboard"
+                 style="display: inline-block; background: #667eea;
+                        color: white; padding: 12px 24px;
+                        text-decoration: none; border-radius: 6px;">
+                Start Creating Tweets
+              </a>
+            </p>
+
+            <p>Happy tweeting!</p>
+            <p><strong>The GiverAI Team</strong></p>
+          </div>
+
+          <div style="text-align: center; margin-top: 20px; color: #666;
+                      font-size: 12px;">
+            <p>GiverAI - AI-Powered Twitter Content Creation</p>
+          </div>
+
+        </div>
+      </body>
+    </html>
+    """
+
+    return self.send_simple_email(
+        user.email,
+        "Welcome to GiverAI! Your Twitter Content Creation Journey Starts Now 🚀",
+        html_body,
+    )
 
 def send_subscription_upgrade_email(
     self, user, old_plan, new_plan, amount, next_billing_date
 ):
     """Send subscription upgrade notification."""
-    
+
     plan_features = get_plan_features(new_plan)
     feature_list = []
 
@@ -409,7 +409,6 @@ def send_subscription_upgrade_email(
         f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
         html_body,
     )
-
 
 def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
     """Send subscription cancellation notification."""
