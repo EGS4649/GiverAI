@@ -2049,7 +2049,7 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         
         # Send goodbye email before deleting
         try:
-            email_service.send_goodbye_email(db_user, total_tweets, days_active, original_plan)
+            email_service.send_goodbye_email(db_user, total_tweets, days_active, user.plan)
             print("✅ Goodbye email sent")
         except Exception as e:
             print(f"⚠ Failed to send goodbye email: {str(e)}")
