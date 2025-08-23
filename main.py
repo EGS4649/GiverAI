@@ -3516,9 +3516,8 @@ async def handle_subscription_updated(subscription):
             
         # Check if subscription is being cancelled
         if subscription.get('cancel_at_period_end'):
-            # Store the original plan before changing to "canceling"
-            # Only store if the current plan isn't already "canceling"
-            if user.plan != "canceling":
+            
+            if user.plan == "canceling":
                 user.original_plan = user.plan  # Store the actual subscribed plan
             
             # Get the original plan for the email (either from what we just stored or existing)
