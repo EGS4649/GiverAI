@@ -2183,8 +2183,8 @@ async def cancel_subscription(
                 status_code=302
             )
 
-        # Get cancellation date from the subscription
-     cancellation_date = None
+         # Get cancellation date from the subscription
+         cancellation_date = None
      try:
         subscription = subscriptions.data[0]
         # Try multiple ways to access the period end
