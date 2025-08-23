@@ -2535,19 +2535,19 @@ async def checkout_success(request: Request, session_id: str = None):
         print(f"📋 Retrieving Stripe session: {session_id}")
         session = stripe.checkout.Session.retrieve(session_id)
         print(f"✅ Session retrieved: {session.payment_status}")
-        
+
         plan_name = session.metadata.get("plan", "Unknown Plan")
         print(f"📦 Plan from metadata: {plan_name}")
-        
+
         # Check if payment was successful
         if session.payment_status != 'paid':
             print(f"⚠️ Payment not completed: {session.payment_status}")
             return RedirectResponse("/pricing?error=Payment+not+completed", status_code=302)
-        
+
         # Get subscription details if available
         subscription_id = session.subscription
         print(f"🔗 Subscription ID: {subscription_id}")
-        
+
         if subscription_id:
             subscription = stripe.Subscription.retrieve(subscription_id)
             next_billing_date = datetime.fromtimestamp(subscription.current_period_end)
@@ -2557,30 +2557,30 @@ async def checkout_success(request: Request, session_id: str = None):
             print("❌ No subscription found in session")
             next_billing_date = None
             amount = 0
-        
+
         # Update user's plan in database
         db = SessionLocal()
         try:
             user = get_optional_user(request)
             print(f"👤 Current user: {user.username if user else 'None'}")
-            
+
             if user:
                 db_user = db.query(User).filter(User.id == user.id).first()
                 if db_user:
                     old_plan = db_user.plan
                     print(f"📋 Updating plan from {old_plan} to {plan_name}")
-                    
+
                     # Update plan and customer ID
                     db_user.plan = plan_name
-                    
+
                     # Get customer ID from session
                     if session.customer:
                         db_user.stripe_customer_id = session.customer
                         print(f"🆔 Updated customer ID: {session.customer}")
-                    
+
                     db.commit()
                     print("✅ Database updated successfully")
-                    
+
                     # Send upgrade email only if we have billing date
                     if next_billing_date and amount:
                         try:
@@ -2599,15 +2599,14 @@ async def checkout_success(request: Request, session_id: str = None):
                             traceback.print_exc()
                     else:
                         print("⚠️ Skipping email - missing billing date or amount")
-                        
         finally:
             db.close()
-            
+
     except Exception as e:
         print(f"❌ Error processing checkout: {str(e)}")
         import traceback
         traceback.print_exc()
-        
+
     # Get proper display name
     plan_display_names = {
         "creator": "Creator Plan",
@@ -2615,15 +2614,20 @@ async def checkout_success(request: Request, session_id: str = None):
         "agency": "Agency Plan",
         "enterprise": "Enterprise Plan"
     }
-    
-        display_name = plan_display_names.get(plan_name, 
-        plan_name.replace("_", " ").title() + " Plan")
 
-    return templates.TemplateResponse("checkout_success.html", {
-        "request": request,
-        "user": get_optional_user(request),
-        "plan": display_name
-    })
+    display_name = plan_display_names.get(
+        plan_name,
+        plan_name.replace("_", " ").title() + " Plan"
+    )
+
+    return templates.TemplateResponse(
+        "checkout_success.html",
+        {
+            "request": request,
+            "user": get_optional_user(request),
+            "plan": display_name
+        }
+    )
         
 async def get_ai_tweets(prompt, count=5):
     try:
