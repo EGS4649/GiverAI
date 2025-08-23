@@ -387,7 +387,7 @@ class EmailService:
             html_body
         )
 
-    def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
+ def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
         """Send subscription cancellation notification"""
         plan_display_names = {
             "creator": "Creator",
@@ -427,7 +427,7 @@ class EmailService:
                 <p>You can reactivate your subscription anytime before {cancellation_date}.</p>
 
                 <p style="text-align: center;">
-                  <a href="{self.billing_url or 'https://giverai.me/account'}" 
+                  <a href="https://giverai.me/account" 
                      style="display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
                     Reactivate Subscription
                   </a>
@@ -446,7 +446,7 @@ class EmailService:
             f"Your {plan_name} Subscription Has Been Cancelled",
             html_body
         )
-
+        
     def send_subscription_downgrade_email(self, user, old_plan):
         """Send notification when user is downgraded to free plan"""
         html_body = f"""
@@ -3459,8 +3459,19 @@ async def handle_subscription_created(subscription):
             db.commit()
             
             # Get billing info
-            amount = subscription['items']['data'][0]['price']['unit_amount'] / 100  # Convert from cents
-            next_billing = datetime.fromtimestamp(subscription['current_period_end']).strftime('%B %d, %Y')
+            amount = subscription['items']['data'][0]['price']['unit_amount'] / 100
+            
+            # Debug: Check what's in current_period_end
+            print(f"🔍 Subscription current_period_end: {subscription.get('current_period_end')}")
+            
+            # Get billing cycle end date
+            period_end = subscription.get('current_period_end')
+            if period_end:
+                next_billing = datetime.fromtimestamp(period_end).strftime('%B %d, %Y')
+            else:
+                next_billing = "your next billing cycle"  # This might be your fallback
+            
+            print(f"🔍 Next billing formatted: {next_billing}")
             
             # Send upgrade email
             try:
