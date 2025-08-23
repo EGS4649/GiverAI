@@ -698,6 +698,7 @@ class EmailService:
 
     def send_goodbye_email(self, user, total_tweets, days_active):
         """Send account deletion confirmation"""
+        plan_to_display = original_plan or user.plan
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
