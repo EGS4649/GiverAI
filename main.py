@@ -387,9 +387,9 @@ class EmailService:
             html_body
         )
 
-def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
-    """Send subscription cancellation notification"""
-    plan_display_names = {
+    def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
+        """Send subscription cancellation notification"""
+        plan_display_names = {
         "creator": "Creator",
         "small_team": "Small Team", 
         "agency": "Agency",
