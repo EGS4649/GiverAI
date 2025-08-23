@@ -353,7 +353,7 @@ class EmailService:
                   <p><strong>Previous Plan:</strong> {old_plan.replace('_', ' ').title()}</p>
                   <p><strong>New Plan:</strong> {new_plan.replace('_', ' ').title()}</p>
                   <p><strong>Amount:</strong> ${amount}/month</p>
-                  <p><strong>Next Billing Date:</strong> {next_billing_date}</p>
+                  <p><strong>Next Billing Date:</strong> {next_billing_date.strftime('%Y-%m-%d') if next_billing_date else 'N/A'}</p>
                 </div>
 
                 <p>Your new features are active immediately! Start exploring them now.</p>
@@ -1935,7 +1935,7 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         
         # Send goodbye email before deleting
         try:
-            email_service.send_goodbye_email(db_user, total_tweets, days_active, user.plan)
+            email_service.send_goodbye_email(db_user, total_tweets, days_active, original_plan)
             print("✅ Goodbye email sent")
         except Exception as e:
             print(f"⚠ Failed to send goodbye email: {str(e)}")
@@ -2184,44 +2184,32 @@ async def cancel_subscription(
             )
 
         # Get cancellation date from the subscription
-        cancellation_date = None
-        try:
-            subscription = subscriptions.data[0]
-            cancellation_timestamp = subscription.current_period_end
-            cancellation_date = datetime.fromtimestamp(cancellation_timestamp)
-            print(f"📅 Cancellation date: {cancellation_date}")
-        except (KeyError, AttributeError, IndexError) as e:
+     cancellation_date = None
+     try:
+        subscription = subscriptions.data[0]
+        # Try multiple ways to access the period end
+        period_end = None
+            
+        if hasattr(subscription, 'current_period_end'):
+            period_end = subscription.current_period_end
+        elif 'current_period_end' in subscription:
+            period_end = subscription['current_period_end']
+        elif hasattr(subscription, 'get'):
+            period_end = subscription.get('current_period_end')
+    
+        if period_end:
+            cancellation_date = datetime.fromtimestamp(period_end)
+            print(f"📅 Cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+        else:
+            print("⚠️ Could not find current_period_end in subscription")
+            cancellation_date = datetime.now() + timedelta(days=30)
+            print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+        
+     except (KeyError, AttributeError, IndexError, TypeError) as e:
             print(f"⚠️ Could not get cancellation date: {str(e)}")
             cancellation_date = datetime.now() + timedelta(days=30)
-
-        # Process cancellation
-        try:
-            for sub in subscriptions.data:
-                stripe.Subscription.modify(
-                    sub.id,
-                    cancel_at_period_end=True
-                )
-            
-            # Update user in database - set to canceling AFTER we captured the original plan
-            db_user = db.query(User).filter(User.id == user.id).first()
-            db_user.plan = "canceling"
-            db.commit()
-            print(f"✅ Updated user plan from {original_plan} to canceling")
-
-            # Send cancellation email using the ORIGINAL plan, not "canceling"
-            try:
-                print(f"📧 Sending cancellation email for original plan: {original_plan}")
-                email_service.send_subscription_cancellation_email(
-                    user=db_user,
-                    original_plan=original_plan,  # Use the original plan here
-                    cancellation_date=cancellation_date
-                )
-                print("✅ Cancellation email sent successfully")
-            except Exception as e:
-                print(f"❌ Failed to send cancellation email: {str(e)}")
-                import traceback
-                traceback.print_exc()
-
+            print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+    
             # Add verification task
             background_tasks.add_task(
                 verify_cancellation,
