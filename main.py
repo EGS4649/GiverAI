@@ -198,9 +198,9 @@ class EmailService:
         """
         
         return self.send_simple_email(
-             user.email,
-             "Reset Your GiverAI Password 🔑",
-             html_body
+            user.email,
+            "Reset Your GiverAI Password 🔑",
+            html_body
         )
         
     def send_verification_email(self, user, verification_token):
@@ -390,62 +390,62 @@ class EmailService:
     def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
         """Send subscription cancellation notification"""
         plan_display_names = {
-        "creator": "Creator",
-        "small_team": "Small Team", 
-        "agency": "Agency",
-        "enterprise": "Enterprise"
-    }
-    
-    plan_name = plan_display_names.get(original_plan, original_plan.replace('_', ' ').title())
-    
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="margin: 0; color: white;">Subscription Cancelled 😢</h1>
-            <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go</p>
-          </div>
+            "creator": "Creator",
+            "small_team": "Small Team", 
+            "agency": "Agency",
+            "enterprise": "Enterprise"
+        }
+        
+        plan_name = plan_display_names.get(original_plan, original_plan.replace('_', ' ').title())
+        
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; color: white;">Subscription Cancelled 😢</h1>
+                <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go</p>
+              </div>
 
-          <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-            <h2 style="color: #333;">Hi {user.username},</h2>
+              <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                <h2 style="color: #333;">Hi {user.username},</h2>
 
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
-              <p style="margin: 0;"><strong>⚠️ Your {plan_name} subscription has been cancelled</strong></p>
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                  <p style="margin: 0;"><strong>⚠️ Your {plan_name} subscription has been cancelled</strong></p>
+                </div>
+
+                <p>Your subscription will remain active until <strong>{cancellation_date}</strong>. After that, your account will be downgraded to the free plan.</p>
+
+                <h3>What happens next?</h3>
+                <ul>
+                  <li>✅ Continue using all premium features until {cancellation_date}</li>
+                  <li>📅 No more charges after your current period ends</li>  
+                  <li>🔄 Automatic downgrade to free plan on {cancellation_date}</li>
+                </ul>
+
+                <h3>Changed your mind?</h3>
+                <p>You can reactivate your subscription anytime before {cancellation_date}.</p>
+
+                <p style="text-align: center;">
+                  <a href="{self.billing_url or 'https://giverai.me/account'}" 
+                     style="display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                    Reactivate Subscription
+                  </a>
+                </p>
+
+                <p>Thanks for being part of GiverAI. We hope to see you again!</p>
+                <p><strong>The GiverAI Team</strong></p>
+              </div>
             </div>
+          </body>
+        </html>
+        """
 
-            <p>Your subscription will remain active until <strong>{cancellation_date}</strong>. After that, your account will be downgraded to the free plan.</p>
-
-            <h3>What happens next?</h3>
-            <ul>
-              <li>✅ Continue using all premium features until {cancellation_date}</li>
-              <li>📅 No more charges after your current period ends</li>  
-              <li>🔄 Automatic downgrade to free plan on {cancellation_date}</li>
-            </ul>
-
-            <h3>Changed your mind?</h3>
-            <p>You can reactivate your subscription anytime before {cancellation_date}.</p>
-
-            <p style="text-align: center;">
-              <a href="{self.billing_url or 'https://giverai.me/account'}" 
-                 style="display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
-                Reactivate Subscription
-              </a>
-            </p>
-
-            <p>Thanks for being part of GiverAI. We hope to see you again!</p>
-            <p><strong>The GiverAI Team</strong></p>
-          </div>
-        </div>
-      </body>
-    </html>
-    """
-
-    return self.send_simple_email(
-        user.email,
-        f"Your {plan_name} Subscription Has Been Cancelled",
-        html_body
-    )
+        return self.send_simple_email(
+            user.email,
+            f"Your {plan_name} Subscription Has Been Cancelled",
+            html_body
+        )
 
     def send_subscription_downgrade_email(self, user, old_plan):
         """Send notification when user is downgraded to free plan"""
@@ -945,6 +945,7 @@ def test_simple_email(to_email: str):
         import traceback
         traceback.print_exc()
         return False
+
 
 # Initialize email service
 email_service = EmailService()
