@@ -2185,10 +2185,10 @@ async def cancel_subscription(
 
          # Get cancellation date from the subscription
         cancellation_date = None
-         try:
-            subscription = subscriptions.data[0]
-            # Try multiple ways to access the period end
-            period_end = None
+        try:
+           subscription = subscriptions.data[0]
+           # Try multiple ways to access the period end
+           period_end = None
             
         if hasattr(subscription, 'current_period_end'):
            period_end = subscription.current_period_end
