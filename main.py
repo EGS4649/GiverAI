@@ -2616,7 +2616,7 @@ async def checkout_success(request: Request, session_id: str = None):
         "enterprise": "Enterprise Plan"
     }
     
-  display_name = plan_display_names.get(plan_name, 
+        display_name = plan_display_names.get(plan_name, 
         plan_name.replace("_", " ").title() + " Plan")
 
     return templates.TemplateResponse("checkout_success.html", {
