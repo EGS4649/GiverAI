@@ -71,6 +71,7 @@ class User(Base):
     industry = Column(String, nullable=True)
     goals = Column(String, nullable=True)
     posting_frequency = Column(String, nullable=True)
+    original_plan = Column(String, nullable=True)
 
 class Usage(Base):
     __tablename__ = "usage"
@@ -3492,59 +3493,62 @@ async def handle_subscription_updated(subscription):
     """Handle subscription updates"""
     db = SessionLocal()
     try:
-        customer_id = subscription["customer"]
-        user = (
-            db.query(User)
-            .filter(User.stripe_customer_id == customer_id)
-            .first()
-        )
-
+        customer_id = subscription['customer']
+        user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        
         if not user:
             # Try to find user by email if customer ID lookup fails
             try:
                 # Get customer details from Stripe
                 customer = stripe.Customer.retrieve(customer_id)
-                user = (
-                    db.query(User)
-                    .filter(User.email == customer["email"])
-                    .first()
-                )
-
+                user = db.query(User).filter(User.email == customer['email']).first()
+                
                 if user:
                     # Update the user's stripe_customer_id
                     user.stripe_customer_id = customer_id
                     db.commit()
-                    print(
-                        f"✅ Updated user {user.email} "
-                        f"with customer ID {customer_id}"
-                    )
+                    print(f"✅ Updated user {user.email} with customer ID {customer_id}")
                 else:
-                    print(
-                        f"❌ User not found for customer {customer_id} "
-                        f"or email {customer.get('email', 'unknown')}"
-                    )
+                    print(f"❌ User not found for customer {customer_id} or email {customer.get('email', 'unknown')}")
                     return
             except Exception as e:
-                print(
-                    f"❌ Could not retrieve customer or find user: {str(e)}"
-                )
+                print(f"❌ Could not retrieve customer or find user: {str(e)}")
                 return
-
-        # Handle subscription cancellation
-        if subscription.get("cancel_at_period_end"):
-            # Better logic to get the original plan
-            if user.plan == "canceling":
-                original_plan = "creator"
-            else:
-                original_plan = user.plan
-
+            
+        # Check if subscription is being cancelled
+        if subscription.get('cancel_at_period_end'):
+            # Store the original plan before changing to "canceling"
+            # Only store if the current plan isn't already "canceling"
+            if user.plan != "canceling":
+                user.original_plan = user.plan  # Store the actual subscribed plan
+            
+            # Get the original plan for the email (either from what we just stored or existing)
+            original_plan = getattr(user, 'original_plan', user.plan)
+            
             # Mark as canceling
             user.plan = "canceling"
             db.commit()
-            original_plan = getattr(user, 'original_plan', user.plan)
+            
+            # Safely get cancellation date with fallback
+            current_period_end = subscription.get('current_period_end')
+            if current_period_end:
+                cancellation_date = datetime.fromtimestamp(current_period_end).strftime('%B %d, %Y')
+            else:
+                cancellation_date = "at the end of your current billing period"
+            
+            try:
+                email_service.send_subscription_cancellation_email(
+                    user, original_plan, cancellation_date
+                )
+                print(f"✅ Cancellation email sent to {user.email} for {original_plan} plan")
+            except Exception as e:
+                print(f"❌ Failed to send cancellation email: {str(e)}")
+                
+    except Exception as e:
+        print(f"❌ Error in handle_subscription_updated: {str(e)}")
     finally:
         db.close()
-
+        
 async def handle_subscription_created(subscription):
     """Handle new subscription creation"""
     db = SessionLocal()
