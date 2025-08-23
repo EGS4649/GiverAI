@@ -327,7 +327,6 @@ class EmailService:
         "enterprise": "Complete solution for large organizations",
     }
 
-    # Email template
      html_body = f"""
         <html>
           <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
