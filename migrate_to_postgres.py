@@ -28,6 +28,12 @@ def convert_sqlite_to_postgres_type(col_type):
         return TIMESTAMP()
     return col_type
 
+def upgrade():
+    op.add_column('users', sa.Column('original_plan', sa.String(), nullable=True))
+
+def downgrade():
+    op.drop_column('users', 'original_plan')
+
 def main():
     try:
         SQLITE_URL = "sqlite:///test.db"
