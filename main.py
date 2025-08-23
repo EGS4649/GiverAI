@@ -3453,6 +3453,7 @@ async def handle_subscription_created(subscription):
         price_id = subscription['items']['data'][0]['price']['id']
         new_plan = get_plan_from_price_id(price_id)
         old_plan = user.plan
+        original_plan = user.plan
         
         if new_plan and new_plan != old_plan:
             # Update user plan
