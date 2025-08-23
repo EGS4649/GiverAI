@@ -3516,15 +3516,15 @@ async def handle_subscription_updated(subscription):
             
         # Check if subscription is being cancelled
         if subscription.get('cancel_at_period_end'):
-    # Better logic to get the original plan
-    if user.plan == "canceling":
-        original_plan = "creator" 
-    else:
-        original_plan = user.plan
+        # Better logic to get the original plan
+        if user.plan == "canceling":
+            original_plan = "creator" 
+        else:
+            original_plan = user.plan
     
-    # Mark as canceling
-    user.plan = "canceling"
-    db.commit()
+        # Mark as canceling
+        user.plan = "canceling"
+        db.commit()
 
 async def handle_subscription_created(subscription):
     """Handle new subscription creation"""
