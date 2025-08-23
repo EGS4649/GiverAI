@@ -387,19 +387,25 @@ class EmailService:
             html_body
         )
 
-   def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
-    """Send subscription cancellation notification"""
+def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
+    """Send subscription cancellation notification."""
+
     plan_display_names = {
         "creator": "Creator",
-        "small_team": "Small Team", 
+        "small_team": "Small Team",
         "agency": "Agency",
-        "enterprise": "Enterprise"
+        "enterprise": "Enterprise",
     }
-    
-    # Use the passed original_plan parameter, not user.plan
-    plan_name = plan_display_names.get(original_plan, original_plan.replace('_', ' ').title())
-    print(f"📧 Email using plan name: {plan_name} (from original_plan: {original_plan})")
-    
+
+    # Use the passed original_plan instead of user.plan
+    plan_name = plan_display_names.get(
+        original_plan, original_plan.replace("_", " ").title()
+    )
+    print(
+        f"📧 Email using plan name: {plan_name} "
+        f"(from original_plan: {original_plan})"
+    )
+
     html_body = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
@@ -413,20 +419,35 @@ class EmailService:
             <h2 style="color: #333;">Hi {user.username},</h2>
 
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
-              <p style="margin: 0;"><strong>⚠️ Your {plan_name} subscription has been cancelled</strong></p>
+              <p style="margin: 0;">
+                <strong>⚠️ Your {plan_name} subscription has been cancelled</strong>
+              </p>
             </div>
 
-            <p>Your subscription will remain active until <strong>{cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'the end of your billing period'}</strong>. After that, your account will be downgraded to the free plan.</p>
+            <p>
+              Your subscription will remain active until 
+              <strong>{cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'the end of your billing period'}</strong>.
+              After that, your account will be downgraded to the free plan.
+            </p>
 
             <h3>What happens next?</h3>
             <ul>
-              <li>✅ Continue using all premium features until {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}</li>
+              <li>
+                ✅ Continue using all premium features until 
+                {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}
+              </li>
               <li>📅 No more charges after your current period ends</li>  
-              <li>🔄 Automatic downgrade to free plan on {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your end date'}</li>
+              <li>
+                🔄 Automatic downgrade to free plan on 
+                {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your end date'}
+              </li>
             </ul>
 
             <h3>Changed your mind?</h3>
-            <p>You can reactivate your subscription anytime before {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}.</p>
+            <p>
+              You can reactivate your subscription anytime before 
+              {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}.
+            </p>
 
             <p style="text-align: center;">
               <a href="https://giverai.me/account" 
@@ -446,8 +467,9 @@ class EmailService:
     return self.send_simple_email(
         user.email,
         f"Your {plan_name} Subscription Has Been Cancelled",
-        html_body
+        html_body,
     )
+
         
     def send_subscription_downgrade_email(self, user, old_plan):
         """Send notification when user is downgraded to free plan"""
