@@ -334,7 +334,7 @@ class EmailService:
     </html>
     """
 
-    return self.send_simple_email(
+     return self.send_simple_email(
         user.email,
         f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
         html_body,
