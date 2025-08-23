@@ -698,15 +698,15 @@ class EmailService:
     
     def send_goodbye_email(self, user, total_tweets, days_active, plan):
 
-    plan_display_names = {
+        plan_display_names = {
         "creator": "Creator",
         "small_team": "Small Team",
         "agency": "Agency",
         "enterprise": "Enterprise",
-    }
+        }
     
-    plan_name = plan_display_names.get(plan, plan.replace("_", " ").title())
-    print(f"📧 Goodbye email using plan name: {plan_name} (from plan: {plan})")
+        plan_name = plan_display_names.get(plan, plan.replace("_", " ").title())
+        print(f"📧 Goodbye email using plan name: {plan_name} (from plan: {plan})")
     
         """Send account deletion confirmation"""
         html_body = f"""
