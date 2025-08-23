@@ -327,9 +327,9 @@ class EmailService:
         "enterprise": "Complete solution for large organizations",
     }
 
-         html_body = f"""
+       html_body = f"""
         <html>
-          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+          <body style="font-family: Arial, sans-serif; color: #333;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
               <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
                 <h1 style="margin: 0; color: white;">Subscription Upgraded! 🎉</h1>
