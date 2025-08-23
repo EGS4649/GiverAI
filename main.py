@@ -340,83 +340,82 @@ def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next
         html_body,
     )
 
+    def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
+        """Send subscription cancellation notification."""
+        
+        plan_display_names = {
+            "creator": "Creator",
+            "small_team": "Small Team",
+            "agency": "Agency",
+            "enterprise": "Enterprise",
+        }
 
-def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
-    """Send subscription cancellation notification."""
+        plan_name = plan_display_names.get(original_plan, original_plan.replace("_", " ").title())
+        print(f"📧 Email using plan name: {plan_name} (from original_plan: {original_plan})")
 
-    plan_display_names = {
-        "creator": "Creator",
-        "small_team": "Small Team",
-        "agency": "Agency",
-        "enterprise": "Enterprise",
-    }
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              
+              <!-- Header Section -->
+              <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; color: white;">Subscription Cancelled 😢</h1>
+                <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go</p>
+              </div>
 
-    plan_name = plan_display_names.get(original_plan, original_plan.replace("_", " ").title())
-    print(f"📧 Email using plan name: {plan_name} (from original_plan: {original_plan})")
+              <!-- Main Body -->
+              <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                <h2 style="color: #333;">Hi {user.username},</h2>
 
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-          
-          <!-- Header Section -->
-          <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="margin: 0; color: white;">Subscription Cancelled 😢</h1>
-            <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go</p>
-          </div>
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                  <p style="margin: 0;">
+                    <strong>⚠️ Your {plan_name} subscription has been cancelled</strong>
+                  </p>
+                </div>
 
-          <!-- Main Body -->
-          <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-            <h2 style="color: #333;">Hi {user.username},</h2>
+                <p>
+                  Your subscription will remain active until 
+                  <strong>{cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'the end of your billing period'}</strong>.
+                  After that, your account will be downgraded to the free plan.
+                </p>
 
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
-              <p style="margin: 0;">
-                <strong>⚠️ Your {plan_name} subscription has been cancelled</strong>
-              </p>
+                <h3>What happens next?</h3>
+                <ul>
+                  <li>✅ Continue using all premium features until 
+                       {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}</li>
+                  <li>📅 No more charges after your current period ends</li>
+                  <li>🔄 Automatic downgrade to free plan on 
+                       {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your end date'}</li>
+                </ul>
+
+                <h3>Changed your mind?</h3>
+                <p>
+                  You can reactivate your subscription anytime before 
+                  {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}.
+                </p>
+
+                <p style="text-align: center;">
+                  <a href="https://giverai.me/account" 
+                     style="display: inline-block; background: #28a745; color: white; 
+                            padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                    Reactivate Subscription
+                  </a>
+                </p>
+
+                <p>Thanks for being part of GiverAI. We hope to see you again!</p>
+                <p><strong>The GiverAI Team</strong></p>
+              </div>
             </div>
+          </body>
+        </html>
+        """
 
-            <p>
-              Your subscription will remain active until 
-              <strong>{cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'the end of your billing period'}</strong>.
-              After that, your account will be downgraded to the free plan.
-            </p>
-
-            <h3>What happens next?</h3>
-            <ul>
-              <li>✅ Continue using all premium features until 
-                   {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}</li>
-              <li>📅 No more charges after your current period ends</li>
-              <li>🔄 Automatic downgrade to free plan on 
-                   {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your end date'}</li>
-            </ul>
-
-            <h3>Changed your mind?</h3>
-            <p>
-              You can reactivate your subscription anytime before 
-              {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}.
-            </p>
-
-            <p style="text-align: center;">
-              <a href="https://giverai.me/account" 
-                 style="display: inline-block; background: #28a745; color: white; 
-                        padding: 12px 24px; text-decoration: none; border-radius: 6px;">
-                Reactivate Subscription
-              </a>
-            </p>
-
-            <p>Thanks for being part of GiverAI. We hope to see you again!</p>
-            <p><strong>The GiverAI Team</strong></p>
-          </div>
-        </div>
-      </body>
-    </html>
-    """
-
-    return self.send_simple_email(
-        user.email,
-        f"Your {plan_name} Subscription Has Been Cancelled",
-        html_body,
-    )
+        return self.send_simple_email(
+            user.email,
+            f"Your {plan_name} Subscription Has Been Cancelled",
+            html_body,
+        )
 
 def send_subscription_downgrade_email(self, user, old_plan):
     """Send notification when user is downgraded to free plan"""
@@ -2014,13 +2013,12 @@ async def cancel_subscription(
         # Get cancellation date from the subscription
         cancellation_date = None
         try:
-            subscription = subscriptions.data[0]  # Get the first active subscription
+            subscription = subscriptions.data[0]
             cancellation_timestamp = subscription.current_period_end
             cancellation_date = datetime.fromtimestamp(cancellation_timestamp)
             print(f"📅 Cancellation date: {cancellation_date}")
-        except Exception as e:
+        except (KeyError, AttributeError, IndexError) as e:
             print(f"⚠️ Could not get cancellation date: {str(e)}")
-            # Fallback to 30 days from now
             cancellation_date = datetime.now() + timedelta(days=30)
 
         # Process cancellation
