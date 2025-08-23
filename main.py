@@ -298,94 +298,118 @@ class EmailService:
             html_body
         )
 
-    def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
-        """Send subscription upgrade notification"""
-        plan_features = get_plan_features(new_plan)
-        feature_list = []
+def send_subscription_upgrade_email(
+    self, user, old_plan, new_plan, amount, next_billing_date
+):
+    """Send subscription upgrade notification."""
+    
+    plan_features = get_plan_features(new_plan)
+    feature_list = []
 
-        if plan_features["daily_limit"] == float('inf'):
-            feature_list.append("• Unlimited daily tweets")
-        else:
-            feature_list.append(f"• {plan_features['daily_limit']} tweets per day")
+    # Build feature list dynamically
+    if plan_features["daily_limit"] == float("inf"):
+        feature_list.append("• Unlimited daily tweets")
+    else:
+        feature_list.append(f"• {plan_features['daily_limit']} tweets per day")
 
-        if plan_features["team_seats"] > 1:
-            feature_list.append(f"• {plan_features['team_seats']} team seats")
+    if plan_features["team_seats"] > 1:
+        feature_list.append(f"• {plan_features['team_seats']} team seats")
 
-        if plan_features["export"]:
-            feature_list.append("• Export tweet history")
+    if plan_features["export"]:
+        feature_list.append("• Export tweet history")
 
-        if plan_features["analytics"]:
-            feature_list.append("• Advanced analytics")
+    if plan_features["analytics"]:
+        feature_list.append("• Advanced analytics")
 
-        if plan_features["api_access"]:
-            feature_list.append("• API access")
+    if plan_features["api_access"]:
+        feature_list.append("• API access")
 
-        plan_descriptions = {
-            "creator": "Perfect for individual creators and influencers",
-            "small_team": "Ideal for small teams and growing businesses",
-            "agency": "Built for agencies managing multiple clients",
-            "enterprise": "Complete solution for large organizations"
-        }
+    plan_descriptions = {
+        "creator": "Perfect for individual creators and influencers",
+        "small_team": "Ideal for small teams and growing businesses",
+        "agency": "Built for agencies managing multiple clients",
+        "enterprise": "Complete solution for large organizations",
+    }
 
-        html_body = f"""
-        <html>
-          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="margin: 0; color: white;">Subscription Upgraded! 🎉</h1>
-                <p style="margin: 10px 0 0 0; color: white;">Welcome to {new_plan.replace('_', ' ').title()}</p>
-              </div>
+    # Email template
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          
+          <!-- Header Section -->
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                      color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; color: white;">Subscription Upgraded! 🎉</h1>
+            <p style="margin: 10px 0 0 0; color: white;">
+              Welcome to {new_plan.replace('_', ' ').title()}
+            </p>
+          </div>
 
-              <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-                <h2 style="color: #333;">Hi {user.username}!</h2>
+          <!-- Main Body -->
+          <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #333;">Hi {user.username}!</h2>
 
-                <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
-                  <h2 style="margin: 0; color: white;">🚀 Welcome to {new_plan.replace('_', ' ').title()}!</h2>
-                  <p style="margin: 10px 0 0 0; color: white;">{plan_descriptions.get(new_plan, '')}</p>
-                </div>
-
-                <h3>🎯 Your New Features:</h3>
-                <div style="background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 6px;">
-                  {"<br>".join(feature_list)}
-                </div>
-
-                <h3>💳 Billing Details:</h3>
-                <div style="background: #e8f5e8; padding: 15px; margin: 15px 0; border-radius: 6px;">
-                  <p><strong>Previous Plan:</strong> {old_plan.replace('_', ' ').title()}</p>
-                  <p><strong>New Plan:</strong> {new_plan.replace('_', ' ').title()}</p>
-                  <p><strong>Amount:</strong> ${amount}/month</p>
-                  <p><strong>Next Billing Date:</strong> {next_billing_date.strftime('%B %d, %Y') if hasattr(next_billing_date, 'strftime') else next_billing_date}</p>
-                </div>
-
-                <p>Your new features are active immediately! Start exploring them now.</p>
-
-                <p style="text-align: center;">
-                  <a href="https://giverai.me/dashboard" 
-                     style="display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                    Explore New Features
-                  </a>
-                </p>
-
-                <p>Questions about your subscription? Visit your <a href="https://giverai.me/account">account settings</a> or contact support.</p>
-
-                <p>Thanks for upgrading and supporting GiverAI!</p>
-                <p><strong>The GiverAI Team</strong></p>
-              </div>
-
-              <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-                <p>GiverAI - AI-Powered Twitter Content Creation</p>
-                <p>Manage your subscription: <a href="https://giverai.me/account">Account Settings</a></p>
-              </div>
+            <div style="background: linear-gradient(135deg, #667eea, #764ba2); 
+                        color: white; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
+              <h2 style="margin: 0; color: white;">🚀 Welcome to {new_plan.replace('_', ' ').title()}!</h2>
+              <p style="margin: 10px 0 0 0; color: white;">
+                {plan_descriptions.get(new_plan, '')}
+              </p>
             </div>
-          </body>
-        </html>
-        """
 
-        return self.send_simple_email(
-            user.email,
-            f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
-            html_body
-        )
+            <h3>🎯 Your New Features:</h3>
+            <div style="background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 6px;">
+              {"<br>".join(feature_list)}
+            </div>
+
+            <h3>💳 Billing Details:</h3>
+            <div style="background: #e8f5e8; padding: 15px; margin: 15px 0; border-radius: 6px;">
+              <p><strong>Previous Plan:</strong> {old_plan.replace('_', ' ').title()}</p>
+              <p><strong>New Plan:</strong> {new_plan.replace('_', ' ').title()}</p>
+              <p><strong>Amount:</strong> ${amount}/month</p>
+              <p><strong>Next Billing Date:</strong> 
+                {next_billing_date.strftime('%B %d, %Y') if hasattr(next_billing_date, 'strftime') else next_billing_date}
+              </p>
+            </div>
+
+            <p>Your new features are active immediately! Start exploring them now.</p>
+
+            <p style="text-align: center;">
+              <a href="https://giverai.me/dashboard" 
+                 style="display: inline-block; background: #667eea; color: white; 
+                        padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Explore New Features
+              </a>
+            </p>
+
+            <p>
+              Questions about your subscription? 
+              Visit your <a href="https://giverai.me/account">account settings</a> or contact support.
+            </p>
+
+            <p>Thanks for upgrading and supporting GiverAI!</p>
+            <p><strong>The GiverAI Team</strong></p>
+          </div>
+
+          <!-- Footer -->
+          <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+            <p>GiverAI - AI-Powered Twitter Content Creation</p>
+            <p>Manage your subscription: 
+              <a href="https://giverai.me/account">Account Settings</a>
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    return self.send_simple_email(
+        user.email,
+        f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
+        html_body,
+    )
+
 
 def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
     """Send subscription cancellation notification."""
@@ -397,24 +421,26 @@ def send_subscription_cancellation_email(self, user, original_plan, cancellation
         "enterprise": "Enterprise",
     }
 
-    # Use the passed original_plan instead of user.plan
     plan_name = plan_display_names.get(
         original_plan, original_plan.replace("_", " ").title()
     )
+
     print(
-        f"📧 Email using plan name: {plan_name} "
-        f"(from original_plan: {original_plan})"
+        f"📧 Email using plan name: {plan_name} (from original_plan: {original_plan})"
     )
 
     html_body = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
         <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          
+          <!-- Header Section -->
           <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
             <h1 style="margin: 0; color: white;">Subscription Cancelled 😢</h1>
             <p style="margin: 10px 0 0 0; color: white;">We're sorry to see you go</p>
           </div>
 
+          <!-- Main Body -->
           <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
             <h2 style="color: #333;">Hi {user.username},</h2>
 
@@ -432,15 +458,11 @@ def send_subscription_cancellation_email(self, user, original_plan, cancellation
 
             <h3>What happens next?</h3>
             <ul>
-              <li>
-                ✅ Continue using all premium features until 
-                {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}
-              </li>
-              <li>📅 No more charges after your current period ends</li>  
-              <li>
-                🔄 Automatic downgrade to free plan on 
-                {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your end date'}
-              </li>
+              <li>✅ Continue using all premium features until 
+                   {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your period ends'}</li>
+              <li>📅 No more charges after your current period ends</li>
+              <li>🔄 Automatic downgrade to free plan on 
+                   {cancellation_date.strftime('%B %d, %Y') if cancellation_date else 'your end date'}</li>
             </ul>
 
             <h3>Changed your mind?</h3>
@@ -451,7 +473,8 @@ def send_subscription_cancellation_email(self, user, original_plan, cancellation
 
             <p style="text-align: center;">
               <a href="https://giverai.me/account" 
-                 style="display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                 style="display: inline-block; background: #28a745; color: white; 
+                        padding: 12px 24px; text-decoration: none; border-radius: 6px;">
                 Reactivate Subscription
               </a>
             </p>
@@ -470,7 +493,6 @@ def send_subscription_cancellation_email(self, user, original_plan, cancellation
         html_body,
     )
 
-        
     def send_subscription_downgrade_email(self, user, old_plan):
         """Send notification when user is downgraded to free plan"""
         html_body = f"""
@@ -2646,12 +2668,12 @@ async def checkout_success(request: Request, session_id: str = None):
                         print("⚠️ Could not get price amount")
                         # Fallback amounts based on plan
                         plan_amounts = {
-                            "creator": 29.0,
+                            "creator": 9.0,
                             "small_team": 79.0,
                             "agency": 199.0,
                             "enterprise": 499.0
                         }
-                        amount = plan_amounts.get(plan_name, 29.0)
+                        amount = plan_amounts.get(plan_name)
                         print(f"⚠️ Using fallback amount: ${amount}")
                 else:
                     print("❌ No subscription items found")
