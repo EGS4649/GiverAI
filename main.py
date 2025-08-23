@@ -235,7 +235,7 @@ class EmailService:
             html_body
         )
 
-   def send_welcome_email(self, user):
+    def send_welcome_email(self, user):
         """Send welcome email to new user"""
         html_body = f"""
         <html>
