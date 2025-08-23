@@ -237,10 +237,10 @@ class EmailService:
 
     def send_welcome_email(self, user):
         """Send welcome email to new user"""
-            html_body = f"""
-            <html>
-              <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                   <div style="background: #667eea; color: white; padding: 30px;
                   text-align: center; border-radius: 8px;">
                     <h1 style="margin: 0; color: white;">Welcome to GiverAI! 🎉</h1>
@@ -328,11 +328,59 @@ class EmailService:
     }
 
     # Email template
-    html_body = f"""
-    <html>
-      ...
-    </html>
-    """
+     html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; color: white;">Subscription Upgraded! 🎉</h1>
+                <p style="margin: 10px 0 0 0; color: white;">Welcome to {new_plan.replace('_', ' ').title()}</p>
+              </div>
+
+              <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                <h2 style="color: #333;">Hi {user.username}!</h2>
+
+                <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
+                  <h2 style="margin: 0; color: white;">🚀 Welcome to {new_plan.replace('_', ' ').title()}!</h2>
+                  <p style="margin: 10px 0 0 0; color: white;">{plan_descriptions.get(new_plan, '')}</p>
+                </div>
+
+                <h3>🎯 Your New Features:</h3>
+                <div style="background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 6px;">
+                  {"<br>".join(feature_list)}
+                </div>
+
+                <h3>💳 Billing Details:</h3>
+                <div style="background: #e8f5e8; padding: 15px; margin: 15px 0; border-radius: 6px;">
+                  <p><strong>Previous Plan:</strong> {old_plan.replace('_', ' ').title()}</p>
+                  <p><strong>New Plan:</strong> {new_plan.replace('_', ' ').title()}</p>
+                  <p><strong>Amount:</strong> ${amount}/month</p>
+                  <p><strong>Next Billing Date:</strong> {next_billing_date}</p>
+                </div>
+
+                <p>Your new features are active immediately! Start exploring them now.</p>
+
+                <p style="text-align: center;">
+                  <a href="https://giverai.me/dashboard" 
+                     style="display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                    Explore New Features
+                  </a>
+                </p>
+
+                <p>Questions about your subscription? Visit your <a href="https://giverai.me/account">account settings</a> or contact support.</p>
+
+                <p>Thanks for upgrading and supporting GiverAI!</p>
+                <p><strong>The GiverAI Team</strong></p>
+              </div>
+
+              <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+                <p>GiverAI - AI-Powered Twitter Content Creation</p>
+                <p>Manage your subscription: <a href="https://giverai.me/account">Account Settings</a></p>
+              </div>
+            </div>
+          </body>
+        </html>
+        """
 
     return self.send_simple_email(
         user.email,
