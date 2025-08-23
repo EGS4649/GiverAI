@@ -327,7 +327,7 @@ class EmailService:
         "enterprise": "Complete solution for large organizations",
     }
 
-     html_body = f"""
+         html_body = f"""
         <html>
           <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
