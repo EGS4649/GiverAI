@@ -2525,38 +2525,89 @@ async def generate_tweet_api(
 # Update success handler to change user's plan
 @app.get("/checkout/success")
 async def checkout_success(request: Request, session_id: str = None):
+    print(f"🔍 Checkout success called with session_id: {session_id}")
+    
     if not session_id or session_id == '{CHECKOUT_SESSION_ID}':
+        print("❌ No valid session_id provided")
         return RedirectResponse("/pricing", status_code=302)
 
-    plan_name = "Unknown Plan"
     try:
+        print(f"📋 Retrieving Stripe session: {session_id}")
         session = stripe.checkout.Session.retrieve(session_id)
+        print(f"✅ Session retrieved: {session.payment_status}")
+        
         plan_name = session.metadata.get("plan", "Unknown Plan")
+        print(f"📦 Plan from metadata: {plan_name}")
+        
+        # Check if payment was successful
+        if session.payment_status != 'paid':
+            print(f"⚠️ Payment not completed: {session.payment_status}")
+            return RedirectResponse("/pricing?error=Payment+not+completed", status_code=302)
+        
+        # Get subscription details if available
+        subscription_id = session.subscription
+        print(f"🔗 Subscription ID: {subscription_id}")
+        
+        if subscription_id:
+            subscription = stripe.Subscription.retrieve(subscription_id)
+            next_billing_date = datetime.fromtimestamp(subscription.current_period_end)
+            amount = subscription.items.data[0].price.unit_amount / 100
+            print(f"💰 Amount: ${amount}, Next billing: {next_billing_date}")
+        else:
+            print("❌ No subscription found in session")
+            next_billing_date = None
+            amount = 0
         
         # Update user's plan in database
         db = SessionLocal()
         try:
             user = get_optional_user(request)
+            print(f"👤 Current user: {user.username if user else 'None'}")
+            
             if user:
                 db_user = db.query(User).filter(User.id == user.id).first()
                 if db_user:
+                    old_plan = db_user.plan
+                    print(f"📋 Updating plan from {old_plan} to {plan_name}")
+                    
                     # Update plan and customer ID
                     db_user.plan = plan_name
                     
                     # Get customer ID from session
                     if session.customer:
                         db_user.stripe_customer_id = session.customer
+                        print(f"🆔 Updated customer ID: {session.customer}")
                     
                     db.commit()
+                    print("✅ Database updated successfully")
                     
-                    # Refresh features
-                    db_user.features = get_plan_features(plan_name)
+                    # Send upgrade email only if we have billing date
+                    if next_billing_date and amount:
+                        try:
+                            print("📧 Attempting to send upgrade email...")
+                            email_service.send_subscription_upgrade_email(
+                                user=db_user,
+                                old_plan=old_plan,
+                                new_plan=plan_name,
+                                amount=amount,
+                                next_billing_date=next_billing_date
+                            )
+                            print("✅ Upgrade email sent successfully")
+                        except Exception as e:
+                            print(f"❌ Failed to send upgrade email: {str(e)}")
+                            import traceback
+                            traceback.print_exc()
+                    else:
+                        print("⚠️ Skipping email - missing billing date or amount")
+                        
         finally:
             db.close()
             
     except Exception as e:
-        print(f"Error processing checkout: {str(e)}")
-
+        print(f"❌ Error processing checkout: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
     # Get proper display name
     plan_display_names = {
         "creator": "Creator Plan",
@@ -2565,13 +2616,13 @@ async def checkout_success(request: Request, session_id: str = None):
         "enterprise": "Enterprise Plan"
     }
     
-    display_name = plan_display_names.get(plan_name, 
+  display_name = plan_display_names.get(plan_name, 
         plan_name.replace("_", " ").title() + " Plan")
 
     return templates.TemplateResponse("checkout_success.html", {
         "request": request,
         "user": get_optional_user(request),
-        "plan": display_name  # Pass the properly formatted plan name
+        "plan": display_name
     })
         
 async def get_ai_tweets(prompt, count=5):
