@@ -2387,7 +2387,8 @@ async def create_checkout_session(request: Request, plan_type: str):
         user = get_current_user(request)
     except HTTPException:
         return RedirectResponse("/register", status_code=302)
-
+    
+    db = SessionLocal()
     try:
         # Only allow creator plan for now - others are coming soon
         if plan_type in ["small_team", "agency", "enterprise"]:
@@ -2396,7 +2397,7 @@ async def create_checkout_session(request: Request, plan_type: str):
                 "error": f"{plan_type.replace('_', ' ').title()} plan is coming soon! Currently only Creator plan is available.",
                 "user": user
             })
-
+        
         # Map plan types to price IDs (only creator is active)
         price_map = {
             "creator": STRIPE_CREATOR_PRICE_ID,
@@ -2413,7 +2414,47 @@ async def create_checkout_session(request: Request, plan_type: str):
                 "error": "This plan is not available yet. Coming soon!",
                 "user": user
             })
+        
+        # Create or retrieve Stripe customer
+        customer_id = None
+        if user.stripe_customer_id:
+            # User already has a customer ID, verify it exists in Stripe
+            try:
+                customer = stripe.Customer.retrieve(user.stripe_customer_id)
+                customer_id = customer.id
+                print(f"✅ Using existing customer {customer_id} for user {user.email}")
+            except stripe.error.InvalidRequestError:
+                # Customer doesn't exist in Stripe anymore, create a new one
+                print(f"⚠️ Customer {user.stripe_customer_id} not found in Stripe, creating new one")
+                user.stripe_customer_id = None
+        
+        if not customer_id:
+            # Create new Stripe customer
+            try:
+                customer = stripe.Customer.create(
+                    email=user.email,
+                    name=getattr(user, 'name', None),  # Use name if your User model has it
+                    metadata={
+                        "user_id": str(user.id),
+                        "created_from": "checkout"
+                    }
+                )
+                customer_id = customer.id
+                
+                # Save the customer ID to the user
+                user.stripe_customer_id = customer_id
+                db.commit()
+                print(f"✅ Created new customer {customer_id} for user {user.email}")
+                
+            except Exception as e:
+                print(f"❌ Failed to create Stripe customer: {str(e)}")
+                return templates.TemplateResponse("pricing.html", {
+                    "request": request,
+                    "error": "Failed to create customer. Please try again.",
+                    "user": user
+                })
             
+        # Create checkout session with the customer ID
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
@@ -2423,19 +2464,24 @@ async def create_checkout_session(request: Request, plan_type: str):
             mode='subscription',
             success_url=str(request.url_for('checkout_success')) + "?session_id={CHECKOUT_SESSION_ID}",
             cancel_url=str(request.url_for('pricing')),
-            customer_email=user.email,
+            customer=customer_id,  # Use customer ID instead of customer_email
             metadata={
                 "user_id": user.id,
                 "plan": plan_type
             }
         )
+        
         return RedirectResponse(checkout_session.url, status_code=303)
+        
     except Exception as e:
+        print(f"❌ Error creating checkout session: {str(e)}")
         return templates.TemplateResponse("pricing.html", {
             "request": request,
             "error": f"Error creating checkout session: {str(e)}",
             "user": user
         })
+    finally:
+        db.close()
 
 @app.post("/generate-tweet-api")
 async def generate_tweet_api(
@@ -3440,12 +3486,30 @@ async def handle_subscription_updated(subscription):
         user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
         
         if not user:
-            return
+            # Try to find user by email if customer ID lookup fails
+            try:
+                # Get customer details from Stripe
+                customer = stripe.Customer.retrieve(customer_id)
+                user = db.query(User).filter(User.email == customer['email']).first()
+                
+                if user:
+                    # Update the user's stripe_customer_id
+                    user.stripe_customer_id = customer_id
+                    db.commit()
+                    print(f"✅ Updated user {user.email} with customer ID {customer_id}")
+                else:
+                    print(f"❌ User not found for customer {customer_id} or email {customer.get('email', 'unknown')}")
+                    return
+            except Exception as e:
+                print(f"❌ Could not retrieve customer or find user: {str(e)}")
+                return
             
         # Check if subscription is being cancelled
         if subscription.get('cancel_at_period_end'):
-            # Mark as canceling and send cancellation email
-            old_plan = user.plan
+            # IMPORTANT: Save the original plan BEFORE updating to "canceling"
+            original_plan = user.plan if user.plan != "canceling" else "creator"
+            
+            # Mark as canceling
             user.plan = "canceling"
             db.commit()
             
@@ -3458,15 +3522,72 @@ async def handle_subscription_updated(subscription):
                 cancellation_date = "at the end of your current billing period"
             
             try:
+                # Use original_plan instead of user.plan (which is now "canceling")
                 email_service.send_subscription_cancellation_email(
-                    user, old_plan, cancellation_date
+                    user, original_plan, cancellation_date
                 )
-                print(f"✅ Cancellation email sent to {user.email}")
+                print(f"✅ Cancellation email sent to {user.email} for {original_plan} plan")
             except Exception as e:
                 print(f"❌ Failed to send cancellation email: {str(e)}")
                 
     except Exception as e:
         print(f"❌ Error in handle_subscription_updated: {str(e)}")
+    finally:
+        db.close()
+
+async def handle_subscription_created(subscription):
+    """Handle new subscription creation"""
+    db = SessionLocal()
+    try:
+        customer_id = subscription['customer']
+        
+        # Get the user
+        user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        if not user:
+            print(f"❌ User not found for customer {customer_id}")
+            return
+            
+        # Safely get price ID and plan
+        items = subscription.get('items', {}).get('data', [])
+        if not items:
+            print(f"❌ No subscription items found for customer {customer_id}")
+            return
+            
+        price_id = items[0].get('price', {}).get('id')
+        if not price_id:
+            print(f"❌ No price ID found for customer {customer_id}")
+            return
+            
+        new_plan = get_plan_from_price_id(price_id)
+        old_plan = user.plan
+        
+        if new_plan and new_plan != old_plan:
+            # Update user plan
+            user.plan = new_plan
+            db.commit()
+            
+            # Get billing info safely
+            unit_amount = items[0].get('price', {}).get('unit_amount', 0)
+            amount = unit_amount / 100 if unit_amount else 0
+            
+            # Safely get next billing date
+            current_period_end = subscription.get('current_period_end')
+            if current_period_end:
+                next_billing = datetime.fromtimestamp(current_period_end).strftime('%B %d, %Y')
+            else:
+                next_billing = "your next billing cycle"
+            
+            # Send upgrade email
+            try:
+                email_service.send_subscription_upgrade_email(
+                    user, old_plan, new_plan, amount, next_billing
+                )
+                print(f"✅ Upgrade email sent to {user.email}")
+            except Exception as e:
+                print(f"❌ Failed to send upgrade email: {str(e)}")
+                
+    except Exception as e:
+        print(f"❌ Error in handle_subscription_created: {str(e)}")
     finally:
         db.close()
 
