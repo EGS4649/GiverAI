@@ -120,16 +120,6 @@ def create_password_reset_record(user_id: int, db):
     db.commit()
     return reset_record
 
-
-class TeamMember(Base):
-    __tablename__ = "team_members"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    email = Column(String, index=True)
-    role = Column(String, default="editor")
-    status = Column(String, default="pending")  # pending, active, removed
-    created_at = Column(DateTime, default=datetime.utcnow)
-    user = relationship("User")
 class TeamMember(Base):
     __tablename__ = "team_members"
     id = Column(Integer, primary_key=True, index=True)
