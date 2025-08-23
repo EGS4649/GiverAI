@@ -3541,6 +3541,7 @@ async def handle_subscription_updated(subscription):
             # Mark as canceling
             user.plan = "canceling"
             db.commit()
+            original_plan = getattr(user, 'original_plan', user.plan)
     finally:
         db.close()
 
