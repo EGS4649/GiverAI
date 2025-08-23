@@ -235,21 +235,21 @@ class EmailService:
             html_body
         )
 
-def send_welcome_email(self, user):
-    """Send welcome email to new user"""
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: #667eea; color: white; padding: 30px;
+    def send_welcome_email(self, user):
+        """Send welcome email to new user"""
+            html_body = f"""
+            <html>
+              <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                  <div style="background: #667eea; color: white; padding: 30px;
                   text-align: center; border-radius: 8px;">
-            <h1 style="margin: 0; color: white;">Welcome to GiverAI! 🎉</h1>
-            <p style="margin: 10px 0 0 0; color: white;">
-              Your AI-powered Twitter content creation platform
-            </p>
-          </div>
+                    <h1 style="margin: 0; color: white;">Welcome to GiverAI! 🎉</h1>
+                        <p style="margin: 10px 0 0 0; color: white;">
+                      Your AI-powered Twitter content creation platform
+                        </p>
+                      </div>
 
-          <div style="padding: 30px; background: white; border: 1px solid #eee;
+              <div style="padding: 30px; background: white; border: 1px solid #eee;
                       border-radius: 0 0 8px 8px;">
             <h2 style="color: #333;">Hi {user.username}! 👋</h2>
             <p>
@@ -297,11 +297,11 @@ def send_welcome_email(self, user):
         html_body,
     )
 
-def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
-    """Send subscription upgrade notification."""
-    plan_features = get_plan_features(new_plan)
-    feature_list = []
-
+    def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
+        """Send subscription upgrade notification."""
+        plan_features = get_plan_features(new_plan)
+        feature_list = []
+    
     # Build feature list dynamically
     if plan_features["daily_limit"] == float("inf"):
         feature_list.append("• Unlimited daily tweets")
@@ -417,16 +417,16 @@ def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next
             html_body,
         )
 
-def send_subscription_downgrade_email(self, user, old_plan):
-    """Send notification when user is downgraded to free plan"""
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: #6c757d; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="margin: 0; color: white;">Plan Downgraded ⬇️</h1>
-            <p style="margin: 10px 0 0 0; color: white;">You're now on the Free Plan</p>
-          </div>
+    def send_subscription_downgrade_email(self, user, old_plan):
+        """Send notification when user is downgraded to free plan"""
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: #6c757d; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; color: white;">Plan Downgraded ⬇️</h1>
+                <p style="margin: 10px 0 0 0; color: white;">You're now on the Free Plan</p>
+                  </div>
 
           <div style="background: white; padding: 30px; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
             <h2 style="color: #333;">Hi {user.username},</h2>
@@ -480,19 +480,19 @@ def send_subscription_downgrade_email(self, user, old_plan):
         html_body
     )
 
-def send_username_reminder_email(self, user):
-    """Send username reminder email"""
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h1 style="color: #667eea;">Username Reminder</h1>
-          <p>Hi there!</p>
-          <p>You requested a reminder of your GiverAI username. Here it is:</p>
-          <div style="background: #e3f2fd; padding: 20px; margin: 20px 0; text-align: center; border-radius: 8px;">
-            <h2 style="color: #667eea; margin: 10px 0;">{user.username}</h2>
-          </div>
-          <p>
+    def send_username_reminder_email(self, user):
+        """Send username reminder email"""
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h1 style="color: #667eea;">Username Reminder</h1>
+              <p>Hi there!</p>
+              <p>You requested a reminder of your GiverAI username. Here it is:</p>
+              <div style="background: #e3f2fd; padding: 20px; margin: 20px 0; text-align: center; border-radius: 8px;">
+                <h2 style="color: #667eea; margin: 10px 0;">{user.username}</h2>
+              </div>
+              <p>
             <a href="https://giverai.me/login"
                style="background: #667eea; color: white; padding: 12px 24px;
                       text-decoration: none; border-radius: 4px;
@@ -515,25 +515,25 @@ def send_username_reminder_email(self, user):
         html_body
     )
 
-def send_password_reset_success_email(self, user, ip_address="Unknown"):
-    """Send password reset success confirmation"""
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h1 style="color: #28a745;">Password Changed Successfully!</h1>
-          <p>Hi {user.username}!</p>
-          <p>Your GiverAI password has been successfully changed.</p>
-          <div style="background: #d4edda; padding: 15px; margin: 20px 0; border-radius: 6px;">
-            <p><strong>When:</strong> {datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
-            <p><strong>IP Address:</strong> {ip_address}</p>
-          </div>
-          <p>If you didn't change your password, please contact our support team immediately.</p>
-          <p>Best regards,<br>The GiverAI Security Team</p>
-        </div>
-      </body>
-    </html>
-    """
+    def send_password_reset_success_email(self, user, ip_address="Unknown"):
+        """Send password reset success confirmation"""
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h1 style="color: #28a745;">Password Changed Successfully!</h1>
+              <p>Hi {user.username}!</p>
+              <p>Your GiverAI password has been successfully changed.</p>
+              <div style="background: #d4edda; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                <p><strong>When:</strong> {datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
+                <p><strong>IP Address:</strong> {ip_address}</p>
+            </div>
+              <p>If you didn't change your password, please contact our support team immediately.</p>
+              <p>Best regards,<br>The GiverAI Security Team</p>
+            </div>
+          </body>
+        </html>
+        """
 
     return self.send_simple_email(
         user.email,
@@ -541,15 +541,15 @@ def send_password_reset_success_email(self, user, ip_address="Unknown"):
         html_body
     )
 
-def send_account_changed_email(self, user, change_details, ip_address="Unknown"):
-    """Send account security alert"""
-    html_body = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px;">
-                <h1 style="margin: 0; color: white;">Account Security Alert 🔒</h1>
-                <p style="margin: 10px 0 0 0; color: white;">Important changes to your GiverAI account</p>
+    def send_account_changed_email(self, user, change_details, ip_address="Unknown"):
+        """Send account security alert"""
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+                    <h1 style="margin: 0; color: white;">Account Security Alert 🔒</h1>
+                    <p style="margin: 10px 0 0 0; color: white;">Important changes to your GiverAI account</p>
             </div>
 
             <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
@@ -600,14 +600,14 @@ def send_account_changed_email(self, user, change_details, ip_address="Unknown")
     )
 
 
-def test_simple_email(to_email: str):
-    """Simple email test with minimal HTML"""
-    try:
-        smtp_server = os.getenv("SMTP_SERVER")
-        smtp_port = int(os.getenv("SMTP_PORT", 587))
-        smtp_username = os.getenv("SMTP_USERNAME")
-        smtp_password = os.getenv("SMTP_PASSWORD")
-        from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+    def test_simple_email(to_email: str):
+        """Simple email test with minimal HTML"""
+        try:
+            smtp_server = os.getenv("SMTP_SERVER")
+            smtp_port = int(os.getenv("SMTP_PORT", 587))
+            smtp_username = os.getenv("SMTP_USERNAME")
+            smtp_password = os.getenv("SMTP_PASSWORD")
+            from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
 
         print(f"📧 Email Config:")
         print(f"   Server: {smtp_server}")
