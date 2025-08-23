@@ -2685,12 +2685,12 @@ async def checkout_success(request: Request, session_id: str = None):
                 # Set fallback values
                 next_billing_date = datetime.now() + timedelta(days=30)
                 plan_amounts = {
-                    "creator": 29.0,
-                    "small_team": 79.0,
-                    "agency": 199.0,
-                    "enterprise": 499.0
+                    "creator": 9.0,
+                    "small_team": 25.0,
+                    "agency": 69.0,
+                    "enterprise": 199.0
                 }
-                amount = plan_amounts.get(plan_name, 29.0)
+                amount = plan_amounts.get(plan_name)
                 print(f"⚠️ Using fallback values - Date: {next_billing_date}, Amount: ${amount}")
         else:
             print("❌ No subscription found in session")
