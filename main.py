@@ -71,7 +71,6 @@ class User(Base):
     industry = Column(String, nullable=True)
     goals = Column(String, nullable=True)
     posting_frequency = Column(String, nullable=True)
-    original_plan = Column(String, nullable=True)
 
 class Usage(Base):
     __tablename__ = "usage"
