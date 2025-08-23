@@ -728,7 +728,7 @@ class EmailService:
                 <ul style="padding-left: 20px;">
                     <li>📝 Generated {total_tweets} tweets</li>
                     <li>📅 Were with us for {days_active} days</li>
-                    <li>🎯 Used the {plan.replace('_', ' ').title()} plan</li>
+                    <li>🎯 Used the {plan_name} plan</li>
                 </ul>
 
                 <h3>Changed Your Mind?</h3>
