@@ -3449,7 +3449,13 @@ async def handle_subscription_updated(subscription):
             user.plan = "canceling"
             db.commit()
             
-            cancellation_date = datetime.fromtimestamp(subscription['current_period_end']).strftime('%B %d, %Y')
+            # Safely get cancellation date with fallback
+            current_period_end = subscription.get('current_period_end')
+            if current_period_end:
+                cancellation_date = datetime.fromtimestamp(current_period_end).strftime('%B %d, %Y')
+            else:
+                # Fallback to a generic message or try to get it from other fields
+                cancellation_date = "at the end of your current billing period"
             
             try:
                 email_service.send_subscription_cancellation_email(
@@ -3461,6 +3467,62 @@ async def handle_subscription_updated(subscription):
                 
     except Exception as e:
         print(f"❌ Error in handle_subscription_updated: {str(e)}")
+    finally:
+        db.close()
+
+async def handle_subscription_created(subscription):
+    """Handle new subscription creation"""
+    db = SessionLocal()
+    try:
+        customer_id = subscription['customer']
+        
+        # Get the user
+        user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        if not user:
+            print(f"❌ User not found for customer {customer_id}")
+            return
+            
+        # Safely get price ID and plan
+        items = subscription.get('items', {}).get('data', [])
+        if not items:
+            print(f"❌ No subscription items found for customer {customer_id}")
+            return
+            
+        price_id = items[0].get('price', {}).get('id')
+        if not price_id:
+            print(f"❌ No price ID found for customer {customer_id}")
+            return
+            
+        new_plan = get_plan_from_price_id(price_id)
+        old_plan = user.plan
+        
+        if new_plan and new_plan != old_plan:
+            # Update user plan
+            user.plan = new_plan
+            db.commit()
+            
+            # Get billing info safely
+            unit_amount = items[0].get('price', {}).get('unit_amount', 0)
+            amount = unit_amount / 100 if unit_amount else 0
+            
+            # Safely get next billing date
+            current_period_end = subscription.get('current_period_end')
+            if current_period_end:
+                next_billing = datetime.fromtimestamp(current_period_end).strftime('%B %d, %Y')
+            else:
+                next_billing = "your next billing cycle"
+            
+            # Send upgrade email
+            try:
+                email_service.send_subscription_upgrade_email(
+                    user, old_plan, new_plan, amount, next_billing
+                )
+                print(f"✅ Upgrade email sent to {user.email}")
+            except Exception as e:
+                print(f"❌ Failed to send upgrade email: {str(e)}")
+                
+    except Exception as e:
+        print(f"❌ Error in handle_subscription_created: {str(e)}")
     finally:
         db.close()
             
