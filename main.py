@@ -3333,7 +3333,7 @@ EMAIL_TEMPLATES = {
                     <ul>
                         <li>📝 Generated {total_tweets} tweets</li>
                         <li>📅 Were with us for {days_active} days</li>
-                        <li>🎯 Used the {last_plan} plan</li>
+                        <li>🎯 Used the {plan_name} plan</li>
                     </ul>
                     
                     <div class="feedback-box">
