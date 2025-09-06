@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 sqlalchemy
@@ -11,4 +11,6 @@ jinja2
 python-multipart
 psycopg2-binary
 alembic
+setuptools
+wheel
 
