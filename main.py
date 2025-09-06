@@ -3571,22 +3571,27 @@ async def handle_subscription_updated(subscription):
         # Check if subscription is being cancelled
         if subscription.get('cancel_at_period_end'):
             
-            if user.plan == "canceling":
-                user.original_plan = user.plan  # Store the actual subscribed plan
-            
-            # Get the original plan for the email (either from what we just stored or existing)
-            original_plan = getattr(user, 'original_plan', user.plan)
-            
-            # Mark as canceling
-            user.plan = "canceling"
-            db.commit()
+            # Store the original plan BEFORE changing to "canceling" (only if not already canceling)
+            if user.plan != "canceling":
+                original_plan = user.plan  # This is the plan we want to show in emails
+                
+                # If you have an original_plan field in your User model, store it there
+                if hasattr(user, 'original_plan'):
+                    user.original_plan = user.plan
+                
+                # Mark as canceling
+                user.plan = "canceling"
+                db.commit()
+            else:
+                # If already canceling, try to get the original plan from stored value or fallback
+                original_plan = getattr(user, 'original_plan', 'creator')
             
             # Safely get cancellation date with fallback
             current_period_end = subscription.get('current_period_end')
             if current_period_end:
-                cancellation_date = datetime.fromtimestamp(current_period_end).strftime('%B %d, %Y')
+                cancellation_date = datetime.fromtimestamp(current_period_end)
             else:
-                cancellation_date = "at the end of your current billing period"
+                cancellation_date = None
             
             try:
                 email_service.send_subscription_cancellation_email(
