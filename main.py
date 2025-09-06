@@ -2178,59 +2178,58 @@ async def cancel_subscription(
                 status_code=302
             )
 
-  # Get cancellation date from the subscription
+        # Get cancellation date from the subscription
         cancellation_date = None
         try:
             subscription = subscriptions.data[0]
             # Try multiple ways to access the period end
             period_end = None
-    
-        if hasattr(subscription, 'current_period_end'):
-            period_end = subscription.current_period_end
-        elif 'current_period_end' in subscription:
-            period_end = subscription['current_period_end']
-        elif hasattr(subscription, 'get'):
-            period_end = subscription.get('current_period_end')
-    
-        # Convert to datetime if we got a valid period_end
+            
+            if hasattr(subscription, 'current_period_end'):
+                period_end = subscription.current_period_end
+            elif 'current_period_end' in subscription:
+                period_end = subscription['current_period_end']
+            elif hasattr(subscription, 'get'):
+                period_end = subscription.get('current_period_end')
+            
+            # Convert to datetime if we got a valid period_end
+            if period_end:
+                cancellation_date = datetime.fromtimestamp(period_end)
+            
+        except Exception as e:
+            print(f"Error getting cancellation date: {e}")
+            cancellation_date = None
+        
         if period_end:
             cancellation_date = datetime.fromtimestamp(period_end)
-        
-    except Exception as e:
-        print(f"Error getting cancellation date: {e}")
-        cancellation_date = None
-    
-        if period_end:
-           cancellation_date = datetime.fromtimestamp(period_end)
-           print(f"📅 Cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+            print(f"📅 Cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
         else:
-           print("⚠️ Could not find current_period_end in subscription")
-           cancellation_date = datetime.now() + timedelta(days=30)
-           print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+            print("⚠️ Could not find current_period_end in subscription")
+            cancellation_date = datetime.now() + timedelta(days=30)
+            print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
         
         except (KeyError, AttributeError, IndexError, TypeError) as e:
-           print(f"⚠️ Could not get cancellation date: {str(e)}")
-           cancellation_date = datetime.now() + timedelta(days=30)
-           print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
-    
-            # Add verification task
-           background_tasks.add_task(
-           verify_cancellation,
-           user.stripe_customer_id
-            )
+            print(f"⚠️ Could not get cancellation date: {str(e)}")
+            cancellation_date = datetime.now() + timedelta(days=30)
+            print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+        
+        # Add verification task
+        background_tasks.add_task(
+            verify_cancellation,
+            user.stripe_customer_id
+        )
 
-            return RedirectResponse(
-                "/account?success=Subscription+will+cancel+at+period+end",
-                status_code=302
-            )
+        return RedirectResponse(
+            "/account?success=Subscription+will+cancel+at+period+end",
+            status_code=302
+        )
             
-        except stripe.error.StripeError as e:
-            db.rollback()
-            return RedirectResponse(
-                f"/account?error=Cancellation+failed%3A+{str(e).replace(' ', '+')}",
-                status_code=302
-            )
-
+    except stripe.error.StripeError as e:
+        db.rollback()
+        return RedirectResponse(
+            f"/account?error=Cancellation+failed%3A+{str(e).replace(' ', '+')}",
+            status_code=302
+        )
     except Exception as e:
         db.rollback()
         print(f"❌ System error during cancellation: {str(e)}")
@@ -2269,7 +2268,7 @@ async def verify_cancellation(stripe_customer_id: str):
                     db.commit()
                     print(f"Downgraded user {user.id} to free plan")
                     break
-                
+            
             # Check if any subscription is still active but ending soon
             ending_soon = False
             for sub in active_subs:
@@ -2362,7 +2361,7 @@ async def create_checkout_session(request: Request, plan_type: str):
                     "error": "Failed to create customer. Please try again.",
                     "user": user
                 })
-            
+        
         # Create checkout session with the customer ID
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
