@@ -700,10 +700,12 @@ class EmailService:
 
         plan_display_names = {
         "creator": "Creator",
-        "small_team": "Small Team",
+        "small_team": "Small Team", 
         "agency": "Agency",
         "enterprise": "Enterprise",
-        }
+        "free": "Free",
+        "canceling": "Free"  
+    }
 
         plan_name = plan_display_names.get(plan, plan.replace("_", " ").title())
     
