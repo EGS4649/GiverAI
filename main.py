@@ -2146,6 +2146,7 @@ async def cancel_subscription(
 
     original_plan = user.plan
     print(f"📋 Original plan before cancellation: {original_plan}")
+    
     if hasattr(user, 'original_plan'):
         user.original_plan = original_plan
     
