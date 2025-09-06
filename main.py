@@ -2178,19 +2178,27 @@ async def cancel_subscription(
                 status_code=302
             )
 
-         # Get cancellation date from the subscription
-        cancellation_date = None
-        try:
-           subscription = subscriptions.data[0]
-           # Try multiple ways to access the period end
-           period_end = None
-            
+  # Get cancellation date from the subscription
+    cancellation_date = None
+    try:
+        subscription = subscriptions.data[0]
+        # Try multiple ways to access the period end
+        period_end = None
+    
         if hasattr(subscription, 'current_period_end'):
-           period_end = subscription.current_period_end
+            period_end = subscription.current_period_end
         elif 'current_period_end' in subscription:
-           period_end = subscription['current_period_end']
+            period_end = subscription['current_period_end']
         elif hasattr(subscription, 'get'):
-           period_end = subscription.get('current_period_end')
+            period_end = subscription.get('current_period_end')
+    
+        # Convert to datetime if we got a valid period_end
+        if period_end:
+            cancellation_date = datetime.fromtimestamp(period_end)
+        
+    except Exception as e:
+        print(f"Error getting cancellation date: {e}")
+        cancellation_date = None
     
         if period_end:
            cancellation_date = datetime.fromtimestamp(period_end)
