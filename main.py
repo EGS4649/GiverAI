@@ -2195,23 +2195,29 @@ async def cancel_subscription(
             # Convert to datetime if we got a valid period_end
             if period_end:
                 cancellation_date = datetime.fromtimestamp(period_end)
+                print(f"📅 Cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+            else:
+                print("⚠️ Could not find current_period_end in subscription")
+                cancellation_date = datetime.now() + timedelta(days=30)
+                print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
             
-        except Exception as e:
-            print(f"Error getting cancellation date: {e}")
-            cancellation_date = None
-        
-        if period_end:
-            cancellation_date = datetime.fromtimestamp(period_end)
-            print(f"📅 Cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
-        else:
-            print("⚠️ Could not find current_period_end in subscription")
-            cancellation_date = datetime.now() + timedelta(days=30)
-            print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
-        
-        except (KeyError, AttributeError, IndexError, TypeError) as e:
+        except (KeyError, AttributeError, IndexError, TypeError, Exception) as e:
             print(f"⚠️ Could not get cancellation date: {str(e)}")
             cancellation_date = datetime.now() + timedelta(days=30)
             print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+        
+        # Send cancellation email
+        try:
+            # Use the original plan for the email, not "canceling"
+            plan_for_email = db_user.original_plan if db_user.original_plan else "free"
+            email_service.send_subscription_cancellation_email(
+                db_user, 
+                plan_for_email, 
+                cancellation_date
+            )
+            print("✅ Cancellation email sent")
+        except Exception as e:
+            print(f"❌ Failed to send cancellation email: {str(e)}")
         
         # Add verification task
         background_tasks.add_task(
