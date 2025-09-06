@@ -1937,10 +1937,14 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         days_active = (datetime.utcnow() - db_user.created_at).days
 
         # Determine which plan to show in the email
-        if hasattr(db_user, 'original_plan') and db_user.original_plan:
-            plan_for_email = db_user.original_plan
+        if db_user.plan == "canceling":
+            # Use the original_plan if user was in canceling state
+            plan_for_email = db_user.original_plan if db_user.original_plan else "free"
         else:
-            plan_for_email = db_user.plan if db_user.plan != "canceling" else "free"
+            # Use current plan if not canceling
+            plan_for_email = db_user.plan
+        
+        print(f"📧 Using plan for goodbye email: {plan_for_email}")
         
         # Send goodbye email before deleting
         try:
@@ -2143,46 +2147,18 @@ async def cancel_subscription(
     background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user)
 ):
-
-    original_plan = user.plan
-    print(f"📋 Original plan before cancellation: {original_plan}")
-    
-    if hasattr(user, 'original_plan'):
-        user.original_plan = original_plan
-    
-    # Mark as canceling
-    user.plan = "canceling"
-    
     db = SessionLocal()
     try:
-        if not user.stripe_customer_id:
-            # Try to find customer by email as fallback
-            try:
-                customers = stripe.Customer.list(email=user.email, limit=1)
-                if customers.data:
-                    user.stripe_customer_id = customers.data[0].id
-                    db.commit()
-                else:
-                    return RedirectResponse(
-                        "/account?error=No+Stripe+customer+found",
-                        status_code=302
-                    )
-            except stripe.error.StripeError:
-                return RedirectResponse(
-                    "/account?error=Stripe+lookup+failed",
-                    status_code=302
-                )
-
-        # Check if we already processed cancellation
-        if user.plan == "canceling":
-            return RedirectResponse(
-                "/account?error=Subscription+already+canceled",
-                status_code=302
-            )
-
-        # IMPORTANT: Store the original plan BEFORE changing it
-        original_plan = user.plan
-        print(f"📋 Original plan before cancellation: {original_plan}")
+        db_user = db.query(User).filter(User.id == user.id).first()
+        
+        # Store the original plan BEFORE marking as canceling
+        if db_user.plan != "canceling" and db_user.plan != "free":
+            db_user.original_plan = db_user.plan  # Save the actual plan
+            print(f"📋 Storing original plan: {db_user.plan}")
+        
+        # Now mark as canceling
+        db_user.plan = "canceling"
+        db.commit()
 
         # Get active subscriptions
         try:
