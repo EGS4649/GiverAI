@@ -1162,6 +1162,7 @@ def migrate_database():
             'industry': "ALTER TABLE users ADD COLUMN industry VARCHAR",
             'goals': "ALTER TABLE users ADD COLUMN goals VARCHAR",
             'posting_frequency': "ALTER TABLE users ADD COLUMN posting_frequency VARCHAR"
+            'original_plan': "ALTER TABLE users ADD COLUMN original_plan VARCHAR"
         }
         
         for col_name, sql in required_columns.items():
@@ -1937,6 +1938,8 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         
         # Send goodbye email before deleting
         try:
+            plan_for_email = getattr(db_user, 'original_plan', db_user.plan) if db_user.plan == "canceling" else db_user.plan
+            email_service.send_goodbye_email(db_user, total_tweets, days_active, plan_for_email)
             email_service.send_goodbye_email(db_user, total_tweets, days_active, db_user.plan)
             print("✅ Goodbye email sent")
         except Exception as e:
