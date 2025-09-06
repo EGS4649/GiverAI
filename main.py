@@ -2179,7 +2179,7 @@ async def cancel_subscription(
             )
 
   # Get cancellation date from the subscription
-    cancellation_date = None
+        cancellation_date = None
     try:
         subscription = subscriptions.data[0]
         # Try multiple ways to access the period end
