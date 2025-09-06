@@ -1935,12 +1935,16 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         # Calculate stats for goodbye email
         total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).count()
         days_active = (datetime.utcnow() - db_user.created_at).days
+
+        # Determine which plan to show in the email
+        if hasattr(db_user, 'original_plan') and db_user.original_plan:
+            plan_for_email = db_user.original_plan
+        else:
+            plan_for_email = db_user.plan if db_user.plan != "canceling" else "free"
         
         # Send goodbye email before deleting
         try:
-            plan_for_email = getattr(db_user, 'original_plan', db_user.plan) if db_user.plan == "canceling" else db_user.plan
             email_service.send_goodbye_email(db_user, total_tweets, days_active, plan_for_email)
-            email_service.send_goodbye_email(db_user, total_tweets, days_active, db_user.plan)
             print("✅ Goodbye email sent")
         except Exception as e:
             print(f"⚠ Failed to send goodbye email: {str(e)}")
@@ -2139,6 +2143,15 @@ async def cancel_subscription(
     background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user)
 ):
+
+    original_plan = user.plan
+    print(f"📋 Original plan before cancellation: {original_plan}")
+    if hasattr(user, 'original_plan'):
+        user.original_plan = original_plan
+    
+    # Mark as canceling
+    user.plan = "canceling"
+    
     db = SessionLocal()
     try:
         if not user.stripe_customer_id:
