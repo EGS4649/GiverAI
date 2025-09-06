@@ -704,6 +704,8 @@ class EmailService:
         "agency": "Agency",
         "enterprise": "Enterprise",
         }
+
+        plan_name = plan_display_names.get(plan, plan.replace("_", " ").title())
     
         """Send account deletion confirmation"""
         html_body = f"""
