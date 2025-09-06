@@ -1161,7 +1161,7 @@ def migrate_database():
             'role': "ALTER TABLE users ADD COLUMN role VARCHAR",
             'industry': "ALTER TABLE users ADD COLUMN industry VARCHAR",
             'goals': "ALTER TABLE users ADD COLUMN goals VARCHAR",
-            'posting_frequency': "ALTER TABLE users ADD COLUMN posting_frequency VARCHAR"
+            'posting_frequency': "ALTER TABLE users ADD COLUMN posting_frequency VARCHAR",
             'original_plan': "ALTER TABLE users ADD COLUMN original_plan VARCHAR"
         }
         
