@@ -589,14 +589,14 @@ class EmailService:
         )
 
     def send_account_changed_email(self, user, change_details, ip_address="Unknown"):
-        """Send account security alert"""
-        html_body = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px;">
-                    <h1 style="margin: 0; color: white;">Account Security Alert 🔒</h1>
-                    <p style="margin: 10px 0 0 0; color: white;">Important changes to your GiverAI account</p>
+    """Send account security alert"""
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+                <h1 style="margin: 0; color: white;">Account Security Alert 🔒</h1>
+                <p style="margin: 10px 0 0 0; color: white;">Important changes to your GiverAI account</p>
             </div>
 
             <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
@@ -611,182 +611,186 @@ class EmailService:
                     <p style="margin: 5px 0;">{change_details}</p>
                     <p style="margin: 5px 0;"><strong>When:</strong> {datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
                     <p style="margin: 5px 0;"><strong>IP Address:</strong> {ip_address}</p>
+                </div>
+
+                <h3>Was this you?</h3>
+                <p>If you made this change, no action is needed. Your account is secure.</p>
+
+                <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                    <p style="margin: 0;"><strong>🚨 If you didn't authorize this change:</strong></p>
+                    <ol style="margin: 10px 0; padding-left: 20px;">
+                        <li>Contact our support team immediately at support@giverai.me</li>
+                        <li>Change your password as soon as possible</li>
+                        <li>Review your account for any other unauthorized changes</li>
+                    </ol>
+                </div>
+
+                <p>Your account security is our priority. If you have any concerns, please don't hesitate to contact us.</p>
+
+                <p>Best regards,<br><strong>The GiverAI Security Team</strong></p>
             </div>
-
-            <h3>Was this you?</h3>
-            <p>If you made this change, no action is needed. Your account is secure.</p>
-
-            <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 20px 0; border-radius: 6px;">
-              <p style="margin: 0;"><strong>🚨 If you didn't authorize this change:</strong></p>
-              <ol style="margin: 10px 0; padding-left: 20px;">
-                <li>Contact our support team immediately at support@giverai.me</li>
-                <li>Change your password as soon as possible</li>
-                <li>Review your account for any other unauthorized changes</li>
-              </ol>
-            </div>
-
-            <p>Your account security is our priority. If you have any concerns, please don't hesitate to contact us.</p>
-
-            <p>Best regards,<br><strong>The GiverAI Security Team</strong></p>
-          </div>
         </div>
-      </body>
+    </body>
     </html>
-        """
+    """
 
-        return self.send_simple_email(
-            user.email,
-            "Important Changes to Your GiverAI Account",
-            html_body
-        )
-    def send_contact_form_notification(self, name: str, email: str, subject_category: str, message: str, user_info: str = None):
-        """Send contact form submission to support email"""
-    
-        subject_labels = {
-            "general_support": "General Support",
-            "technical_issue": "Technical Issue", 
-            "billing_question": "Billing Question",
-            "feature_request": "Feature Request",
-            "account_help": "Account Help",
-            "bug_report": "Bug Report",
-            "feedback": "Feedback",
-            "other": "Other"
-         }
-    
-        subject_label = subject_labels.get(subject_category, subject_category)
-    
-        html_body = f"""
-        <html>
-          <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-            <div style="background: #667eea; color: white; padding: 20px; text-align: center;">
-              <h1 style="margin: 0; color: white;">New Contact Form Submission 📧</h1>
-              <p style="margin: 10px 0 0 0; color: white;">From your GiverAI website</p>
-            </div>
-        
-            <div style="padding: 30px; background: white; border: 1px solid #eee;">
-              <h2 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Contact Details</h2>
-          
-              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+    return self.send_simple_email(
+        user.email,
+        "Important Changes to Your GiverAI Account",
+        html_body
+    )
+
+
+def send_contact_form_notification(self, name: str, email: str, subject_category: str, message: str, user_info: str = None):
+    """Send contact form submission to support email"""
+
+    subject_labels = {
+        "general_support": "General Support",
+        "technical_issue": "Technical Issue", 
+        "billing_question": "Billing Question",
+        "feature_request": "Feature Request",
+        "account_help": "Account Help",
+        "bug_report": "Bug Report",
+        "feedback": "Feedback",
+        "other": "Other"
+    }
+
+    subject_label = subject_labels.get(subject_category, subject_category)
+
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <div style="background: #667eea; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; color: white;">New Contact Form Submission 📧</h1>
+            <p style="margin: 10px 0 0 0; color: white;">From your GiverAI website</p>
+        </div>
+
+        <div style="padding: 30px; background: white; border: 1px solid #eee;">
+            <h2 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Contact Details</h2>
+
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
                 <tr style="background: #f8f9fa;">
-                  <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold; width: 30%;">Name:</td>
-                  <td style="padding: 12px; border: 1px solid #dee2e6;">{name}</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold; width: 30%;">Name:</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6;">{name}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Email:</td>
-                  <td style="padding: 12px; border: 1px solid #dee2e6;">
-                    <a href="mailto:{email}" style="color: #667eea;">{email}</a>
-                  </td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Email:</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6;">
+                        <a href="mailto:{email}" style="color: #667eea;">{email}</a>
+                    </td>
                 </tr>
                 <tr style="background: #f8f9fa;">
-                  <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Category:</td>
-                  <td style="padding: 12px; border: 1px solid #dee2e6;">
-                    <span style="background: #667eea; color: white; padding: 4px 12px; border-radius: 15px; font-size: 12px;">
-                      {subject_label}
-                    </span>
-                  </td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Category:</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6;">
+                        <span style="background: #667eea; color: white; padding: 4px 12px; border-radius: 15px; font-size: 12px;">
+                            {subject_label}
+                        </span>
+                    </td>
                 </tr>
                 {f'''<tr>
-                  <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Account Info:</td>
-                  <td style="padding: 12px; border: 1px solid #dee2e6; font-size: 14px; color: #666;">{user_info}</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Account Info:</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-size: 14px; color: #666;">{user_info}</td>
                 </tr>''' if user_info else ''}
                 <tr style="background: #f8f9fa;">
-                  <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Timestamp:</td>
-                  <td style="padding: 12px; border: 1px solid #dee2e6;">{datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Timestamp:</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6;">{datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}</td>
                 </tr>
-              </table>
-          
-              <h3 style="color: #333; margin-top: 30px;">Message:</h3>
-              <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #667eea; border-radius: 4px; line-height: 1.6;">
-                {message.replace('\\n', '<br>')}
-              </div>
-          
-              <div style="margin-top: 30px; padding: 20px; background: #e3f2fd; border-radius: 8px;">
-                <p style="margin: 0; color: #1976d2;">
-                  <strong>💡 Quick Reply:</strong> Simply reply to this email to respond directly to {name} at {email}
-                </p>
-              </div>
-            </div>
-        
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
-              <p>This message was sent via the GiverAI contact form</p>
-            </div>
-          </body>
-        </html>
-        """
-    
-        return self.send_simple_email(
-            "support@giverai.me",
-            f"[GiverAI Contact] {subject_label} - {name}",
-            html_body
-        )
+            </table>
 
-def send_contact_confirmation_email(self, name: str, email: str, subject_category: str):
-        """Send confirmation email to user who submitted contact form"""
-    
-        subject_labels = {
-            "general_support": "General Support",
-            "technical_issue": "Technical Issue",
-            "billing_question": "Billing Question", 
-            "feature_request": "Feature Request",
-            "account_help": "Account Help",
-            "bug_report": "Bug Report",
-            "feedback": "Feedback",
-            "other": "Other"
-        }
-    
-        subject_label = subject_labels.get(subject_category, subject_category)
-    
-        html_body = f"""
-        <html>
-          <body style="font-family: Arial, sans-serif; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: #28a745; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+            <h3 style="color: #333; margin-top: 30px;">Message:</h3>
+            <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #667eea; border-radius: 4px; line-height: 1.6;">
+                {message.replace('\\n', '<br>')}
+            </div>
+
+            <div style="margin-top: 30px; padding: 20px; background: #e3f2fd; border-radius: 8px;">
+                <p style="margin: 0; color: #1976d2;">
+                    <strong>💡 Quick Reply:</strong> Simply reply to this email to respond directly to {name} at {email}
+                </p>
+            </div>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
+            <p>This message was sent via the GiverAI contact form</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    return self.send_simple_email(
+        "support@giverai.me",
+        f"[GiverAI Contact] {subject_label} - {name}",
+        html_body
+    )
+
+
+    def send_contact_form_confirmation(self, name: str, email: str, subject_category: str):
+    """Send confirmation email to user who submitted contact form"""
+
+    subject_labels = {
+        "general_support": "General Support",
+        "technical_issue": "Technical Issue",
+        "billing_question": "Billing Question", 
+        "feature_request": "Feature Request",
+        "account_help": "Account Help",
+        "bug_report": "Bug Report",
+        "feedback": "Feedback",
+        "other": "Other"
+    }
+
+    subject_label = subject_labels.get(subject_category, subject_category)
+
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #28a745; color: white; padding: 30px; text-align: center; border-radius: 8px;">
                 <h1 style="margin: 0; color: white;">Message Received! ✅</h1>
                 <p style="margin: 10px 0 0 0; color: white;">We'll get back to you soon</p>
-              </div>
-          
-              <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+            </div>
+
+            <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
                 <h2 style="color: #333;">Hi {name}!</h2>
-            
+
                 <p>Thanks for reaching out to GiverAI! We've received your message about <strong>{subject_label}</strong> and we'll respond as soon as possible.</p>
-            
+
                 <div style="background: #e3f2fd; padding: 15px; margin: 20px 0; border-radius: 6px;">
-                  <p style="margin: 0;"><strong>📧 What's next?</strong></p>
-                  <ul style="margin: 10px 0; padding-left: 20px;">
-                    <li>We typically respond within 24 hours</li>
-                    <li>Priority support users get faster responses</li>
-                    <li>You'll receive our reply at {email}</li>
-                  </ul>
+                    <p style="margin: 0;"><strong>📧 What's next?</strong></p>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>We typically respond within 24 hours</li>
+                        <li>Priority support users get faster responses</li>
+                        <li>You'll receive our reply at {email}</li>
+                    </ul>
                 </div>
-            
+
                 <p>In the meantime, you might find answers in our <a href="https://giverai.me/faq" style="color: #667eea;">FAQ section</a> or feel free to continue using GiverAI!</p>
-            
+
                 <p style="text-align: center; margin: 30px 0;">
-                  <a href="https://giverai.me/dashboard" 
-                     style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
-                    Back to GiverAI
-                  </a>
+                    <a href="https://giverai.me/dashboard" 
+                       style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                        Back to GiverAI
+                    </a>
                 </p>
-            
+
                 <p>Thanks for being part of GiverAI!</p>
                 <p><strong>The GiverAI Support Team</strong></p>
-              </div>
             </div>
-          </body>
-        </html>
-        """
-    
-        return self.send_simple_email(
-            email,
-            "We received your message - GiverAI Support",
-            html_body
-        )
-    
+        </div>
+    </body>
+    </html>
+    """
+
+    return self.send_simple_email(
+        email,
+        "We received your message - GiverAI Support",
+        html_body
+    )
+
+
     def send_email_changed_notification(self, user, old_email, ip_address="Unknown"):
-        """Send notification to old email address when email is changed"""
-        html_body = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+    """Send notification to old email address when email is changed"""
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
         <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px;">
                 <h1 style="margin: 0; color: white;">Email Address Changed 🔒</h1>
@@ -833,12 +837,11 @@ def send_contact_confirmation_email(self, name: str, email: str, subject_categor
     </html>
     """
 
-        return self.send_simple_email(
-            old_email,
-            "Your GiverAI Email Address Was Changed 📧",
-            html_body
-        )
-    
+    return self.send_simple_email(
+        old_email,
+        "Your GiverAI Email Address Was Changed 📧",
+        html_body
+    )
     def send_goodbye_email(self, user, total_tweets, days_active, plan):
 
         plan_display_names = {
