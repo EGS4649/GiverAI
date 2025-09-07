@@ -1994,6 +1994,14 @@ async def handle_contact_form(request: Request):
             "error": "Sorry, there was an issue sending your message. Please try again or email us directly at support@giverai.me"
         })
         
+@app.get("/faq", response_class=HTMLResponse)
+def faq_page(request: Request):
+    user = get_optional_user(request)
+    return templates.TemplateResponse("faq.html", {
+        "request": request, 
+        "user": user
+    })
+    
 @app.get("/debug-email")
 def debug_email(email: str = "test@example.com"):
     """Debug email configuration"""
