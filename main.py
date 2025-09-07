@@ -1937,6 +1937,7 @@ def contact_page(request: Request):
 @app.post("/contact", response_class=HTMLResponse)
 async def handle_contact_form(request: Request):
     user = get_optional_user(request)
+    form_data = {}
     
     try:
         form = await request.form()
@@ -1971,7 +1972,7 @@ async def handle_contact_form(request: Request):
             return templates.TemplateResponse("contact.html", {
                 "request": request,
                 "user": user,
-                "form_data": None,  # Clear form on success
+                "form_data": {},  # Clear form on success
                 "success": "Thank you! Your message has been sent successfully. We'll get back to you within 24 hours."
             })
         else:
@@ -1989,7 +1990,7 @@ async def handle_contact_form(request: Request):
         return templates.TemplateResponse("contact.html", {
             "request": request,
             "user": user,
-            "form_data": form_data if 'form_data' in locals() else None,
+            "form_data": form_data,
             "error": "Sorry, there was an issue sending your message. Please try again or email us directly at support@giverai.me"
         })
         
