@@ -589,34 +589,34 @@ class EmailService:
         )
 
     def send_account_changed_email(self, user, change_details, ip_address="Unknown"):
-    """Send account security alert"""
-    html_body = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px;">
-                <h1 style="margin: 0; color: white;">Account Security Alert 🔒</h1>
-                <p style="margin: 10px 0 0 0; color: white;">Important changes to your GiverAI account</p>
-            </div>
-
-            <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
-                <h2 style="color: #333;">Hi {user.username},</h2>
-
-                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
-                    <p style="margin: 0;"><strong>⚠️ Your account information was recently updated</strong></p>
+        """Send account security alert"""
+        html_body = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+                    <h1 style="margin: 0; color: white;">Account Security Alert 🔒</h1>
+                    <p style="margin: 10px 0 0 0; color: white;">Important changes to your GiverAI account</p>
                 </div>
 
-                <div style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 6px;">
-                    <h3 style="margin-top: 0; color: #333;">What Changed:</h3>
-                    <p style="margin: 5px 0;">{change_details}</p>
-                    <p style="margin: 5px 0;"><strong>When:</strong> {datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
-                    <p style="margin: 5px 0;"><strong>IP Address:</strong> {ip_address}</p>
-                </div>
+                <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                    <h2 style="color: #333;">Hi {user.username},</h2>
 
-                <h3>Was this you?</h3>
+                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                        <p style="margin: 0;"><strong>⚠️ Your account information was recently updated</strong></p>
+                    </div>
+
+                    <div style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 6px;">
+                        <h3 style="margin-top: 0; color: #333;">What Changed:</h3>
+                        <p style="margin: 5px 0;">{change_details}</p>
+                        <p style="margin: 5px 0;"><strong>When:</strong> {datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
+                        <p style="margin: 5px 0;"><strong>IP Address:</strong> {ip_address}</p>
+                    </div>
+
+                    <h3>Was this you?</h3>
                 <p>If you made this change, no action is needed. Your account is secure.</p>
 
-                <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                    <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 20px 0; border-radius: 6px;">
                     <p style="margin: 0;"><strong>🚨 If you didn't authorize this change:</strong></p>
                     <ol style="margin: 10px 0; padding-left: 20px;">
                         <li>Contact our support team immediately at support@giverai.me</li>
@@ -628,17 +628,17 @@ class EmailService:
                 <p>Your account security is our priority. If you have any concerns, please don't hesitate to contact us.</p>
 
                 <p>Best regards,<br><strong>The GiverAI Security Team</strong></p>
+                </div>
             </div>
-        </div>
-    </body>
-    </html>
-    """
+        </body>
+        </html>
+        """
 
-    return self.send_simple_email(
-        user.email,
-        "Important Changes to Your GiverAI Account",
-        html_body
-    )
+        return self.send_simple_email(
+            user.email,
+            "Important Changes to Your GiverAI Account",
+            html_body
+        )
 
 
 def send_contact_form_notification(self, name: str, email: str, subject_category: str, message: str, user_info: str = None):
