@@ -334,7 +334,7 @@
           <div class="form-group">
             <label for="message">Message *</label>
             <textarea id="message" name="message" required 
-                      placeholder="Please describe your question or issue in detail...">{{ request.form.get('message', '') }}</textarea>
+                      placeholder="Please describe your question or issue in detail...">{{ form_data.get('message', '') if form_data else '' }}</textarea>
           </div>
           
           {% if user %}
@@ -420,7 +420,7 @@
       <div class="faq-item">
         <div class="faq-question">Do you offer phone support?</div>
         <div class="faq-answer">
-          We provide support via email and our contact form. This allows us to give you detailed, written responses and track your support history for better assistance.
+          Currently, we provide support via email and our contact form. This allows us to give you detailed, written responses and track your support history for better assistance.
         </div>
       </div>
     </div>
