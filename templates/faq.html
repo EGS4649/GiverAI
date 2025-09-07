@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frequently Asked Questions - Giver.ai</title>
+  <meta name="description" content="Find answers to common questions about Giver.ai's AI-powered tweet generator, pricing, features, and account management.">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .faq-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    
+    .faq-header {
+      text-align: center;
+      margin-bottom: 50px;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 15px;
+      padding: 40px 30px;
+    }
+    
+    .faq-header h1 {
+      background: linear-gradient(45deg, #00ffff, #adc2ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+      margin-bottom: 15px;
+    }
+    
+    .faq-header p {
+      color: #adc2ff;
+      font-size: 1.1em;
+      line-height: 1.6;
+      margin: 0;
+    }
+    
+    .faq-categories {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    
+    .category-nav {
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 0, 255, 0.3);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    
+    .category-nav:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(255, 0, 255, 0.2);
+      border-color: rgba(255, 0, 255, 0.6);
+    }
+    
+    .category-nav h3 {
+      color: #ff00ff;
+      margin-bottom: 10px;
+      font-size: 1.1em;
+    }
+    
+    .category-nav p {
+      color: #adc2ff;
+      font-size: 0.9em;
+      margin: 0;
+    }
+    
+    .faq-section {
+      margin-bottom: 40px;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+    }
+    
+    .faq-section h2 {
+      color: #00ffff;
+      text-shadow: 0 0 10px #00ffff;
+      margin-bottom: 30px;
+      text-align: center;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+      padding-bottom: 15px;
+    }
+    
+    .faq-item {
+      margin-bottom: 25px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 10px;
+      border: 1px solid rgba(0, 255, 255, 0.2);
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .faq-question {
+      background: rgba(0, 255, 255, 0.1);
+      color: #00ffff;
+      font-weight: bold;
+      padding: 20px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.1em;
+      transition: all 0.3s ease;
+      border: none;
+      width: 100%;
+      text-align: left;
+    }
+    
+    .faq-question:hover {
+      background: rgba(0, 255, 255, 0.2);
+    }
+    
+    .faq-question.active {
+      background: rgba(0, 255, 255, 0.3);
+    }
+    
+    .faq-toggle {
+      font-size: 1.5em;
+      transition: transform 0.3s ease;
+      color: #ff00ff;
+    }
+    
+    .faq-question.active .faq-toggle {
+      transform: rotate(180deg);
+    }
+    
+    .faq-answer {
+      padding: 0 20px;
+      max-height: 0;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      color: #fff;
+      line-height: 1.6;
+    }
+    
+    .faq-answer.active {
+      padding: 20px;
+      max-height: 500px;
+    }
+    
+    .faq-answer a {
+      color: #00ffff;
+      text-decoration: underline;
+      transition: color 0.3s ease;
+    }
+    
+    .faq-answer a:hover {
+      color: #ff00ff;
+    }
+    
+    .faq-answer ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    
+    .faq-answer li {
+      margin-bottom: 8px;
+    }
+    
+    .search-section {
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 0, 255, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    
+    .search-section h2 {
+      color: #ff00ff;
+      margin-bottom: 20px;
+    }
+    
+    .search-input {
+      width: 100%;
+      max-width: 500px;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 8px;
+      color: #00ffff;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+    }
+    
+    .search-input:focus {
+      outline: none;
+      border-color: #00ffff;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+      background: rgba(0, 0, 0, 0.7);
+    }
+    
+    .search-input::placeholder {
+      color: rgba(0, 255, 255, 0.5);
+    }
+    
+    .contact-cta {
+      background: rgba(255, 0, 255, 0.1);
+      border: 1px solid rgba(255, 0, 255, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      text-align: center;
+      margin-top: 40px;
+    }
+    
+    .contact-cta h2 {
+      color: #ff00ff;
+      margin-bottom: 15px;
+    }
+    
+    .contact-cta p {
+      color: #fff;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    
+    .contact-button {
+      display: inline-block;
+      background: linear-gradient(45deg, #00ffff, #ff00ff);
+      color: #000;
+      padding: 15px 30px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease;
+    }
+    
+    .contact-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(0, 255, 255, 0.4);
+    }
+    
+    .highlight-box {
+      background: rgba(0, 255, 255, 0.1);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      color: #00ffff;
+    }
+    
+    .warning-box {
+      background: rgba(255, 100, 0, 0.1);
+      border: 1px solid #ff6400;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      color: #ff6400;
+    }
+    
+    @media (max-width: 768px) {
+      .faq-container {
+        padding: 20px 15px;
+      }
+      
+      .faq-header {
+        padding: 30px 20px;
+      }
+      
+      .faq-categories {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="brand">
+      <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
+    </div>
+    <ul class="nav-links">
+      <li class="dropdown">
+        <a href="#" class="dropbtn">Features ▼</a>
+        <div class="dropdown-content">
+          <a href="/tweetgiver">TweetGiver</a>
+          <a href="#">More Soon...</a>
+        </div>
+      </li>
+      {% if user %}
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/account">Account</a></li>
+        <li><a href="/pricing">Pricing</a></li>
+        <li><a href="/logout">Logout</a></li>
+      {% else %}
+        <li><a href="/login">Login</a></li>
+        <li><a href="/register">Register</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+
+  <main class="faq-container">
+    <div class="faq-header">
+      <h1>Frequently Asked Questions</h1>
+      <p>Find quick answers to common questions about Giver.ai, our AI tweet generator, pricing, and features. Can't find what you're looking for? We're here to help!</p>
+    </div>
+
+    <!-- Search Section -->
+    <div class="search-section">
+      <h2>Search FAQs</h2>
+      <input type="text" id="faqSearch" class="search-input" placeholder="Type keywords to search FAQs...">
+      <p style="color: #adc2ff; font-size: 0.9em; margin: 0;">Try searching: "pricing", "limits", "API", "billing"</p>
+    </div>
+
+    <!-- Category Navigation -->
+    <div class="faq-categories">
+      <a href="#getting-started" class="category-nav">
+        <h3>🚀 Getting Started</h3>
+        <p>Account setup, first tweets, basics</p>
+      </a>
+      <a href="#pricing-billing" class="category-nav">
+        <h3>💰 Pricing & Billing</h3>
+        <p>Plans, payments, upgrades, refunds</p>
+      </a>
+      <a href="#features" class="category-nav">
+        <h3>⚡ Features</h3>
+        <p>Tweet generation, limits, customization</p>
+      </a>
+      <a href="#technical" class="category-nav">
+        <h3>🔧 Technical</h3>
+        <p>API, troubleshooting, integrations</p>
+      </a>
+      <a href="#account" class="category-nav">
+        <h3>👤 Account Management</h3>
+        <p>Settings, security, data, deletion</p>
+      </a>
+    </div>
+
+    <!-- Getting Started -->
+    <div id="getting-started" class="faq-section">
+      <h2>🚀 Getting Started</h2>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          What is Giver.ai and how does it work?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Giver.ai is an AI-powered social media content generator that helps you create engaging tweets in seconds. Simply tell us your job/niche and your goals, and our AI will generate multiple tweet variations tailored to your audience.</p>
+          <div class="highlight-box">
+            <strong>How it works:</strong>
+            <ul>
+              <li>Enter your profession or niche (e.g., "Digital Marketing Expert")</li>
+              <li>Specify your goal (e.g., "Increase engagement")</li>
+              <li>Choose how many tweets to generate (1-15)</li>
+              <li>Get instant, personalized tweet suggestions</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          Do I need to create an account to use Giver.ai?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>You can try our service once without an account to generate 5 tweets. However, to unlock daily limits, save your tweet history, and access advanced features, you'll need to create a free account.</p>
+          <div class="highlight-box">
+            <strong>Free Account Benefits:</strong>
+            <ul>
+              <li>15 tweets per day (resets at midnight)</li>
+              <li>24-hour tweet history</li>
+              <li>Basic customization options</li>
+              <li>Access to your dashboard</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          How do I generate my first tweet?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Getting started is simple:</p>
+          <ol>
+            <li>Go to <a href="/tweetgiver">TweetGiver</a> or your <a href="/dashboard">Dashboard</a></li>
+            <li>Fill in your job/niche (be specific for better results)</li>
+            <li>Describe your goal for today's tweets</li>
+            <li>Select how many tweets you want (1-5 for free trial, up to 15 with account)</li>
+            <li>Click "Generate Tweets" and wait a few seconds</li>
+          </ol>
+          <p>Pro tip: The more specific you are about your niche and goals, the better your generated tweets will be!</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          What makes a good niche/job description?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Good niche descriptions are specific and descriptive. Here are some examples:</p>
+          <div class="highlight-box">
+            <strong>Good examples:</strong>
+            <ul>
+              <li>"Digital Marketing Consultant for SaaS companies"</li>
+              <li>"Personal Fitness Trainer specializing in weight loss"</li>
+              <li>"E-commerce Store Owner selling handmade jewelry"</li>
+              <li>"Tech Startup Founder in the AI space"</li>
+            </ul>
+          </div>
+          <div class="warning-box">
+            <strong>Avoid vague descriptions like:</strong>
+            <ul>
+              <li>"Businessman"</li>
+              <li>"Entrepreneur" (too general)</li>
+              <li>"Content Creator" (what type of content?)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pricing & Billing -->
+    <div id="pricing-billing" class="faq-section">
+      <h2>💰 Pricing & Billing</h2>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          What are the different pricing plans?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>We offer several plans to fit different needs:</p>
+          <div class="highlight-box">
+            <strong>Free Plan ($0/month):</strong>
+            <ul>
+              <li>Up to 15 tweets/day</li>
+              <li>Basic customization</li>
+              <li>24-hour tweet history</li>
+            </ul>
+          </div>
+          <div class="highlight-box">
+            <strong>Creator Plan ($9/month):</strong>
+            <ul>
+              <li>Unlimited tweet generation</li>
+              <li>Advanced customization & templates</li>
+              <li>60-day tweet history</li>
+              <li>Export/download tweets</li>
+              <li>Priority email support</li>
+            </ul>
+          </div>
+          <p>Higher tier plans (Small Team, Agency, Enterprise) are coming soon with team collaboration and advanced features.</p>
+          <p><a href="/pricing">View detailed pricing comparison</a></p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          How does billing work?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Our billing is straightforward:</p>
+          <ul>
+            <li><strong>Monthly billing:</strong> All paid plans are billed monthly in advance</li>
+            <li><strong>Secure payments:</strong> We use industry-standard payment processors</li>
+            <li><strong>No hidden fees:</strong> The price you see is what you pay</li>
+            <li><strong>Cancel anytime:</strong> No long-term contracts or cancellation fees</li>
+          </ul>
+          <div class="warning-box">
+            <strong>Important:</strong> All fees are non-refundable except as required by law. When you cancel, you keep access until the end of your current billing cycle.
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          Can I upgrade or downgrade my plan?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Yes! You can change your plan at any time:</p>
+          <ul>
+            <li><strong>Upgrading:</strong> Takes effect immediately, you'll be charged the prorated difference</li>
+            <li><strong>Downgrading:</strong> Takes effect at the end of your current billing cycle</li>
+            <li><strong>Canceling:</strong> Your account reverts to the Free plan at the end of the billing cycle</li>
+          </ul>
+          <p>To change your plan, visit your <a href="/account">Account Settings</a> or go to <a href="/pricing">Pricing</a> to compare options.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          Do you offer refunds?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Our refund policy is designed to be fair while protecting our service:</p>
+          <ul>
+            <li><strong>Standard policy:</strong> All payments are non-refundable</li>
+            <li><strong>Free trial:</strong> Try our service free before committing to a paid plan</li>
+            <li><strong>Technical issues:</strong> If our service is unavailable for extended periods, we may offer credits</li>
+            <li><strong>Legal requirements:</strong> Refunds available where required by local law</li>
+          </ul>
+          <p>We recommend starting with our free plan to ensure Giver.ai meets your needs before upgrading.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <div id="features" class="faq-section">
+      <h2>⚡ Features</h2>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          How many tweets can I generate per day?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Daily limits depend on your plan:</p>
+          <div class="highlight-box">
+            <ul>
+              <li><strong>Free Plan:</strong> 15 tweets per day (resets at midnight)</li>
+              <li><strong>Creator Plan:</strong> Unlimited tweets</li>
+              <li><strong>Higher Plans:</strong> Unlimited tweets + additional features</li>
+            </ul>
+          </div>
+          <p>Each "generation request" can create 1-15 tweets at once (depending on your selection), and each individual tweet counts toward your daily limit on the Free plan.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          How long are my tweets stored?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Tweet history retention varies by plan:</p>
+          <ul>
+            <li><strong>Free Plan:</strong> 24 hours (tweets deleted after one day)</li>
+            <li><strong>Creator Plan:</strong> 60 days</li>
+            <li><strong>Higher Plans:</strong> 90+ days with advanced features</li>
+          </ul>
+          <div class="highlight-box">
+            <strong>Pro tip:</strong> Copy important tweets to your own notes or social media scheduler before they expire!
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          Can I customize or edit the generated tweets?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Absolutely! Our AI generates tweets as starting points. You should always:</p>
+          <ul>
+            <li><strong>Review content:</strong> Make sure it aligns with your brand voice</li>
+            <li><strong>Edit as needed:</strong> Personalize, add hashtags, or adjust tone</li>
+            <li><strong>Check accuracy:</strong> Verify any claims or information</li>
+            <li><strong>Add your touch:</strong> Include your personal insights or experiences</li>
+          </ul>
+          <div class="warning-box">
+            <strong>Important:</strong> AI-generated content may not always be perfect. Always review before posting to social media.
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          What types of content does the AI generate?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Our AI creates various types of engaging social media content:</p>
+          <ul>
+            <li><strong>Educational tweets:</strong> Tips, insights, and how-to content</li>
+            <li><strong>Engagement posts:</strong> Questions, polls, and conversation starters</li>
+            <li><strong>Motivational content:</strong> Inspirational quotes and messages</li>
+            <li><strong>Industry insights:</strong> Niche-specific observations and trends</li>
+            <li><strong>Personal branding:</strong> Content that builds your authority</li>
+          </ul>
+          <p>The AI adapts its style based on your niche and goals to create relevant, engaging content.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          Can I export or download my tweets?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Export capabilities depend on your plan:</p>
+          <ul>
+            <li><strong>Free Plan:</strong> No export feature (copy/paste manually)</li>
+            <li><strong>Creator Plan & Above:</strong> Export tweets to CSV, TXT, or other formats</li>
+          </ul>
+          <p>This feature is perfect for:</p>
+          <ul>
+            <li>Importing tweets into social media schedulers</li>
+            <li>Building a content bank for future use</li>
+            <li>Sharing tweet ideas with team members</li>
+            <li>Archiving your generated content</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Technical -->
+    <div id="technical" class="faq-section">
+      <h2>🔧 Technical</h2>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          Do you offer API access?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>API access is available for higher-tier plans (coming soon):</p>
+          <ul>
+            <li><strong>Current:</strong> API access not yet available</li>
+            <li><strong>Enterprise Plan:</strong> Will include full API access</li>
+            <li><strong>Use cases:</strong> Integrate tweet generation into your apps, automate content creation, build custom workflows</li>
+          </ul>
+          <div class="highlight-box">
+            <strong>Interested in API access?</strong> <a href="/contact">Contact us</a> to be notified when it becomes available.
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          Why isn't the tweet generator working?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>If you're having issues, try these troubleshooting steps:</p>
+          <ol>
+            <li><strong>Check your daily limit:</strong> Free users get 15 tweets/day</li>
+            <li><strong>Verify your inputs:</strong> Make sure both job/niche and goal fields are filled</li>
+            <li><strong>Refresh the page:</strong> Sometimes a simple refresh helps</li>
+            <li><strong>Clear browser cache:</strong> Old cached data might cause issues</li>
+            <li><strong>Try a different browser:</strong> Test in Chrome, Firefox, or Safari</li>
+          </ol>
+          <p>Still having problems? <a href="/contact">Contact support</a> with details about the error you're seeing.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          Is my data secure?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Yes, we take data security seriously:</p>
+          <ul>
+            <li><strong>Encryption:</strong> All data is encrypted in transit and at rest</li>
+            <li><strong>Secure payments:</strong> We use PCI-compliant payment processors</li>
+            <li><strong>Privacy:</strong> We don't sell your data to third parties</li>
+            <li><strong>Access controls:</strong> Strict internal access policies</li>
+          </ul>
+          <p>Read our full <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms of Service</a> for complete details.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          What browsers do you support?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Giver.ai works best on modern browsers:</p>
+          <div class="highlight-box">
+            <strong>Fully Supported:</strong>
+            <ul>
+              <li>Chrome (latest 2 versions)</li>
+              <li>Firefox (latest 2 versions)</li>
+              <li>Safari (latest 2 versions)</li>
+              <li>Edge (latest 2 versions)</li>
+            </ul>
+          </div>
+          <p>For the best experience, please keep your browser updated to the latest version.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Account Management -->
+    <div id="account" class="faq-section">
+      <h2>👤 Account Management</h2>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          How do I change my password or email?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>You can update your account information in your <a href="/account">Account Settings</a>:</p>
+          <ul>
+            <li><strong>Change Password:</strong> Enter your current password and choose a new one</li>
+            <li><strong>Update Email:</strong> Enter your new email address and confirm</li>
+            <li><strong>Account Info:</strong> View your current plan, member since date, and usage stats</li>
+          </ul>
+          <div class="warning-box">
+            <strong>Security tip:</strong> Use a strong, unique password and keep your email address current for account recovery.
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          How do I cancel my subscription?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Canceling your subscription is easy:</p>
+          <ol>
+            <li>Go to your <a href="/account">Account Settings</a></li>
+            <li>Find the "Subscription Management" section</li>
+            <li>Click "Cancel Subscription"</li>
+            <li>Confirm your cancellation</li>
+          </ol>
+          <p>After canceling:</p>
+          <ul>
+            <li>You keep access until the end of your current billing cycle</li>
+            <li>Your account reverts to the Free plan automatically</li>
+            <li>No cancellation fees or penalties</li>
+            <li>You can reactivate anytime by upgrading again</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          Can I delete my account permanently?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Yes, you can permanently delete your account:</p>
+          <ol>
+            <li>Go to your <a href="/account">Account Settings</a></li>
+            <li>Scroll down to the "Delete Account" section</li>
+            <li>Click "Delete My Account"</li>
+            <li>Confirm the deletion (this cannot be undone)</li>
+          </ol>
+          <div class="warning-box">
+            <strong>Warning:</strong> Account deletion is permanent and cannot be reversed. All your data, tweet history, and account information will be permanently deleted.
+          </div>
+          <p>Before deleting, consider:</p>
+          <ul>
+            <li>Exporting any tweets you want to keep</li>
+            <li>Canceling your subscription first to avoid billing issues</li>
+            <li>Whether you might want to use the service again in the future</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          What happens to my data when I cancel or delete my account?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>Data handling depends on the action you take:</p>
+          <div class="highlight-box">
+            <strong>Subscription Cancellation:</strong>
+            <ul>
+              <li>Your account data remains intact</li>
+              <li>You revert to Free plan limits</li>
+              <li>Tweet history follows Free plan retention (24 hours)</li>
+              <li>You can reactivate paid features anytime</li>
+            </ul>
+          </div>
+          <div class="warning-box">
+            <strong>Account Deletion:</strong>
+            <ul>
+              <li>All personal data is permanently deleted</li>
+              <li>Tweet history is completely removed</li>
+              <li>Account cannot be recovered</li>
+              <li>Billing history may be retained for legal/accounting purposes</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question">
+          How do I update my billing information?
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <p>To update your payment method or billing details:</p>
+          <ul>
+            <li>Visit your <a href="/account">Account Settings</a></li>
+            <li>Look for the billing or payment section</li>
+            <li>Update your credit card, billing address, or other details</li>
+            <li>Changes take effect on your next billing cycle</li>
+          </ul>
+          <p>If you're having payment issues:</p>
+          <ul>
+            <li>Check that your card hasn't expired</li>
+            <li>Verify your billing address is correct</li>
+            <li>Ensure sufficient funds are available</li>
+            <li><a href="/contact">Contact support</a> if problems persist</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact CTA -->
+    <div class="contact-cta">
+      <h2>Still Have Questions?</h2>
+      <p>Can't find the answer you're looking for? Our support team is here to help you get the most out of Giver.ai.</p>
+      <a href="/contact" class="contact-button">Contact Support</a>
+      <p style="margin-top: 15px; font-size: 0.9em; color: #adc2ff;">
+        💡 <strong>Pro tip:</strong> Check your account dashboard and our <a href="/pricing" style="color: #00ffff;">pricing page</a> for the latest feature updates!
+      </p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-container">
+      <div class="footer-left">
+        <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+      </div>
+      <div class="footer-links">
+        <a href="/tweetgiver">TweetGiver</a> |
+        <a href="/pricing">Pricing</a> |
+        <a href="/privacy">Privacy Policy</a> |
+        <a href="/terms">Terms of Service</a> |
+        <a href="/contact">Contact</a>
+      </div>
+      <div class="footer-right">
+        &copy; Copyright Giver.ai
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // FAQ Toggle Functionality
+    document.querySelectorAll('.faq-question').forEach(question => {
+      question.addEventListener('click', function() {
+        const answer = this.nextElementSibling;
+        const isActive = this.classList.contains('active');
+        
+        // Close all other FAQ items
+        document.querySelectorAll('.faq-question').forEach(q => {
+          q.classList.remove('active');
+          q.nextElementSibling.classList.remove('active');
+        });
+        
+        // Toggle current item
+        if (!isActive) {
+          this.classList.add('active');
+          answer.classList.add('active');
+        }
+      });
+    });
+
+    // Search Functionality
+    document.getElementById('faqSearch').addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase();
+      const faqItems = document.querySelectorAll('.faq-item');
+      
+      faqItems.forEach(item => {
+        const question = item.querySelector('.faq-question').textContent.toLowerCase();
+        const answer = item.querySelector('.faq-answer').textContent.toLowerCase();
+        
+        if (question.includes(searchTerm) || answer.includes(searchTerm)) {
+          item.style.display = 'block';
+          // Highlight matching text (simple version)
+          if (searchTerm && (question.includes(searchTerm) || answer.includes(searchTerm))) {
+            item.style.border = '2px solid #ff00ff';
+            item.style.boxShadow = '0 0 10px rgba(255, 0, 255, 0.3)';
+          }
+        } else {
+          item.style.display = searchTerm ? 'none' : 'block';
+          item.style.border = '1px solid rgba(0, 255, 255, 0.2)';
+          item.style.boxShadow = 'none';
+        }
+      });
+      
+      // Show/hide sections based on search results
+      document.querySelectorAll('.faq-section').forEach(section => {
+        const visibleItems = section.querySelectorAll('.faq-item:not([style*="display: none"])');
+        section.style.display = visibleItems.length > 0 ? 'block' : 'none';
+      });
+    });
+
+    // Smooth scrolling for category navigation
+    document.querySelectorAll('.category-nav').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href');
+        const targetElement = document.querySelector(targetId);
+        
+        if (targetElement) {
+          targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+
+    // Auto-expand FAQ if linked directly (e.g., from URL hash)
+    window.addEventListener('load', function() {
+      const hash = window.location.hash;
+      if (hash) {
+        const targetSection = document.querySelector(hash);
+        if (targetSection) {
+          targetSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    });
+  </script>
+</body>
+</html>
