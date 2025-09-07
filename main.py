@@ -1869,7 +1869,7 @@ def contact_page(request: Request):
     return templates.TemplateResponse("contact.html", {
         "request": request, 
         "user": user,
-        "form_data": None  # No form data on GET request
+        "form_data": {}
     })
 
 @app.post("/contact", response_class=HTMLResponse)
