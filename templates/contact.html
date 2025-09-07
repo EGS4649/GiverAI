@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us - Giver.ai</title>
+  <meta name="description" content="Get in touch with the Giver.ai team. Contact us for support, questions, or feedback about our AI-powered social media content generation platform.">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .contact-container {
+      max-width: 800px;
+      margin: 20px auto 40px auto;
+      padding: 0 15px;
+    }
+    
+    .contact-header {
+      text-align: center;
+      margin-bottom: 40px;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 15px;
+      padding: 30px 20px;
+    }
+    
+    .contact-header h1 {
+      background: linear-gradient(45deg, #00ffff, #adc2ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+      margin-bottom: 15px;
+    }
+    
+    .contact-header p {
+      color: #adc2ff;
+      font-size: 1.1em;
+      line-height: 1.6;
+    }
+    
+    .contact-content {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 30px;
+    }
+    
+    .contact-form-section {
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 8px 32px rgba(0, 255, 255, 0.1);
+    }
+    
+    .contact-form-section h2 {
+      color: #ff00ff;
+      text-shadow: 0 0 10px #ff00ff;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #00ffff;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 0.9em;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 8px;
+      color: #00ffff;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      box-sizing: border-box;
+    }
+    
+    .form-group textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #00ffff;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+      background: rgba(0, 0, 0, 0.7);
+    }
+    
+    .form-group input::placeholder,
+    .form-group textarea::placeholder {
+      color: rgba(0, 255, 255, 0.5);
+    }
+    
+    .contact-info {
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 0, 255, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 8px 32px rgba(255, 0, 255, 0.1);
+    }
+    
+    .contact-info h2 {
+      color: #00ffff;
+      text-shadow: 0 0 10px #00ffff;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    
+    .info-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 15px;
+      background: rgba(0, 255, 255, 0.1);
+      border-radius: 10px;
+      transition: all 0.3s ease;
+    }
+    
+    .info-item:hover {
+      background: rgba(0, 255, 255, 0.2);
+      transform: translateX(5px);
+    }
+    
+    .info-icon {
+      font-size: 1.5em;
+      margin-right: 15px;
+      color: #ff00ff;
+    }
+    
+    .info-text {
+      color: #fff;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .info-text a {
+      color: #00ffff;
+      text-decoration: underline;
+      transition: color 0.3s ease;
+    }
+    
+    .info-text a:hover {
+      color: #ff00ff;
+    }
+    
+    .success-message {
+      background: rgba(40, 167, 69, 0.2);
+      border: 1px solid #28a745;
+      color: #28a745;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    .error-message {
+      background: rgba(220, 53, 69, 0.2);
+      border: 1px solid #dc3545;
+      color: #dc3545;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    .faq-section {
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      margin-top: 30px;
+    }
+    
+    .faq-section h2 {
+      color: #ff00ff;
+      text-shadow: 0 0 10px #ff00ff;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+    
+    .faq-item {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 10px;
+      border: 1px solid rgba(0, 255, 255, 0.2);
+    }
+    
+    .faq-question {
+      color: #00ffff;
+      font-weight: bold;
+      margin-bottom: 8px;
+      font-size: 1.1em;
+    }
+    
+    .faq-answer {
+      color: #fff;
+      line-height: 1.6;
+    }
+    
+    .faq-answer a {
+      color: #00ffff;
+      text-decoration: underline;
+    }
+    
+    .faq-answer a:hover {
+      color: #ff00ff;
+    }
+    
+    /* Mobile responsiveness */
+    @media (min-width: 768px) {
+      .contact-content {
+        grid-template-columns: 1fr 1fr;
+      }
+      
+      .contact-form-section {
+        grid-column: span 2;
+      }
+    }
+    
+    @media (max-width: 320px) {
+      .contact-container {
+        margin: 10px;
+        padding: 0 10px;
+      }
+      
+      .contact-header,
+      .contact-form-section,
+      .contact-info,
+      .faq-section {
+        padding: 20px 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="brand">
+      <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
+    </div>
+    <ul class="nav-links">
+      <li class="dropdown">
+        <a href="#" class="dropbtn">Features ▼</a>
+        <div class="dropdown-content">
+          <a href="/tweetgiver">TweetGiver</a>
+          <a href="#">More Soon...</a>
+        </div>
+      </li>
+      {% if user %}
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/account">Account</a></li>
+        <li><a href="/pricing">Pricing</a></li>
+        <li><a href="/logout">Logout</a></li>
+      {% else %}
+        <li><a href="/login">Login</a></li>
+        <li><a href="/register">Register</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+
+  <main class="contact-container">
+    <div class="contact-header">
+      <h1>Get in Touch</h1>
+      <p>We're here to help! Whether you have questions, feedback, or need support with your GiverAI experience, don't hesitate to reach out.</p>
+    </div>
+
+    <div class="contact-content">
+      <!-- Contact Form -->
+      <div class="contact-form-section">
+        <h2>Send Us a Message</h2>
+        
+        {% if success %}
+          <div class="success-message">
+            {{ success }}
+          </div>
+        {% endif %}
+        
+        {% if error %}
+          <div class="error-message">
+            {{ error }}
+          </div>
+        {% endif %}
+        
+        <form method="post" action="/contact">
+          <div class="form-group">
+            <label for="name">Your Name *</label>
+            <input type="text" id="name" name="name" required 
+                   placeholder="Enter your full name" value="{{ request.form.get('name', '') }}">
+          </div>
+          
+          <div class="form-group">
+            <label for="email">Email Address *</label>
+            <input type="email" id="email" name="email" required 
+                   placeholder="your@email.com" value="{{ request.form.get('email', user.email if user else '') }}">
+          </div>
+          
+          <div class="form-group">
+            <label for="subject">Subject *</label>
+            <select id="subject" name="subject" required>
+              <option value="">Select a topic</option>
+              <option value="general_support" {{ 'selected' if request.form.get('subject') == 'general_support' }}>General Support</option>
+              <option value="technical_issue" {{ 'selected' if request.form.get('subject') == 'technical_issue' }}>Technical Issue</option>
+              <option value="billing_question" {{ 'selected' if request.form.get('subject') == 'billing_question' }}>Billing Question</option>
+              <option value="feature_request" {{ 'selected' if request.form.get('subject') == 'feature_request' }}>Feature Request</option>
+              <option value="account_help" {{ 'selected' if request.form.get('subject') == 'account_help' }}>Account Help</option>
+              <option value="bug_report" {{ 'selected' if request.form.get('subject') == 'bug_report' }}>Bug Report</option>
+              <option value="feedback" {{ 'selected' if request.form.get('subject') == 'feedback' }}>Feedback</option>
+              <option value="partnership" {{ 'selected' if request.form.get('subject') == 'partnership' }}>Partnership Inquiry</option>
+              <option value="other" {{ 'selected' if request.form.get('subject') == 'other' }}>Other</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="message">Message *</label>
+            <textarea id="message" name="message" required 
+                      placeholder="Please describe your question or issue in detail...">{{ request.form.get('message', '') }}</textarea>
+          </div>
+          
+          {% if user %}
+            <div class="form-group">
+              <label for="user_info">Account Information</label>
+              <input type="text" id="user_info" name="user_info" readonly 
+                     value="Username: {{ user.username }} | Plan: {{ user.plan|replace('_', ' ')|title }} | Member since: {{ user.created_at.strftime('%Y-%m-%d') }}"
+                     style="background: rgba(0, 0, 0, 0.3); color: #adc2ff;">
+            </div>
+          {% endif %}
+          
+          <button type="submit">Send Message</button>
+        </form>
+      </div>
+      
+      <!-- Contact Information -->
+      <div class="contact-info">
+        <h2>Other Ways to Reach Us</h2>
+        
+        <div class="info-item">
+          <div class="info-icon">📧</div>
+          <div class="info-text">
+            <strong>Email Support</strong><br>
+            <a href="mailto:support@giverai.me">support@giverai.me</a><br>
+            <small>We typically respond within 24 hours</small>
+          </div>
+        </div>
+        
+        <div class="info-item">
+          <div class="info-icon">⏰</div>
+          <div class="info-text">
+            <strong>Response Time</strong><br>
+            Business Hours: 9 AM - 6 PM EST<br>
+            <small>Monday through Friday</small>
+          </div>
+        </div>
+        
+        <div class="info-item">
+          <div class="info-icon">🚀</div>
+          <div class="info-text">
+            <strong>Priority Support</strong><br>
+            Creator+ plan users get priority support<br>
+            <small>Faster response times guaranteed</small>
+          </div>
+        </div>
+        
+        <div class="info-item">
+          <div class="info-icon">💬</div>
+          <div class="info-text">
+            <strong>Before You Contact Us</strong><br>
+            Check our <a href="/faq">FAQ page</a> for quick answers<br>
+            <small>Many common questions answered instantly</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="faq-section">
+      <h2>Frequently Asked Questions</h2>
+      
+      <div class="faq-item">
+        <div class="faq-question">How quickly will I get a response?</div>
+        <div class="faq-answer">
+          We aim to respond to all support requests within 24 hours during business days. Priority support users typically receive responses within 4-8 hours.
+        </div>
+      </div>
+      
+      <div class="faq-item">
+        <div class="faq-question">Can I get help with billing issues?</div>
+        <div class="faq-answer">
+          Absolutely! For billing questions, subscription changes, or payment issues, contact us using the "Billing Question" category above or email <a href="mailto:support@giverai.me">support@giverai.me</a>.
+        </div>
+      </div>
+      
+      <div class="faq-item">
+        <div class="faq-question">How do I report a bug or technical issue?</div>
+        <div class="faq-answer">
+          Use the "Bug Report" or "Technical Issue" categories in the form above. Please include as much detail as possible, including what you were doing when the issue occurred and any error messages you saw.
+        </div>
+      </div>
+      
+      <div class="faq-item">
+        <div class="faq-question">Do you offer phone support?</div>
+        <div class="faq-answer">
+          We provide support via email and our contact form. This allows us to give you detailed, written responses and track your support history for better assistance.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-container">
+      <div class="footer-left">
+        <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+      </div>
+      <div class="footer-links">
+        <a href="/tweetgiver">TweetGiver</a> |
+        <a href="/pricing">Pricing</a> |
+        <a href="/privacy">Privacy Policy</a> |
+        <a href="/terms">Terms of Service</a> |
+        <a href="/contact">Contact</a>
+      </div>
+      <div class="footer-right">
+        &copy; Copyright Giver.ai
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
