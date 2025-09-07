@@ -2114,6 +2114,16 @@ def pricing(request: Request):
     user = get_optional_user(request)
     return templates.TemplateResponse("pricing.html", {"request": request, "user": user})
 
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_policy(request: Request):
+    user = get_optional_user(request)
+    return templates.TemplateResponse("privacy.html", {"request": request, "user": user})
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms_of_service(request: Request):
+    user = get_optional_user(request)
+    return templates.TemplateResponse("terms.html", {"request": request, "user": user})
+
 @app.post("/generate-api-key")
 async def generate_api_key(user: User = Depends(get_current_user)):
     db = SessionLocal()
