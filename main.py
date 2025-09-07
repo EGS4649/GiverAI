@@ -1865,19 +1865,28 @@ def logout():
 
 @app.get("/contact", response_class=HTMLResponse)
 def contact_page(request: Request):
-    user = get_optional_user(request)
-    return templates.TemplateResponse("contact.html", {"request": request, "user": user})
+    try:
+        user = get_optional_user(request)
+        return templates.TemplateResponse("contact.html", {"request": request, "user": user})
+    except Exception as e:
+        print(f"Error in contact_page GET: {e}")
+        # Return template with no user if get_optional_user fails
+        return templates.TemplateResponse("contact.html", {"request": request, "user": None})
 
 @app.post("/contact", response_class=HTMLResponse)
 async def handle_contact_form(request: Request):
-    user = get_optional_user(request)
+    try:
+        user = get_optional_user(request)
+    except Exception as e:
+        print(f"Error getting user in contact POST: {e}")
+        user = None
     
     try:
         form = await request.form()
-        name = form["name"].strip()
-        email = form["email"].strip()
-        subject = form["subject"]
-        message = form["message"].strip()
+        name = form.get("name", "").strip()
+        email = form.get("email", "").strip()
+        subject = form.get("subject", "")
+        message = form.get("message", "").strip()
         user_info = form.get("user_info", "").strip() if user else None
         
         # Validation
@@ -1887,23 +1896,39 @@ async def handle_contact_form(request: Request):
         if len(message) < 10:
             raise ValueError("Please provide a more detailed message")
             
+        # Email validation
+        import re
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, email):
+            raise ValueError("Please enter a valid email address")
+            
         # Send emails
-        support_sent = email_service.send_contact_form_notification(
-            name, email, subject, message, user_info
-        )
-        
-        confirmation_sent = email_service.send_contact_confirmation_email(
-            name, email, subject
-        )
-        
-        if support_sent and confirmation_sent:
+        try:
+            support_sent = email_service.send_contact_form_notification(
+                name, email, subject, message, user_info
+            )
+            
+            confirmation_sent = email_service.send_contact_confirmation_email(
+                name, email, subject
+            )
+            
+            if support_sent and confirmation_sent:
+                return templates.TemplateResponse("contact.html", {
+                    "request": request,
+                    "user": user,
+                    "success": "Thank you! Your message has been sent successfully. We'll get back to you within 24 hours."
+                })
+            else:
+                raise Exception("Failed to send email - please try again")
+                
+        except Exception as email_error:
+            print(f"Email sending error: {email_error}")
+            # Still return success to user, but log the error
             return templates.TemplateResponse("contact.html", {
                 "request": request,
                 "user": user,
-                "success": "Thank you! Your message has been sent successfully. We'll get back to you within 24 hours."
+                "error": "Sorry, there was an issue sending your message. Please try again or email us directly at support@giverai.me"
             })
-        else:
-            raise Exception("Failed to send email")
             
     except ValueError as e:
         return templates.TemplateResponse("contact.html", {
@@ -1916,7 +1941,7 @@ async def handle_contact_form(request: Request):
         return templates.TemplateResponse("contact.html", {
             "request": request,
             "user": user,
-            "error": "Sorry, there was an issue sending your message. Please try again or email us directly at support@giverai.me"
+            "error": "Sorry, there was an issue processing your request. Please try again."
         })
         
 @app.get("/debug-email")
