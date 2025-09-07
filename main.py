@@ -1865,75 +1865,61 @@ def logout():
 
 @app.get("/contact", response_class=HTMLResponse)
 def contact_page(request: Request):
-    try:
-        user = get_optional_user(request)
-        return templates.TemplateResponse("contact.html", {"request": request, "user": user})
-    except Exception as e:
-        print(f"Error in contact_page GET: {e}")
-        # Return template with no user if get_optional_user fails
-        return templates.TemplateResponse("contact.html", {"request": request, "user": None})
+    user = get_optional_user(request)
+    return templates.TemplateResponse("contact.html", {
+        "request": request, 
+        "user": user,
+        "form_data": None  # No form data on GET request
+    })
 
 @app.post("/contact", response_class=HTMLResponse)
 async def handle_contact_form(request: Request):
-    try:
-        user = get_optional_user(request)
-    except Exception as e:
-        print(f"Error getting user in contact POST: {e}")
-        user = None
+    user = get_optional_user(request)
     
     try:
         form = await request.form()
-        name = form.get("name", "").strip()
-        email = form.get("email", "").strip()
-        subject = form.get("subject", "")
-        message = form.get("message", "").strip()
-        user_info = form.get("user_info", "").strip() if user else None
+        form_data = {
+            "name": form["name"].strip(),
+            "email": form["email"].strip(), 
+            "subject": form["subject"],
+            "message": form["message"].strip()
+        }
         
         # Validation
-        if not all([name, email, subject, message]):
+        if not all([form_data["name"], form_data["email"], form_data["subject"], form_data["message"]]):
             raise ValueError("All required fields must be filled out")
             
-        if len(message) < 10:
+        if len(form_data["message"]) < 10:
             raise ValueError("Please provide a more detailed message")
             
-        # Email validation
-        import re
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.match(email_pattern, email):
-            raise ValueError("Please enter a valid email address")
+        user_info = None
+        if user:
+            user_info = f"Username: {user.username} | Plan: {user.plan.replace('_', ' ').title()} | Member since: {user.created_at.strftime('%Y-%m-%d')}"
             
         # Send emails
-        try:
-            support_sent = email_service.send_contact_form_notification(
-                name, email, subject, message, user_info
-            )
-            
-            confirmation_sent = email_service.send_contact_confirmation_email(
-                name, email, subject
-            )
-            
-            if support_sent and confirmation_sent:
-                return templates.TemplateResponse("contact.html", {
-                    "request": request,
-                    "user": user,
-                    "success": "Thank you! Your message has been sent successfully. We'll get back to you within 24 hours."
-                })
-            else:
-                raise Exception("Failed to send email - please try again")
-                
-        except Exception as email_error:
-            print(f"Email sending error: {email_error}")
-            # Still return success to user, but log the error
+        support_sent = email_service.send_contact_form_notification(
+            form_data["name"], form_data["email"], form_data["subject"], form_data["message"], user_info
+        )
+        
+        confirmation_sent = email_service.send_contact_confirmation_email(
+            form_data["name"], form_data["email"], form_data["subject"]
+        )
+        
+        if support_sent and confirmation_sent:
             return templates.TemplateResponse("contact.html", {
                 "request": request,
                 "user": user,
-                "error": "Sorry, there was an issue sending your message. Please try again or email us directly at support@giverai.me"
+                "form_data": None,  # Clear form on success
+                "success": "Thank you! Your message has been sent successfully. We'll get back to you within 24 hours."
             })
+        else:
+            raise Exception("Failed to send email")
             
     except ValueError as e:
         return templates.TemplateResponse("contact.html", {
             "request": request,
             "user": user,
+            "form_data": form_data,  # Preserve form data on error
             "error": str(e)
         })
     except Exception as e:
@@ -1941,7 +1927,8 @@ async def handle_contact_form(request: Request):
         return templates.TemplateResponse("contact.html", {
             "request": request,
             "user": user,
-            "error": "Sorry, there was an issue processing your request. Please try again."
+            "form_data": form_data if 'form_data' in locals() else None,
+            "error": "Sorry, there was an issue sending your message. Please try again or email us directly at support@giverai.me"
         })
         
 @app.get("/debug-email")
