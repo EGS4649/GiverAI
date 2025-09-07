@@ -709,12 +709,12 @@ def send_contact_form_notification(self, name: str, email: str, subject_category
             </div>
         </div>
 
-        <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
+            <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
             <p>This message was sent via the GiverAI contact form</p>
-        </div>
-    </body>
-    </html>
-    """
+            </div>
+        </body>
+        </html>
+        """
 
     return self.send_simple_email(
         "support@giverai.me",
