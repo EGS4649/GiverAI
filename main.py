@@ -641,87 +641,87 @@ class EmailService:
         )
 
 
-def send_contact_form_notification(self, name: str, email: str, subject_category: str, message: str, user_info: str = None):
-    """Send contact form submission to support email"""
+    def send_contact_form_notification(self, name: str, email: str, subject_category: str, message: str, user_info: str = None):
+        """Send contact form submission to support email"""
 
-    subject_labels = {
-        "general_support": "General Support",
-        "technical_issue": "Technical Issue", 
-        "billing_question": "Billing Question",
-        "feature_request": "Feature Request",
-        "account_help": "Account Help",
-        "bug_report": "Bug Report",
-        "feedback": "Feedback",
-        "other": "Other"
-    }
-
-    subject_label = subject_labels.get(subject_category, subject_category)
-    formatted_message = message.replace('\n', '<br>')
-
-    html_body = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <div style="background: #667eea; color: white; padding: 20px; text-align: center;">
-            <h1 style="margin: 0; color: white;">New Contact Form Submission 📧</h1>
-            <p style="margin: 10px 0 0 0; color: white;">From your GiverAI website</p>
-        </div>
-
-        <div style="padding: 30px; background: white; border: 1px solid #eee;">
-            <h2 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Contact Details</h2>
-
-            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                <tr style="background: #f8f9fa;">
-                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold; width: 30%;">Name:</td>
-                    <td style="padding: 12px; border: 1px solid #dee2e6;">{name}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Email:</td>
-                    <td style="padding: 12px; border: 1px solid #dee2e6;">
-                        <a href="mailto:{email}" style="color: #667eea;">{email}</a>
-                    </td>
-                </tr>
-                <tr style="background: #f8f9fa;">
-                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Category:</td>
-                    <td style="padding: 12px; border: 1px solid #dee2e6;">
-                        <span style="background: #667eea; color: white; padding: 4px 12px; border-radius: 15px; font-size: 12px;">
-                            {subject_label}
-                        </span>
-                    </td>
-                </tr>
-                {f'''<tr>
-                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Account Info:</td>
-                    <td style="padding: 12px; border: 1px solid #dee2e6; font-size: 14px; color: #666;">{user_info}</td>
-                </tr>''' if user_info else ''}
-                <tr style="background: #f8f9fa;">
-                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Timestamp:</td>
-                    <td style="padding: 12px; border: 1px solid #dee2e6;">{datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}</td>
-                </tr>
-            </table>
-
-            <h3 style="color: #333; margin-top: 30px;">Message:</h3>
-            <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #667eea; border-radius: 4px; line-height: 1.6;">
-                {message.replace('\\n', '<br>')}
+        subject_labels = {
+            "general_support": "General Support",
+            "technical_issue": "Technical Issue", 
+            "billing_question": "Billing Question",
+            "feature_request": "Feature Request",
+            "account_help": "Account Help",
+            "bug_report": "Bug Report",
+            "feedback": "Feedback",
+            "other": "Other"
+        }
+    
+        subject_label = subject_labels.get(subject_category, subject_category)
+        formatted_message = message.replace('\n', '<br>')
+    
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+            <div style="background: #667eea; color: white; padding: 20px; text-align: center;">
+                <h1 style="margin: 0; color: white;">New Contact Form Submission 📧</h1>
+                <p style="margin: 10px 0 0 0; color: white;">From your GiverAI website</p>
             </div>
-
-            <div style="margin-top: 30px; padding: 20px; background: #e3f2fd; border-radius: 8px;">
-                <p style="margin: 0; color: #1976d2;">
-                    <strong>💡 Quick Reply:</strong> Simply reply to this email to respond directly to {name} at {email}
-                </p>
+    
+            <div style="padding: 30px; background: white; border: 1px solid #eee;">
+                <h2 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Contact Details</h2>
+    
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                    <tr style="background: #f8f9fa;">
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold; width: 30%;">Name:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">{name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Email:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">
+                            <a href="mailto:{email}" style="color: #667eea;">{email}</a>
+                        </td>
+                    </tr>
+                    <tr style="background: #f8f9fa;">
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Category:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">
+                            <span style="background: #667eea; color: white; padding: 4px 12px; border-radius: 15px; font-size: 12px;">
+                                {subject_label}
+                            </span>
+                        </td>
+                    </tr>
+                    {f'''<tr>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Account Info:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-size: 14px; color: #666;">{user_info}</td>
+                    </tr>''' if user_info else ''}
+                    <tr style="background: #f8f9fa;">
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Timestamp:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">{datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}</td>
+                    </tr>
+                </table>
+    
+                <h3 style="color: #333; margin-top: 30px;">Message:</h3>
+                <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #667eea; border-radius: 4px; line-height: 1.6;">
+                    {formatted_message}
+                </div>
+    
+                <div style="margin-top: 30px; padding: 20px; background: #e3f2fd; border-radius: 8px;">
+                    <p style="margin: 0; color: #1976d2;">
+                        <strong>💡 Quick Reply:</strong> Simply reply to this email to respond directly to {name} at {email}
+                    </p>
+                </div>
             </div>
-        </div>
-
+    
             <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
-            <p>This message was sent via the GiverAI contact form</p>
+                <p>This message was sent via the GiverAI contact form</p>
             </div>
         </body>
         </html>
         """
-
-    return self.send_simple_email(
-        "support@giverai.me",
-        f"[GiverAI Contact] {subject_label} - {name}",
-        html_body
-    )
+    
+        return self.send_simple_email(
+            "support@giverai.me",
+            f"[GiverAI Contact] {subject_label} - {name}",
+            html_body
+        )
 
 
     def send_contact_form_confirmation(self, name: str, email: str, subject_category: str):
