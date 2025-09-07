@@ -656,6 +656,7 @@ def send_contact_form_notification(self, name: str, email: str, subject_category
     }
 
     subject_label = subject_labels.get(subject_category, subject_category)
+    formatted_message = message.replace('\n', '<br>')
 
     html_body = f"""
     <html>
@@ -905,7 +906,7 @@ def send_contact_form_notification(self, name: str, email: str, subject_category
                 <p><strong>The GiverAI Team</strong></p>
             </div>
 
-            <div style="text-align: center; margin-top: 20px; color: край#666; font-size: 12px;">
+            <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
                 <p>This confirmation was sent to {user.email}</p>
                 <p>You will not receive any further emails from us.</p>
             </div>
