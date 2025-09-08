@@ -9,25 +9,29 @@
 </head>
 <body>
   <!-- Navigation Bar -->
-  <ul class="nav-links">
-  <li class="dropdown">
-    <a href="#" class="dropbtn">Features ▼</a>
-    <div class="dropdown-content">
-      <a href="/tweetgiver">TweetGiver</a>
-      <a href="#">More Soon...</a>
+  <nav class="navbar">
+    <div class="brand">
+      <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
     </div>
-  </li>
-  <li><a href="/pricing">Pricing</a></li>
-  {% if user %}
-    <li><span style="color: #00ffff;">Welcome back, {{ user.username }}!</span></li>
-    <li><a href="/dashboard">Dashboard</a></li>
-    <li><a href="/logout">Logout</a></li>
-  {% else %}
-    <li><a href="/login">Login</a></li>
-    <li><a href="/register" class="active-link">Register</a></li>
-  {% endif %}
-</ul>
-
+    <ul class="nav-links">
+      <li class="dropdown">
+        <a href="#" class="dropbtn">Features ▼</a>
+        <div class="dropdown-content">
+          <a href="/tweetgiver">TweetGiver</a>
+          <a href="#">More Soon...</a>
+        </div>
+      </li>
+      <li><a href="/pricing">Pricing</a></li>
+      {% if user %}
+        <li><span style="color: #00ffff;">Welcome back, {{ user.username }}!</span></li>
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/logout">Logout</a></li>
+      {% else %}
+        <li><a href="/login">Login</a></li>
+        <li><a href="/register" class="active-link">Register</a></li>
+      {% endif %}
+    </ul>
+  </nav>
 
   <main>
     <h1>Join Giver.ai</h1>
@@ -77,12 +81,24 @@
           name="password"
           placeholder="Create a secure password"
           required
-          pattern="^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':\"
+          pattern="^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':&quot;\\|,.<>\/?]).{8,}$"
+          title="At least 8 characters with 1 uppercase letter, 1 number, and 1 symbol"
+        />
       </div>
-      <div class="g-recaptcha" 
-           data-sitekey="{{ recaptcha_site_key }}"
-           style="margin: 20px 0;"></div>
-      <button type="submit">Create Account</button>
+      
+      <!-- reCAPTCHA with error handling -->
+      <div class="recaptcha-container">
+        <div class="g-recaptcha" 
+             data-sitekey="{{ recaptcha_site_key }}"
+             data-callback="recaptchaCallback"
+             data-expired-callback="recaptchaExpired"
+             style="margin: 20px 0;"></div>
+        <div id="recaptcha-error" style="color: #ff4444; font-size: 14px; margin-top: 5px; display: none;">
+          Please complete the reCAPTCHA verification
+        </div>
+      </div>
+      
+      <button type="submit" id="submit-btn">Create Account</button>
       <div class="no-credit-note">
         *No credit card required for free plan
       </div>
@@ -104,7 +120,7 @@
         <a href="/tweetgiver">TweetGiver</a> |
           <a href="/pricing">Pricing</a> |
           <a href="/privacy">Privacy Policy</a> |
-          <a href="/terms">Terms of Service</a>
+          <a href="/terms">Terms of Service</a> |
           <a href="/contact">Contact</a>
       </div>
       <div class="footer-right">
@@ -147,6 +163,10 @@
     
     .login-link {
       color: #00ffff;
+    }
+    
+    .recaptcha-container {
+      margin: 20px 0;
     }
     
     input[type="text"],
@@ -206,11 +226,26 @@
   </style>
 
   <script>
+    let recaptchaCompleted = false;
+    
+    // reCAPTCHA callback functions
+    function recaptchaCallback(token) {
+      recaptchaCompleted = true;
+      document.getElementById('recaptcha-error').style.display = 'none';
+      updateSubmitButton();
+    }
+    
+    function recaptchaExpired() {
+      recaptchaCompleted = false;
+      updateSubmitButton();
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       const usernameInput = document.getElementById('username');
       const emailInput = document.getElementById('email');
       const passwordInput = document.getElementById('password');
-      const submitButton = document.querySelector('button[type="submit"]');
+      const submitButton = document.getElementById('submit-btn');
+      const form = document.getElementById('registration-form');
       
       // Create validation message elements
       const usernameMessage = document.createElement('div');
@@ -232,9 +267,19 @@
       };
       
       function updateSubmitButton() {
-        const allValid = validations.username && validations.email && validations.password;
+        const allValid = validations.username && validations.email && validations.password && recaptchaCompleted;
         submitButton.disabled = !allValid;
       }
+      
+      // Form submission validation
+      form.addEventListener('submit', function(e) {
+        if (!recaptchaCompleted) {
+          e.preventDefault();
+          document.getElementById('recaptcha-error').style.display = 'block';
+          document.querySelector('.recaptcha-container').scrollIntoView({ behavior: 'smooth' });
+          return false;
+        }
+      });
       
       // Username validation
       usernameInput.addEventListener('input', function() {
