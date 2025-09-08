@@ -848,7 +848,68 @@ class EmailService:
             html_body
         )
 
+    def send_email_change_verification(self, user, new_email, verification_token, ip_address="Unknown"):
+        """Send email verification for email change to the new email address"""
+        verification_url = f"https://giverai.me/verify-email-change?token={verification_token}"
 
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: #667eea; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+                <h1 style="margin: 0; color: white;">Verify Your New Email Address</h1>
+                <p style="margin: 10px 0 0 0; color: white;">Complete your email change request</p>
+              </div>
+    
+              <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                <h2 style="color: #333;">Hi {user.username}!</h2>
+    
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                  <p style="margin: 0;"><strong>📧 You requested to change your email address</strong></p>
+                </div>
+    
+                <p>To complete the email change process, please verify this new email address by clicking the button below:</p>
+    
+                <div style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 6px;">
+                  <p style="margin: 5px 0;"><strong>New Email:</strong> {new_email}</p>
+                  <p style="margin: 5px 0;"><strong>Request Time:</strong> {datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</p>
+                  <p style="margin: 5px 0;"><strong>IP Address:</strong> {ip_address}</p>
+                </div>
+    
+                <p style="text-align: center;">
+                  <a href="{verification_url}"
+                     style="display: inline-block; background: #28a745; color: white; 
+                            padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                    Verify New Email Address
+                  </a>
+                </p>
+    
+                <p><strong>Important:</strong> This verification link expires in 1 hour.</p>
+    
+                <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                  <p style="margin: 0;"><strong>🚨 If you didn't request this change:</strong></p>
+                  <p>Someone may be trying to access your account. Please contact our support team immediately at support@giverai.me</p>
+                </div>
+    
+                <p>After verification, all future notifications will be sent to this email address.</p>
+    
+                <p>Best regards,<br><strong>The GiverAI Team</strong></p>
+              </div>
+    
+              <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+                <p>This verification was sent to: {new_email}</p>
+              </div>
+            </div>
+          </body>
+        </html>
+        """
+    
+        return self.send_simple_email(
+            new_email,
+            "Verify Your New Email Address - GiverAI",
+            html_body
+        )
+    
     def send_email_changed_notification(self, user, old_email, ip_address="Unknown"):
         """Send notification to old email address when email is changed"""
         html_body = f"""
