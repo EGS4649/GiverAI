@@ -1585,6 +1585,13 @@ def verify_recaptcha(recaptcha_response):
         print(f"❌ reCAPTCHA verification error: {str(e)}")
         return False
         
+@app.get("/debug-env")
+def debug_env():
+    return {
+        "recaptcha_site_key_exists": bool(os.getenv("RECAPTCHA_SITE_KEY")),
+        "recaptcha_secret_key_exists": bool(os.getenv("RECAPTCHA_SECRET_KEY"))
+    }        
+    
 @app.get("/register", response_class=HTMLResponse)
 def register(request: Request, success: str = None):
     user = get_optional_user(request)
