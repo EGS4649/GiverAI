@@ -1590,7 +1590,7 @@ def register(request: Request, success: str = None):
     return templates.TemplateResponse("register.html", {
         "request": request, 
         "user": user,
-        "success": success_message
+        "success": success_message,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
 
