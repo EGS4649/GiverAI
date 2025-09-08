@@ -1591,6 +1591,7 @@ def register(request: Request, success: str = None):
         "request": request, 
         "user": user,
         "success": success_message
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
 
 @app.post("/register", response_class=HTMLResponse)
