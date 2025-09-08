@@ -1551,9 +1551,13 @@ migrate_database()
 # ---- ROUTES ----
 
 @app.get("/", response_class=HTMLResponse)
+@app.head("/")  
 def index(request: Request):
     user = get_optional_user(request)
-    return templates.TemplateResponse("index.html", {"request": request, "user": user})
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "user": user
+    })
     
 def verify_recaptcha(recaptcha_response):
     """Verify reCAPTCHA response with Google"""
