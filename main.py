@@ -2,6 +2,7 @@ import datetime
 from datetime import datetime, timedelta, date
 import os
 import secrets
+import requests 
 import hashlib
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
@@ -1553,7 +1554,27 @@ migrate_database()
 def index(request: Request):
     user = get_optional_user(request)
     return templates.TemplateResponse("index.html", {"request": request, "user": user})
-
+    
+def verify_recaptcha(recaptcha_response):
+    """Verify reCAPTCHA response with Google"""
+    secret_key = os.getenv("RECAPTCHA_SECRET_KEY")
+    if not secret_key:
+        print("❌ Missing RECAPTCHA_SECRET_KEY")
+        return False
+    
+    data = {
+        'secret': secret_key,
+        'response': recaptcha_response
+    }
+    
+    try:
+        response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
+        result = response.json()
+        return result.get('success', False)
+    except Exception as e:
+        print(f"❌ reCAPTCHA verification error: {str(e)}")
+        return False
+        
 @app.get("/register", response_class=HTMLResponse)
 def register(request: Request, success: str = None):
     user = get_optional_user(request)
@@ -1569,13 +1590,28 @@ def register(request: Request, success: str = None):
     })
 
 @app.post("/register", response_class=HTMLResponse)
-def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
+def register_user(
+    request: Request, 
+    username: str = Form(...), 
+    email: str = Form(...), 
+    password: str = Form(...),
+    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")  # Add this
+):
     db = SessionLocal()
     try:
         print(f"Starting registration for username: {username}")
         
-        # Use raw SQL to avoid SQLAlchemy processing corrupted data
-        from sqlalchemy import text
+        # Verify reCAPTCHA first
+        if not verify_recaptcha(g_recaptcha_response):
+            print("❌ reCAPTCHA verification failed")
+            return templates.TemplateResponse("register.html", {
+                "request": request, 
+                "user": None,
+                "error": "Please complete the reCAPTCHA verification",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+        
+        print("✅ reCAPTCHA verified successfully")
         
         # Check username exists using raw SQL
         result = db.execute(text("""
@@ -1588,7 +1624,8 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
             return templates.TemplateResponse("register.html", {
                 "request": request, 
                 "user": None,
-                "error": "Username already exists"
+                "error": "Username already exists",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
         # Check email exists using raw SQL  
@@ -1602,7 +1639,8 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
             return templates.TemplateResponse("register.html", {
                 "request": request, 
                 "user": None,
-                "error": "Email already registered"
+                "error": "Email already registered",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
         # Hash the password
@@ -1666,7 +1704,8 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
         return templates.TemplateResponse("register.html", {
             "request": request,
             "user": None,
-            "error": "Registration failed. Please try again."
+            "error": "Registration failed. Please try again.",
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
     finally:
         db.close()
@@ -1906,29 +1945,51 @@ def verify_email_change(request: Request, token: str = Query(...)):
         db.close()
 
 @app.get("/login", response_class=HTMLResponse)
-def login_get(request: Request):
+def login(request: Request):
     user = get_optional_user(request)
-    # If user is already logged in, redirect to dashboard
-    if user:
-        return RedirectResponse("/dashboard", status_code=302)
-    return templates.TemplateResponse("login.html", {"request": request, "user": user})
+    return templates.TemplateResponse("login.html", {
+        "request": request, 
+        "user": user,
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+    })
     
 @app.post("/login")
-def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
+def login_post(
+    request: Request, 
+    username: str = Form(...), 
+    password: str = Form(...),
+    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
+):
     db = SessionLocal()
     try:
+        # Verify reCAPTCHA first
+        if not verify_recaptcha(g_recaptcha_response):
+            print("❌ reCAPTCHA verification failed for login")
+            return templates.TemplateResponse("login.html", {
+                "request": request, 
+                "user": None,
+                "error": "Please complete the reCAPTCHA verification",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+        
+        print("✅ reCAPTCHA verified successfully for login")
+        
         user = authenticate_user(db, username, password)
         if not user:
             return templates.TemplateResponse("login.html", {
                 "request": request, 
-                "error": "Invalid credentials"
+                "user": None,
+                "error": "Invalid credentials",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
         # Check if email is verified
         if not user.is_active:
             return templates.TemplateResponse("login.html", {
                 "request": request, 
-                "error": "Please verify your email before logging in"
+                "user": None,
+                "error": "Please verify your email before logging in",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
         access_token = create_access_token(
@@ -1945,6 +2006,14 @@ def login_post(request: Request, username: str = Form(...), password: str = Form
             samesite='lax'
         )
         return response
+    except Exception as e:
+        print(f"Login error: {str(e)}")
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "user": None, 
+            "error": "Login failed. Please try again.",
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
     finally:
         db.close()
 
