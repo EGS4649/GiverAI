@@ -5,7 +5,7 @@ bcrypt==4.0.1
 sqlalchemy
 stripe
 python-jose
-python-dotenv
+python-dotenv==1.0.0
 openai
 jinja2
 python-multipart
