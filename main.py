@@ -2029,7 +2029,146 @@ async def forgot_password_post(  # <- Add async here
         
     finally:
         db.close()
+        
+@app.get("/resend-verification", response_class=HTMLResponse)
+def resend_verification_get(request: Request):
+    """Display the resend verification form"""
+    user = get_optional_user(request)
+    return templates.TemplateResponse("resend_verification.html", {
+        "request": request,
+        "user": user,
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+    })
 
+@app.post("/resend-verification")
+async def resend_verification_post(
+    request: Request,
+    email_or_username: str = Form(...),
+    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
+):
+    """Resend verification email"""
+    db = SessionLocal()
+    try:
+        # Verify reCAPTCHA
+        if not verify_recaptcha(g_recaptcha_response):
+            return templates.TemplateResponse("resend_verification.html", {
+                "request": request,
+                "user": None,
+                "error": "Please complete the reCAPTCHA verification",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+                "email_or_username": email_or_username
+            })
+
+        # Find user by email or username
+        user = db.query(User).filter(
+            (User.email == email_or_username) | (User.username == email_or_username)
+        ).first()
+
+        if not user:
+            # Don't reveal if user exists or not for security
+            return templates.TemplateResponse("resend_verification.html", {
+                "request": request,
+                "user": None,
+                "success": "If an account with that email/username exists and needs verification, we've sent a new verification email.",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+
+        # Check if user is already verified
+        if user.is_active:
+            return templates.TemplateResponse("resend_verification.html", {
+                "request": request,
+                "user": None,
+                "info": "Your account is already verified! You can log in now.",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+
+        # Check for rate limiting (max 3 verification emails per hour)
+        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        recent_verifications = db.query(EmailVerification).filter(
+            EmailVerification.user_id == user.id,
+            EmailVerification.created_at > one_hour_ago
+        ).count()
+
+        if recent_verifications >= 3:
+            return templates.TemplateResponse("resend_verification.html", {
+                "request": request,
+                "user": None,
+                "error": "Too many verification attempts. Please wait an hour before requesting another verification email.",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+
+        # Invalidate old verification tokens for this user
+        old_verifications = db.query(EmailVerification).filter(
+            EmailVerification.user_id == user.id,
+            EmailVerification.verified == False
+        ).all()
+        
+        for old_verification in old_verifications:
+            old_verification.expires_at = datetime.utcnow()  # Expire old tokens
+        
+        # Create new verification record
+        verification = create_verification_record(user.id, db)
+
+        # Send verification email
+        try:
+            await email_service.send_verification_email(user, verification.token)
+            success_message = f"Verification email sent to {user.email}! Please check your inbox and spam folder."
+            print(f"✅ Resent verification email to {user.email}")
+        except Exception as e:
+            print(f"❌ Failed to send verification email: {str(e)}")
+            success_message = "If an account exists and needs verification, we've sent a new verification email."
+
+        return templates.TemplateResponse("resend_verification.html", {
+            "request": request,
+            "user": None,
+            "success": success_message,
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
+
+    finally:
+        db.close()
+
+# Also add a quick resend route for already logged-in users who aren't verified
+@app.post("/quick-resend-verification")
+async def quick_resend_verification(request: Request):
+    """Quick resend for logged-in users (if they somehow bypassed verification)"""
+    try:
+        # Try to get current user, but don't fail if not authenticated
+        token = request.cookies.get("access_token")
+        if not token:
+            return JSONResponse({"success": False, "error": "Not authenticated"})
+        
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.username == username).first()
+            
+            if not user:
+                return JSONResponse({"success": False, "error": "User not found"})
+            
+            if user.is_active:
+                return JSONResponse({"success": False, "error": "Already verified"})
+            
+            # Create new verification
+            verification = create_verification_record(user.id, db)
+            
+            # Send email
+            await email_service.send_verification_email(user, verification.token)
+            
+            return JSONResponse({
+                "success": True, 
+                "message": f"Verification email sent to {user.email}"
+            })
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        print(f"Quick resend error: {str(e)}")
+        return JSONResponse({"success": False, "error": "Failed to resend verification"})
+        
 # Reset Password Form
 @app.get("/reset-password", response_class=HTMLResponse)
 def reset_password_get(request: Request, token: str = Query(...)):
