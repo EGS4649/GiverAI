@@ -1,0 +1,84 @@
+<!-- templates/unlock_account.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unlock Account - Giver.ai</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="brand">
+            <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/login">Login</a></li>
+            <li><a href="/register">Register</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <h1>Unlock Your Account</h1>
+        <p class="page-description">
+            If your account was locked due to failed login attempts, you can unlock it here.
+        </p>
+
+        {% if success %}
+        <div style="background: rgba(0, 255, 0, 0.2); border: 1px solid #00ff00; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #00ff00; text-align: center;">
+            {{ success }}
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/login" style="color: #00ffff; text-decoration: underline;">Go to Login</a>
+        </div>
+        {% else %}
+        
+        {% if error %}
+        <div style="background: rgba(255, 0, 0, 0.2); border: 1px solid #ff4444; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #ff4444; text-align: center;">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="post" action="/unlock-account">
+            <label>Email or Username:</label><br>
+            <input type="text" name="email_or_username" placeholder="Enter your email or username" required><br>
+            
+            <div class="g-recaptcha" 
+                 data-sitekey="{{ recaptcha_site_key }}"
+                 style="margin: 20px 0;"></div>
+            
+            <button type="submit">Unlock Account</button>
+        </form>
+
+        <hr>
+        <div style="text-align: center; color: #adc2ff;">
+            <p>Account locked for security? <a href="/forgot-password" style="color: #00ffff;">Reset your password instead</a></p>
+            <p>Need help? <a href="/contact" style="color: #00ffff;">Contact support</a></p>
+        </div>
+        
+        {% endif %}
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-left">
+                <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+            </div>
+            <div class="footer-links">
+                <a href="/tweetgiver">TweetGiver</a> |
+                <a href="/pricing">Pricing</a> |
+                <a href="/privacy">Privacy Policy</a> |
+                <a href="/terms">Terms of Service</a> |
+                <a href="/contact">Contact</a>
+            </div>
+            <div class="footer-right">
+                &copy; Copyright Giver.ai
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
