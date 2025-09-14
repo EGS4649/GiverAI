@@ -137,7 +137,7 @@ class EmailService:
             
             # Create message
             msg = MIMEMultipart()
-            msg['From'] = self.smtp_username
+            msg['From'] = "noreply@giverai.me"
             msg['To'] = to_email
             msg['Subject'] = subject
             
