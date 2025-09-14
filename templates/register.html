@@ -1,388 +1,333 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Register - Giver.ai</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - GiverAI</title>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #00ffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%);
+            z-index: -1;
+            animation: pulse 4s ease-in-out infinite alternate;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .container {
+            max-width: 500px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 255, 255, 0.1);
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #00ffff, #adc2ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+        }
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #00ffff;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            color: #00ffff;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+            background: rgba(0, 255, 255, 0.1);
+        }
+        input::placeholder {
+            color: rgba(0, 255, 255, 0.5);
+        }
+        .recaptcha-container {
+            display: flex;
+            justify-content: center;
+            margin: 25px 0;
+            min-height: 78px; /* Reserve space for reCAPTCHA */
+        }
+        .submit-button {
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            color: #000;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            font-size: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+        .submit-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 255, 255, 0.4);
+        }
+        .submit-button:disabled {
+            background: linear-gradient(45deg, #666, #999);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .submit-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        .submit-button:hover:not(:disabled)::before {
+            left: 100%;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: left;
+            border: 1px solid;
+        }
+        .alert-error {
+            background: rgba(255, 0, 0, 0.1);
+            border-color: rgba(255, 0, 0, 0.3);
+            color: #ff6b6b;
+        }
+        .alert-success {
+            background: rgba(0, 255, 0, 0.1);
+            border-color: rgba(0, 255, 0, 0.3);
+            color: #00ff88;
+        }
+        .login-link {
+            margin-top: 20px;
+            color: #adc2ff;
+        }
+        .login-link a {
+            color: #00ffff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+        .captcha-status {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 14px;
+            min-height: 20px;
+        }
+        .captcha-status.pending {
+            color: #ffff00;
+        }
+        .captcha-status.completed {
+            color: #00ff88;
+        }
+        .captcha-status.expired {
+            color: #ff6b6b;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
 </head>
 <body>
-  <!-- Navigation Bar -->
-  <nav class="navbar">
-    <div class="brand">
-      <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
-    </div>
-    <ul class="nav-links">
-      <li class="dropdown">
-        <a href="#" class="dropbtn">Features ▼</a>
-        <div class="dropdown-content">
-          <a href="/tweetgiver">TweetGiver</a>
-          <a href="#">More Soon...</a>
+    <div class="container">
+        <h1>Join GiverAI</h1>
+        
+        {% if error %}
+        <div class="alert alert-error">
+            ❌ {{ error }}
         </div>
-      </li>
-      <li><a href="/pricing">Pricing</a></li>
-      {% if user %}
-        <li><span style="color: #00ffff;">Welcome back, {{ user.username }}!</span></li>
-        <li><a href="/dashboard">Dashboard</a></li>
-        <li><a href="/logout">Logout</a></li>
-      {% else %}
-        <li><a href="/login">Login</a></li>
-        <li><a href="/register" class="active-link">Register</a></li>
-      {% endif %}
-    </ul>
-  </nav>
+        {% endif %}
 
-  <main>
-    <h1>Join Giver.ai</h1>
-    <p class="page-description">Create your account to start generating AI-powered social media content</p>
-
-    {% if error %}
-      <div class="error-message">
-        {{ error }}
-      </div>
-    {% endif %}
-
-    <form method="post" action="/register" id="registration-form">
-      <div class="form-group">
-        <label for="username">Username:</label>
-        <input 
-          type="text" 
-          id="username" 
-          name="username" 
-          placeholder="Choose a username" 
-          required 
-          pattern="[a-zA-Z0-9_]{3,20}"
-          title="3-20 characters (letters, numbers, underscores only)"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="email">Email:</label>
-        <input 
-          type="email" 
-          id="email" 
-          name="email" 
-          placeholder="your@email.com" 
-          required
-          pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-          title="Please enter a valid email address (e.g., user@example.com)"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="password">Password:</label>
-        <span class="password-requirements">
-          (At least 8 characters, with 1 uppercase letter, 1 symbol, and 1 number)
-        </span>
-        <input 
-          type="password" 
-          id="password" 
-          name="password"
-          placeholder="Create a secure password"
-          required
-          pattern="^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':&quot;\\|,.<>\/?]).{8,}$"
-          title="At least 8 characters with 1 uppercase letter, 1 number, and 1 symbol"
-        />
-      </div>
-      
-      <!-- reCAPTCHA with error handling -->
-      <div class="recaptcha-container">
-        <div class="g-recaptcha" 
-             data-sitekey="{{ recaptcha_site_key }}"
-             data-callback="recaptchaCallback"
-             data-expired-callback="recaptchaExpired"
-             style="margin: 20px 0;"></div>
-        <div id="recaptcha-error" style="color: #ff4444; font-size: 14px; margin-top: 5px; display: none;">
-          Please complete the reCAPTCHA verification
+        {% if success %}
+        <div class="alert alert-success">
+            ✅ {{ success }}
         </div>
-      </div>
-      
-      <button type="submit" id="submit-btn">Create Account</button>
-      <div class="no-credit-note">
-        *No credit card required for free plan
-      </div>
-    </form>
+        {% endif %}
 
-    <hr />
-    <p class="login-redirect">
-      Already have an account? <a href="/login" class="login-link">Sign in here</a>
-    </p>
-  </main>
+        <form method="post" id="registerForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" placeholder="Choose a username" required>
+            </div>
 
-  <!-- Footer -->
-  <footer>
-    <div class="footer-container">
-      <div class="footer-left">
-        <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
-      </div>
-      <div class="footer-links">
-        <a href="/tweetgiver">TweetGiver</a> |
-          <a href="/pricing">Pricing</a> |
-          <a href="/privacy">Privacy Policy</a> |
-          <a href="/terms">Terms of Service</a> |
-          <a href="/contact">Contact</a>
-      </div>
-      <div class="footer-right">
-        &copy; Copyright Giver.ai
-      </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" placeholder="your@email.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Choose a strong password" required>
+            </div>
+
+            <div class="recaptcha-container">
+                <div class="g-recaptcha" 
+                     data-sitekey="{{ recaptcha_site_key }}" 
+                     data-callback="onCaptchaSuccess"
+                     data-expired-callback="onCaptchaExpired"
+                     data-error-callback="onCaptchaError">
+                </div>
+            </div>
+            
+            <div class="captcha-status" id="captchaStatus">
+                Please complete the reCAPTCHA verification above
+            </div>
+
+            <button type="submit" class="submit-button" id="submitBtn">
+                🚀 Create Account
+            </button>
+        </form>
+
+        <div class="login-link">
+            Already have an account? <a href="/login">Sign in here</a>
+        </div>
     </div>
-  </footer>
-  
-  <style>
-    .error-message {
-      background: rgba(255, 0, 0, 0.2);
-      border: 1px solid #ff4444;
-      padding: 15px;
-      border-radius: 5px;
-      margin-bottom: 20px;
-      color: #ff4444;
-    }
-    
-    .form-group {
-      margin-bottom: 15px;
-    }
-    
-    .password-requirements {
-      display: block;
-      color: #b25d1b;
-      font-size: 0.95em;
-      margin: 5px 0;
-    }
-    
-    .no-credit-note {
-      color: #5a80fc;
-      font-size: 0.95em;
-      margin-top: 8px;
-    }
-    
-    .login-redirect {
-      text-align: center;
-      color: #adc2ff;
-    }
-    
-    .login-link {
-      color: #00ffff;
-    }
-    
-    .recaptcha-container {
-      margin: 20px 0;
-    }
-    
-    input[type="text"],
-    input[type="email"],
-    input[type="password"] {
-      width: 100%;
-      padding: 10px;
-      margin: 5px 0;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      box-sizing: border-box;
-    }
-    
-    input.valid {
-      border-color: #4CAF50;
-    }
-    
-    input.invalid {
-      border-color: #f44336;
-    }
-    
-    .validation-message {
-      font-size: 0.85em;
-      margin-top: 5px;
-      min-height: 18px;
-    }
-    
-    .valid-message {
-      color: #4CAF50;
-    }
-    
-    .invalid-message {
-      color: #f44336;
-    }
-    
-    button[type="submit"] {
-      background-color: #5a80fc;
-      color: white;
-      padding: 12px 20px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1em;
-      width: 100%;
-      transition: background-color 0.3s;
-    }
-    
-    button[type="submit"]:hover:not(:disabled) {
-      background-color: #4060d0;
-    }
-    
-    button[type="submit"]:disabled {
-      background-color: #cccccc;
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-  </style>
 
-  <script>
-    let recaptchaCompleted = false;
-    
-    // reCAPTCHA callback functions
-    function recaptchaCallback(token) {
-      recaptchaCompleted = true;
-      document.getElementById('recaptcha-error').style.display = 'none';
-      updateSubmitButton();
-    }
-    
-    function recaptchaExpired() {
-      recaptchaCompleted = false;
-      updateSubmitButton();
-    }
+    <script>
+        let captchaCompleted = false;
+        const submitBtn = document.getElementById('submitBtn');
+        const captchaStatus = document.getElementById('captchaStatus');
+        const form = document.getElementById('registerForm');
 
-    document.addEventListener('DOMContentLoaded', function() {
-      const usernameInput = document.getElementById('username');
-      const emailInput = document.getElementById('email');
-      const passwordInput = document.getElementById('password');
-      const submitButton = document.getElementById('submit-btn');
-      const form = document.getElementById('registration-form');
-      
-      // Create validation message elements
-      const usernameMessage = document.createElement('div');
-      usernameMessage.className = 'validation-message';
-      usernameInput.parentNode.appendChild(usernameMessage);
-      
-      const emailMessage = document.createElement('div');
-      emailMessage.className = 'validation-message';
-      emailInput.parentNode.appendChild(emailMessage);
-      
-      const passwordMessage = document.createElement('div');
-      passwordMessage.className = 'validation-message';
-      passwordInput.parentNode.appendChild(passwordMessage);
-      
-      let validations = {
-        username: false,
-        email: false,
-        password: false
-      };
-      
-      function updateSubmitButton() {
-        const allValid = validations.username && validations.email && validations.password && recaptchaCompleted;
-        submitButton.disabled = !allValid;
-      }
-      
-      // Form submission validation
-      form.addEventListener('submit', function(e) {
-        if (!recaptchaCompleted) {
-          e.preventDefault();
-          document.getElementById('recaptcha-error').style.display = 'block';
-          document.querySelector('.recaptcha-container').scrollIntoView({ behavior: 'smooth' });
-          return false;
+        // Initially, button should be enabled but show warning if no captcha
+        updateButtonState();
+
+        function onCaptchaSuccess(response) {
+            captchaCompleted = true;
+            captchaStatus.textContent = '✅ reCAPTCHA verified successfully!';
+            captchaStatus.className = 'captcha-status completed';
+            updateButtonState();
+            console.log('reCAPTCHA completed successfully');
         }
-      });
-      
-      // Username validation
-      usernameInput.addEventListener('input', function() {
-        const value = this.value.trim();
-        const hasSpaces = /\s/.test(value);
-        const validLength = value.length >= 3 && value.length <= 20;
-        const validChars = /^[a-zA-Z0-9_]+$/.test(value);
-        
-        if (value === '') {
-          this.className = '';
-          usernameMessage.textContent = '';
-          validations.username = false;
-        } else if (hasSpaces) {
-          this.className = 'invalid';
-          usernameMessage.className = 'validation-message invalid-message';
-          usernameMessage.textContent = 'Username cannot contain spaces';
-          validations.username = false;
-        } else if (!validLength) {
-          this.className = 'invalid';
-          usernameMessage.className = 'validation-message invalid-message';
-          usernameMessage.textContent = 'Username must be 3-20 characters';
-          validations.username = false;
-        } else if (!validChars) {
-          this.className = 'invalid';
-          usernameMessage.className = 'validation-message invalid-message';
-          usernameMessage.textContent = 'Only letters, numbers, and underscores allowed';
-          validations.username = false;
-        } else {
-          this.className = 'valid';
-          usernameMessage.className = 'validation-message valid-message';
-          usernameMessage.textContent = '✓ Username is valid';
-          validations.username = true;
+
+        function onCaptchaExpired() {
+            captchaCompleted = false;
+            captchaStatus.textContent = '⏰ reCAPTCHA expired. Please verify again.';
+            captchaStatus.className = 'captcha-status expired';
+            updateButtonState();
+            console.log('reCAPTCHA expired');
         }
-        updateSubmitButton();
-      });
-      
-      // Email validation
-      emailInput.addEventListener('input', function() {
-        const value = this.value.trim();
-        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-        
-        if (value === '') {
-          this.className = '';
-          emailMessage.textContent = '';
-          validations.email = false;
-        } else if (emailRegex.test(value)) {
-          this.className = 'valid';
-          emailMessage.className = 'validation-message valid-message';
-          emailMessage.textContent = '✓ Email is valid';
-          validations.email = true;
-        } else {
-          this.className = 'invalid';
-          emailMessage.className = 'validation-message invalid-message';
-          emailMessage.textContent = 'Please enter a valid email address';
-          validations.email = false;
+
+        function onCaptchaError(error) {
+            captchaCompleted = false;
+            captchaStatus.textContent = '❌ reCAPTCHA error. Please try again.';
+            captchaStatus.className = 'captcha-status expired';
+            updateButtonState();
+            console.log('reCAPTCHA error:', error);
         }
-        updateSubmitButton();
-      });
-      
-      // Password validation
-      passwordInput.addEventListener('input', function() {
-        const value = this.value;
-        const hasUppercase = /[A-Z]/.test(value);
-        const hasNumber = /\d/.test(value);
-        const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value);
-        const validLength = value.length >= 8;
-        
-        if (value === '') {
-          this.className = '';
-          passwordMessage.textContent = '';
-          validations.password = false;
-        } else if (!validLength) {
-          this.className = 'invalid';
-          passwordMessage.className = 'validation-message invalid-message';
-          passwordMessage.textContent = 'Password must be at least 8 characters';
-          validations.password = false;
-        } else if (!hasUppercase) {
-          this.className = 'invalid';
-          passwordMessage.className = 'validation-message invalid-message';
-          passwordMessage.textContent = 'Password must contain at least 1 uppercase letter';
-          validations.password = false;
-        } else if (!hasNumber) {
-          this.className = 'invalid';
-          passwordMessage.className = 'validation-message invalid-message';
-          passwordMessage.textContent = 'Password must contain at least 1 number';
-          validations.password = false;
-        } else if (!hasSymbol) {
-          this.className = 'invalid';
-          passwordMessage.className = 'validation-message invalid-message';
-          passwordMessage.textContent = 'Password must contain at least 1 symbol';
-          validations.password = false;
-        } else {
-          this.className = 'valid';
-          passwordMessage.className = 'validation-message valid-message';
-          passwordMessage.textContent = '✓ Password meets all requirements';
-          validations.password = true;
+
+        function updateButtonState() {
+            if (captchaCompleted) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Create Account';
+            } else {
+                submitBtn.disabled = false; // Keep button enabled to avoid confusion
+                submitBtn.textContent = '🚀 Create Account';
+            }
         }
-        updateSubmitButton();
-      });
-      
-      // Initial state - disable button
-      updateSubmitButton();
-    });
-  </script>
+
+        // Handle form submission
+        form.addEventListener('submit', function(e) {
+            if (!captchaCompleted) {
+                e.preventDefault();
+                alert('Please complete the reCAPTCHA verification before registering.');
+                
+                // Scroll to reCAPTCHA if it's not visible
+                const recaptchaElement = document.querySelector('.g-recaptcha');
+                if (recaptchaElement) {
+                    recaptchaElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                // Update status
+                captchaStatus.textContent = '⚠️ Please complete the reCAPTCHA verification above';
+                captchaStatus.className = 'captcha-status pending';
+                
+                return false;
+            }
+        });
+
+        // Add visual feedback when typing
+        const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                // Just visual feedback - no button state changes needed
+                console.log('User typing in:', input.name);
+            });
+        });
+
+        // Debug: Log when reCAPTCHA loads
+        window.onload = function() {
+            console.log('Page loaded');
+            setTimeout(() => {
+                if (typeof grecaptcha !== 'undefined') {
+                    console.log('reCAPTCHA loaded successfully');
+                } else {
+                    console.log('reCAPTCHA failed to load');
+                    captchaStatus.textContent = '❌ reCAPTCHA failed to load. Please refresh the page.';
+                    captchaStatus.className = 'captcha-status expired';
+                }
+            }, 2000);
+        };
+    </script>
 </body>
 </html>
