@@ -128,6 +128,44 @@ class EmailService:
         self.smtp_password = os.getenv("SMTP_PASSWORD")
         self.from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
         self.sender_name = os.getenv("EMAIL_SENDER_NAME", "GiverAI")
+        # ADD THIS MISSING METHOD!
+    async def send_email(self, to_email: str, subject: str, body: str):
+        """Base email sending method"""
+        try:
+            print(f"📧 Attempting to send email to: {to_email}")
+            print(f"📧 Subject: {subject}")
+            
+            # Create message
+            msg = MIMEMultipart()
+            msg['From'] = self.smtp_username
+            msg['To'] = to_email
+            msg['Subject'] = subject
+            
+            # Add body
+            msg.attach(MIMEText(body, 'plain'))
+            
+            # Send email
+            print(f"🔌 Connecting to SMTP server: {self.smtp_server}:{self.smtp_port}")
+            
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server.starttls()  # Enable security
+            
+            print(f"🔐 Logging in with username: {self.smtp_username}")
+            server.login(self.smtp_username, self.smtp_password)
+            
+            print(f"📤 Sending email...")
+            text = msg.as_string()
+            server.sendmail(self.smtp_username, to_email, text)
+            server.quit()
+            
+            print(f"✅ Email sent successfully to {to_email}")
+            
+        except Exception as e:
+            print(f"❌ Failed to send email to {to_email}: {e}")
+            print(f"❌ Error type: {type(e).__name__}")
+            import traceback
+            print(f"❌ Full traceback: {traceback.format_exc()}")
+            raise e
 
     def send_simple_email(self, to_email: str, subject: str, html_body: str) -> bool:
         """Send an email with simple HTML"""
