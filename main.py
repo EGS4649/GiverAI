@@ -1916,7 +1916,7 @@ async def register_post(
         db_user = db.query(User).filter(User.id == user_id).first()
         if db_user:
             try:
-                await email_service.send_verification_email(db_user, verification_token)
+                await email_service.send_verification_email(db_user, verification.token)
                 print("✅ Verification email sent successfully")
             except Exception as e:
                 print(f"❌ Failed to send verification email: {str(e)}")
