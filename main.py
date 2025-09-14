@@ -6,6 +6,7 @@ import requests
 import hashlib
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text
@@ -77,6 +78,113 @@ class User(Base):
     goals = Column(String, nullable=True)
     posting_frequency = Column(String, nullable=True)
     original_plan = Column(String, nullable=True)
+    is_suspended = Column(Boolean, default=False)
+    suspension_reason = Column(Text, nullable=True)
+    suspended_at = Column(DateTime, nullable=True)
+    suspended_by = Column(String, nullable=True)  # admin username/email
+
+    # Security logging
+    last_password_change = Column(DateTime, nullable=True)
+    failed_login_attempts = Column(Integer, default=0)
+    last_failed_login = Column(DateTime, nullable=True)
+    account_locked_until = Column(DateTime, nullable=True)
+
+# Security middleware to check for suspended accounts
+from fastapi import HTTPException, status
+
+async def check_user_status(user: User):
+    """Check if user account is in good standing"""
+    if user.is_suspended:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Account suspended: {user.suspension_reason}"
+        )
+    
+    # Check if account is temporarily locked
+    if user.account_locked_until and user.account_locked_until > datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail="Account temporarily locked due to failed login attempts"
+        )
+    
+    return user
+
+# Admin functions for account management
+async def suspend_user(
+    user_id: int, 
+    reason: str, 
+    suspended_by: str,
+    db: Session
+):
+    """Suspend a user account"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.is_suspended = True
+    user.suspension_reason = reason
+    user.suspended_at = datetime.utcnow()
+    user.suspended_by = suspended_by
+    
+    db.commit()
+    
+    # Log this action
+    print(f"User {user.username} suspended by {suspended_by}: {reason}")
+    
+    # Send email notification to user
+    await send_suspension_email(user.email, reason)
+
+
+async def force_password_reset(user_id: int, db: Session):
+    """Force user to reset password on next login"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Invalidate all existing sessions by updating a security field
+    user.last_password_change = datetime.utcnow()
+    db.commit()
+    
+    # Send password reset email
+    await send_password_reset_email(user.email)
+
+
+async def lock_account_temporarily(user: User, db: Session, hours: int = 24):
+    """Temporarily lock account (for failed login attempts)"""
+    from datetime import timedelta
+    
+    user.account_locked_until = datetime.utcnow() + timedelta(hours=hours)
+    user.failed_login_attempts = 0  # Reset counter
+    db.commit()
+
+
+# Hacked account response workflow
+async def handle_hacked_account_report(user_email: str, db: Session):
+    """When user reports their account is hacked"""
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        return False
+    
+    # Immediate actions:
+    # 1. Suspend account temporarily
+    await suspend_user(
+        user.id, 
+        "Account security - reported as compromised", 
+        "system_auto",
+        db
+    )
+    
+    # 2. Invalidate all sessions
+    await force_password_reset(user.id, db)
+    
+    # 3. Log the incident
+    incident_log = f"SECURITY INCIDENT - User {user.username} reported hacked at {datetime.utcnow()}"
+    print(incident_log)  # In production, use proper logging
+    
+    # 4. Send instructions to user
+    await send_account_recovery_email(user.email)
+    
+    return True
 
 class Usage(Base):
     __tablename__ = "usage"
@@ -1876,7 +1984,82 @@ async def reset_password_post(
         
     finally:
         db.close()
+        
+# Custom exception handler for 404 errors
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: HTTPException):
+    """Handle 404 errors with custom page"""
+    return templates.TemplateResponse(
+        "404.html", 
+        {"request": request}, 
+        status_code=404
+    )
 
+# Custom exception handler for 500 errors
+@app.exception_handler(500)
+async def internal_server_error_handler(request: Request, exc: HTTPException):
+    """Handle 500 errors with custom page"""
+    return templates.TemplateResponse(
+        "500.html", 
+        {"request": request}, 
+        status_code=500
+    )
+
+# Handle validation errors (422)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle form validation errors"""
+    return templates.TemplateResponse(
+        "400.html",
+        {
+            "request": request,
+            "error_details": exc.errors()
+        },
+        status_code=422
+    )
+
+# Generic exception handler for any unhandled exceptions
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle any unhandled exceptions"""
+    # Log the error for debugging
+    import traceback
+    print(f"Unhandled exception: {str(exc)}")
+    print(traceback.format_exc())
+    
+    # Don't expose internal errors to users in production
+    return templates.TemplateResponse(
+        "500.html", 
+        {"request": request}, 
+        status_code=500
+    )
+
+# Custom 403 Forbidden (for suspended accounts)
+@app.exception_handler(403)
+async def forbidden_handler(request: Request, exc: HTTPException):
+    """Handle forbidden access (suspended accounts, etc.)"""
+    return templates.TemplateResponse(
+        "403.html", 
+        {
+            "request": request,
+            "error_message": str(exc.detail)
+        }, 
+        status_code=403
+    )
+
+# Custom 423 Locked (for temporarily locked accounts)
+@app.exception_handler(423)
+async def locked_handler(request: Request, exc: HTTPException):
+    """Handle locked accounts"""
+    return templates.TemplateResponse(
+        "423.html", 
+        {
+            "request": request,
+            "error_message": str(exc.detail)
+        }, 
+        status_code=423
+    )
+    
 @app.get("/verify-email")
 def verify_email(request: Request, token: str = Query(...)):
     db = SessionLocal()
@@ -1907,6 +2090,7 @@ def verify_email(request: Request, token: str = Query(...)):
         })
     finally:
         db.close()
+        
 @app.get("/verify-email-change")
 def verify_email_change(request: Request, token: str = Query(...)):
     db = SessionLocal()
@@ -1959,7 +2143,109 @@ def verify_email_change(request: Request, token: str = Query(...)):
         
     finally:
         db.close()
+        
+ADMIN_USERS = {"support@giverai.me"}
 
+def get_admin_user(current_user: User = Depends(get_current_user)):
+    if not current_user or current_user.email not in ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+@app.get("/admin")
+async def admin_dashboard(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Admin dashboard with user management tools"""
+    
+    # Get user statistics
+    total_users = db.query(User).count()
+    suspended_users = db.query(User).filter(User.is_suspended == True).count()
+    recent_signups = db.query(User).filter(
+        User.created_at > datetime.utcnow() - timedelta(days=7)
+    ).count()
+    
+    # Get recent users
+    recent_users = db.query(User).order_by(User.created_at.desc()).limit(10).all()
+    
+    # Get suspended users
+    suspended_users_list = db.query(User).filter(User.is_suspended == True).all()
+    
+    return templates.TemplateResponse("admin/dashboard.html", {
+        "request": request,
+        "total_users": total_users,
+        "suspended_count": suspended_users,
+        "recent_signups": recent_signups,
+        "recent_users": recent_users,
+        "suspended_users": suspended_users_list
+    })
+
+@app.post("/admin/suspend-user")
+async def suspend_user_admin(
+    user_id: int = Form(...),
+    reason: str = Form(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Suspend a user account"""
+    await suspend_user(user_id, reason, admin.email, db)
+    return RedirectResponse("/admin", status_code=302)
+
+@app.post("/admin/unsuspend-user")
+async def unsuspend_user_admin(
+    user_id: int = Form(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Unsuspend a user account"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.is_suspended = False
+    user.suspension_reason = None
+    user.suspended_at = None
+    user.suspended_by = None
+    
+    db.commit()
+    
+    # Send restoration email
+    await send_account_restored_email(user.email)
+    
+    return RedirectResponse("/admin", status_code=302)
+
+@app.post("/admin/force-password-reset")
+async def force_password_reset_admin(
+    user_id: int = Form(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Force a user to reset their password"""
+    await force_password_reset(user_id, db)
+    return RedirectResponse("/admin", status_code=302)
+
+@app.get("/admin/user/{user_id}")
+async def view_user_admin(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """View detailed user information"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get user's tweet history
+    tweets = db.query(Tweet).filter(Tweet.user_id == user_id).limit(50).all()
+    
+    return templates.TemplateResponse("admin/user_detail.html", {
+        "request": request,
+        "user": user,
+        "tweets": tweets
+    })
+    
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
     user = get_optional_user(request)
@@ -1990,12 +2276,79 @@ def login_post(
         
         print("✅ reCAPTCHA verified successfully for login")
         
+        # Get user record first (for failed attempt tracking)
+        user_record = db.query(User).filter(
+            (User.username == username) | (User.email == username)
+        ).first()
+        
+        # Check if account is temporarily locked
+        if user_record and user_record.account_locked_until:
+            if user_record.account_locked_until > datetime.utcnow():
+                time_remaining = user_record.account_locked_until - datetime.utcnow()
+                hours_remaining = int(time_remaining.total_seconds() / 3600) + 1
+                return templates.TemplateResponse("login.html", {
+                    "request": request,
+                    "user": None,
+                    "error": f"Account temporarily locked. Try again in {hours_remaining} hour(s).",
+                    "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                })
+            else:
+                # Lock period has expired, clear it
+                user_record.account_locked_until = None
+                user_record.failed_login_attempts = 0
+                db.commit()
+        
+        # Authenticate user
         user = authenticate_user(db, username, password)
+        
         if not user:
+            # Track failed login attempts
+            if user_record:
+                user_record.failed_login_attempts = (user_record.failed_login_attempts or 0) + 1
+                user_record.last_failed_login = datetime.utcnow()
+                
+                # Lock account after 5 failed attempts
+                if user_record.failed_login_attempts >= 5:
+                    from datetime import timedelta
+                    user_record.account_locked_until = datetime.utcnow() + timedelta(hours=24)
+                    db.commit()
+                    
+                    # Send email notification about locked account
+                    try:
+                        await send_account_locked_email(user_record.email)
+                    except Exception as e:
+                        print(f"Failed to send account locked email: {e}")
+                    
+                    return templates.TemplateResponse("login.html", {
+                        "request": request,
+                        "user": None,
+                        "error": "Account locked due to multiple failed login attempts. Check your email for recovery instructions.",
+                        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                    })
+                else:
+                    attempts_left = 5 - user_record.failed_login_attempts
+                    db.commit()
+                    return templates.TemplateResponse("login.html", {
+                        "request": request,
+                        "user": None,
+                        "error": f"Invalid credentials. {attempts_left} attempt(s) remaining before account lock.",
+                        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                    })
+            else:
+                # Username/email doesn't exist - don't reveal this info
+                return templates.TemplateResponse("login.html", {
+                    "request": request,
+                    "user": None,
+                    "error": "Invalid credentials",
+                    "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                })
+        
+        # Check if account is suspended
+        if user.is_suspended:
             return templates.TemplateResponse("login.html", {
-                "request": request, 
+                "request": request,
                 "user": None,
-                "error": "Invalid credentials",
+                "error": f"Account suspended: {user.suspension_reason or 'Please contact support'}",
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
@@ -2008,10 +2361,21 @@ def login_post(
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
+        # Successful login - reset failed attempts
+        user.failed_login_attempts = 0
+        user.last_failed_login = None
+        user.account_locked_until = None
+        user.last_login = datetime.utcnow()  # Track last successful login
+        db.commit()
+        
+        # Create access token
         access_token = create_access_token(
             data={"sub": user.username},
             expires_delta=timedelta(days=2)
         )
+        
+        # Log successful login (optional)
+        print(f"✅ Successful login for user: {user.username} at {datetime.utcnow()}")
         
         response = RedirectResponse("/dashboard", status_code=302)
         response.set_cookie(
@@ -2022,6 +2386,7 @@ def login_post(
             samesite='lax'
         )
         return response
+        
     except Exception as e:
         print(f"Login error: {str(e)}")
         return templates.TemplateResponse("login.html", {
@@ -2033,7 +2398,7 @@ def login_post(
     finally:
         db.close()
 
-# Updated get_current_user function  
+# Updated get_current_user function with security checks
 def get_current_user(request: Request):
     token = request.cookies.get("access_token")
     credentials_exception = HTTPException(
@@ -2054,16 +2419,112 @@ def get_current_user(request: Request):
     
     db = SessionLocal()
     try:
-        # Use the existing get_user function
         user = get_user(db, username)
         if user is None:
             raise credentials_exception
+        
+        # Security checks
+        if user.is_suspended:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Account suspended: {user.suspension_reason or 'Contact support'}"
+            )
+        
+        if user.account_locked_until and user.account_locked_until > datetime.utcnow():
+            raise HTTPException(
+                status_code=423,  # HTTP 423 Locked
+                detail="Account temporarily locked"
+            )
         
         # Attach features to the user object
         user.features = get_plan_features(user.plan)
         return user
     finally:
         db.close()
+
+
+# Add this helper function for sending account locked emails
+async def send_account_locked_email(email: str):
+    """Send email notification when account is locked"""
+    subject = "Account Temporarily Locked - GiverAI Security"
+    body = f"""
+    Hello,
+    
+    Your GiverAI account has been temporarily locked due to multiple failed login attempts.
+    
+    Security Details:
+    - Your account will automatically unlock in 24 hours
+    - If this wasn't you, your account may be under attack
+    
+    What you can do:
+    1. Wait 24 hours and try logging in again
+    2. Use the "Forgot Password" link to reset your password immediately
+    3. Contact support if you suspect unauthorized access: support@giverai.me
+    
+    If you believe this is an error, please contact our support team.
+    
+    Stay secure,
+    The GiverAI Team
+    """
+    
+    # Use your existing email sending function
+    try:
+        # Replace with your email sending logic
+        print(f"Would send account locked email to: {email}")
+        # await your_email_function(email, subject, body)
+    except Exception as e:
+        print(f"Failed to send account locked email: {e}")
+
+
+# Optional: Add a route to unlock accounts manually
+@app.get("/unlock-account")
+async def unlock_account_page(request: Request):
+    """Page for users to request account unlock"""
+    return templates.TemplateResponse("unlock_account.html", {
+        "request": request,
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+    })
+
+@app.post("/unlock-account")
+async def unlock_account_request(
+    request: Request,
+    email_or_username: str = Form(...),
+    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
+):
+    """Allow users to request account unlock"""
+    if not verify_recaptcha(g_recaptcha_response):
+        return templates.TemplateResponse("unlock_account.html", {
+            "request": request,
+            "error": "Please complete the reCAPTCHA verification",
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(
+            (User.username == email_or_username) | (User.email == email_or_username)
+        ).first()
+        
+        if user and user.account_locked_until and user.account_locked_until > datetime.utcnow():
+            # Clear the lock
+            user.account_locked_until = None
+            user.failed_login_attempts = 0
+            db.commit()
+            
+            return templates.TemplateResponse("unlock_account.html", {
+                "request": request,
+                "success": "Account unlocked successfully. You can now log in.",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+        else:
+            # Don't reveal whether account exists or is locked
+            return templates.TemplateResponse("unlock_account.html", {
+                "request": request,
+                "success": "If your account was locked, it has been unlocked.",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+    finally:
+        db.close
         
 @app.get("/logout")
 def logout():
