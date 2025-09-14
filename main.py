@@ -2443,7 +2443,6 @@ async def login_post(
                 
                 # Lock account after 5 failed attempts
                 if user_record.failed_login_attempts >= 5:
-                    from datetime import timedelta
                     user_record.account_locked_until = datetime.utcnow() + timedelta(hours=24)
                     db.commit()
                     
