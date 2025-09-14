@@ -38,11 +38,21 @@
     <h1>Login to Giver.ai</h1>
     <p class="page-description">Sign in to access your AI-powered social media tools</p>
     
-    {% if error %}
-      <div style="background: rgba(255, 0, 0, 0.2); border: 1px solid #ff4444; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #ff4444;">
-        {{ error }}
-      </div>
+   {% if error %}
+<div class="alert alert-error">
+    ❌ {{ error }}
+    
+    <!-- Show resend verification link for email verification errors -->
+    {% if "verify your email" in error %}
+    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255, 100, 100, 0.3);">
+        <p style="margin-bottom: 10px;">Need a new verification email?</p>
+        <a href="/resend-verification" style="color: #ffff00; text-decoration: underline;">
+            📧 Click here to resend verification email
+        </a>
+    </div>
     {% endif %}
+</div>
+{% endif %}
     
     <form method="post" action="/login">
       <label>Username:</label><br />
