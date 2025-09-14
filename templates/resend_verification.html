@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resend Verification Email - GiverAI</title>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #00ffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%);
+            z-index: -1;
+            animation: pulse 4s ease-in-out infinite alternate;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff; }
+            to { text-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff; }
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .container {
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00ffff, #ff00ff, #00ffff, transparent);
+            animation: shimmer 3s linear infinite;
+        }
+        .email-icon {
+            font-size: 60px;
+            color: #00ffff;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #00ffff, #adc2ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+        }
+        .form-container {
+            background: rgba(0, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 30px;
+            margin: 20px 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #00ffff;
+            font-weight: bold;
+            text-align: left;
+        }
+        input[type="email"], input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            color: #00ffff;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        input[type="email"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+            background: rgba(0, 255, 255, 0.1);
+        }
+        input[type="email"]::placeholder, input[type="text"]::placeholder {
+            color: rgba(0, 255, 255, 0.5);
+        }
+        .recaptcha-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .button {
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            color: #000;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            font-size: 16px;
+        }
+        .button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        .button:hover::before {
+            left: 100%;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 255, 255, 0.4);
+        }
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: left;
+            border: 1px solid;
+        }
+        .alert-success {
+            background: rgba(0, 255, 0, 0.1);
+            border-color: rgba(0, 255, 0, 0.3);
+            color: #00ff88;
+        }
+        .alert-error {
+            background: rgba(255, 0, 0, 0.1);
+            border-color: rgba(255, 0, 0, 0.3);
+            color: #ff6b6b;
+        }
+        .alert-info {
+            background: rgba(255, 255, 0, 0.1);
+            border-color: rgba(255, 255, 0, 0.3);
+            color: #ffff00;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #adc2ff;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 1px solid rgba(173, 194, 255, 0.3);
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        .back-link:hover {
+            background: rgba(173, 194, 255, 0.1);
+            transform: translateY(-2px);
+        }
+        .info-box {
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .info-box h3 {
+            color: #00ffff;
+            margin-bottom: 10px;
+        }
+        .info-box ul {
+            margin: 10px 0 0 20px;
+        }
+        .info-box li {
+            margin-bottom: 5px;
+            color: #adc2ff;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            h1 {
+                font-size: 2em;
+            }
+            .email-icon {
+                font-size: 50px;
+            }
+            .form-container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="email-icon">📧</div>
+        <h1>Resend Verification Email</h1>
+        
+        <div class="info-box">
+            <h3>📋 Need to verify your email?</h3>
+            <p>Enter your email address or username below and we'll send you a new verification link.</p>
+            <ul>
+                <li>Check your spam/junk folder</li>
+                <li>Verification links expire after 24 hours</li>
+                <li>You can request up to 3 verification emails per hour</li>
+            </ul>
+        </div>
+
+        {% if success %}
+        <div class="alert alert-success">
+            ✅ {{ success }}
+        </div>
+        {% endif %}
+
+        {% if error %}
+        <div class="alert alert-error">
+            ❌ {{ error }}
+        </div>
+        {% endif %}
+
+        {% if info %}
+        <div class="alert alert-info">
+            ℹ️ {{ info }}
+        </div>
+        {% endif %}
+
+        {% if not success and not info %}
+        <form method="post" class="form-container">
+            <div class="form-group">
+                <label for="email_or_username">Email Address or Username:</label>
+                <input 
+                    type="text" 
+                    id="email_or_username" 
+                    name="email_or_username" 
+                    value="{{ email_or_username or '' }}"
+                    placeholder="Enter your email address or username"
+                    required
+                />
+            </div>
+
+            <div class="recaptcha-container">
+                <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+            </div>
+
+            <button type="submit" class="button">
+                📧 Send Verification Email
+            </button>
+        </form>
+        {% endif %}
+
+        <div style="margin-top: 30px;">
+            <a href="/login" class="back-link">← Back to Login</a>
+            <a href="/register" class="back-link">Create New Account</a>
+        </div>
+    </div>
+
+    <script>
+        // Auto-focus the input field
+        document.addEventListener('DOMContentLoaded', function() {
+            const input = document.getElementById('email_or_username');
+            if (input) {
+                input.focus();
+            }
+        });
+    </script>
+</body>
+</html>
