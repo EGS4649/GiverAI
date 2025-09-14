@@ -1953,7 +1953,32 @@ async def register_post(
         })
     finally:
         db.close()
-
+@app.get("/debug/config")
+def debug_config():
+    """Debug endpoint to check environment variables"""
+    import re
+    
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = os.getenv("SMTP_PORT")
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    
+    # Check email format
+    email_valid = False
+    if smtp_username:
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        email_valid = bool(re.match(email_pattern, smtp_username))
+    
+    return {
+        "smtp_server": smtp_server,
+        "smtp_port": smtp_port,
+        "smtp_username": smtp_username,
+        "smtp_username_length": len(smtp_username) if smtp_username else 0,
+        "smtp_username_valid_email": email_valid,
+        "smtp_password_set": bool(smtp_password),
+        "smtp_password_length": len(smtp_password) if smtp_password else 0
+    }
+    
 # Forgot Password/Username Form
 @app.get("/forgot-password", response_class=HTMLResponse)
 def forgot_password_get(request: Request):
