@@ -16,6 +16,7 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError, ProgrammingError 
 from sqlalchemy.orm import defer
 from sqlalchemy import text
+from sqlalchemy import Text
 from openai import OpenAI
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -1163,8 +1164,11 @@ class EmailService:
             traceback.print_exc()
             return False
 
-    # Security middleware to check for suspended accounts
-    async def check_user_status(user: User):
+# Initialize email service
+email_service = EmailService()
+
+# Security middleware to check for suspended accounts (STANDALONE FUNCTION)
+async def check_user_status(user: User):
     """Check if user account is in good standing"""
     if user.is_suspended:
         raise HTTPException(
@@ -1181,14 +1185,13 @@ class EmailService:
     
     return user
 
-
-    # Admin functions for account management
-    async def suspend_user(
-        user_id: int, 
-        reason: str, 
-        suspended_by: str,
-        db: Session
-    ):
+# Admin functions for account management (STANDALONE FUNCTIONS)
+async def suspend_user(
+    user_id: int, 
+    reason: str, 
+    suspended_by: str,
+    db: SessionLocal
+):
     """Suspend a user account"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -1207,13 +1210,12 @@ class EmailService:
     # Send email notification to user
     await email_service.send_suspension_email(user.email, reason)
 
+async def force_password_reset(user_id: int, db: SessionLocal):
+    """Force user to reset password on next login"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-    async def force_password_reset(user_id: int, db: Session):
-        """Force user to reset password on next login"""
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-    
     # Invalidate all existing sessions by updating a security field
     user.last_password_change = datetime.utcnow()
     db.commit()
@@ -1222,24 +1224,22 @@ class EmailService:
     reset_record = create_password_reset_record(user.id, db)
     await email_service.send_password_reset_email(user, reset_record.token)
 
+async def lock_account_temporarily(user: User, db: SessionLocal, hours: int = 24):
+    """Temporarily lock account (for failed login attempts)"""
+    user.account_locked_until = datetime.utcnow() + timedelta(hours=hours)
+    user.failed_login_attempts = 0  # Reset counter
+    db.commit()
 
-    async def lock_account_temporarily(user: User, db: Session, hours: int = 24):
-        """Temporarily lock account (for failed login attempts)"""
-        user.account_locked_until = datetime.utcnow() + timedelta(hours=hours)
-        user.failed_login_attempts = 0  # Reset counter
-        db.commit()
-    
     # Send notification email
     await email_service.send_account_locked_email(user.email, hours)
 
-
 # Hacked account response workflow
-    async def handle_hacked_account_report(user_email: str, db: Session):
-        """When user reports their account is hacked"""
-        user = db.query(User).filter(User.email == user_email).first()
-        if not user:
-            return False
-    
+async def handle_hacked_account_report(user_email: str, db: SessionLocal):
+    """When user reports their account is hacked"""
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        return False
+
     # Immediate actions:
     # 1. Suspend account temporarily
     await suspend_user(
@@ -1261,39 +1261,45 @@ class EmailService:
     
     return True
 
+# Helper functions for password reset
+def generate_reset_token():
+    """Generate secure password reset token"""
+    return secrets.token_urlsafe(32)
 
-    # Helper functions for password reset
-    def generate_reset_token():
-        """Generate secure password reset token"""
-        return secrets.token_urlsafe(32)
+def create_password_reset_record(user_id: int, db: SessionLocal):
+    """Create password reset record"""
+    # Invalidate any existing tokens for this user
+    existing_tokens = db.query(PasswordReset).filter(
+        PasswordReset.user_id == user_id,
+        PasswordReset.used == False,
+        PasswordReset.expires_at > datetime.utcnow()
+    ).all()
 
+    for token in existing_tokens:
+        token.used = True
+        token.used_at = datetime.utcnow()
 
-    def create_password_reset_record(user_id: int, db: Session):
-        """Create password reset record"""
-        # Invalidate any existing tokens for this user
-        existing_tokens = db.query(PasswordReset).filter(
-            PasswordReset.user_id == user_id,
-            PasswordReset.used == False,
-            PasswordReset.expires_at > datetime.utcnow()
-        ).all()
-    
-        for token in existing_tokens:
-            token.used = True
-            token.used_at = datetime.utcnow()
-    
-        # Create new token
-        token = generate_reset_token()
-        reset_record = PasswordReset(
-            user_id=user_id,
-            token=token,
-            expires_at=datetime.utcnow() + timedelta(hours=1)
-        )
-        db.add(reset_record)
-        db.commit()
-        return reset_record
-    
-# Initialize email service
-email_service = EmailService()
+    # Create new token
+    token = generate_reset_token()
+    reset_record = PasswordReset(
+        user_id=user_id,
+        token=token,
+        expires_at=datetime.utcnow() + timedelta(hours=1)
+    )
+    db.add(reset_record)
+    db.commit()
+    return reset_record
+
+# Add missing imports at the top of your file
+from sqlalchemy import Text
+
+# Add missing get_db dependency function
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 # Database models for email verification
