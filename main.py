@@ -11,11 +11,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from sqlalchemy.orm import Session
 from sqlalchemy import LargeBinary
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError, ProgrammingError 
 from sqlalchemy.orm import defer
-from sqlalchemy import text
 from sqlalchemy import Text
 from openai import OpenAI
 from pydantic import BaseModel
@@ -2396,7 +2396,7 @@ def login_post(
                     
                     # Send email notification about locked account
                     try:
-                        await send_account_locked_email(user_record.email)
+                        email_service.send_account_locked_email(user_record.email)
                     except Exception as e:
                         print(f"Failed to send account locked email: {e}")
                     
@@ -2525,7 +2525,7 @@ def get_current_user(request: Request):
 
 
 # Add this helper function for sending account locked emails
-async def send_account_locked_email(email: str):
+def send_account_locked_email(email: str):
     """Send email notification when account is locked"""
     subject = "Account Temporarily Locked - GiverAI Security"
     body = f"""
