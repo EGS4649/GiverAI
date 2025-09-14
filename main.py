@@ -2337,7 +2337,7 @@ def login(request: Request):
     })
     
 @app.post("/login")
-def login_post(
+async def login_post(
     request: Request, 
     username: str = Form(...), 
     password: str = Form(...),
