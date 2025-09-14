@@ -155,7 +155,7 @@ class EmailService:
             
             print(f"📤 Sending email...")
             text = msg.as_string()
-            server.sendmail(self.smtp_username, to_email, text)
+            server.sendmail(self.from_email, to_email, text)
             server.quit()
             
             print(f"✅ Email sent successfully to {to_email}")
