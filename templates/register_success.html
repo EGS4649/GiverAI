@@ -10,7 +10,6 @@
             padding: 0;
             box-sizing: border-box;
         }
-
         body {
             font-family: 'Courier New', monospace;
             background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
@@ -22,7 +21,6 @@
             align-items: center;
             padding: 20px;
         }
-
         body::before {
             content: '';
             position: fixed;
@@ -36,22 +34,18 @@
             z-index: -1;
             animation: pulse 4s ease-in-out infinite alternate;
         }
-
         @keyframes pulse {
             0% { opacity: 0.5; }
             100% { opacity: 1; }
         }
-
         @keyframes glow {
             from { text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff; }
             to { text-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff; }
         }
-
         @keyframes shimmer {
             0% { transform: translateX(-100%); }
             100% { transform: translateX(100%); }
         }
-
         .container {
             max-width: 700px;
             background: rgba(0, 0, 0, 0.3);
@@ -64,7 +58,6 @@
             position: relative;
             overflow: hidden;
         }
-
         .container::before {
             content: '';
             position: absolute;
@@ -75,7 +68,6 @@
             background: linear-gradient(90deg, transparent, #00ffff, #ff00ff, #00ffff, transparent);
             animation: shimmer 3s linear infinite;
         }
-
         .success-icon {
             font-size: 80px;
             color: #00ffff;
@@ -83,7 +75,6 @@
             text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff;
             animation: glow 2s ease-in-out infinite alternate;
         }
-
         h1 {
             font-size: 3em;
             margin-bottom: 30px;
@@ -93,7 +84,6 @@
             background-clip: text;
             text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
         }
-
         .message {
             background: rgba(0, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -104,77 +94,36 @@
             border: 1px solid rgba(0, 255, 255, 0.3);
             box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
         }
-
-        .message h3 {
-            color: #ff00ff;
-            margin-bottom: 15px;
-            text-shadow: 0 0 10px #ff00ff;
-            font-size: 1.5em;
-        }
-
-        .next-steps {
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(10px);
+        .user-info {
+            background: rgba(255, 0, 255, 0.1);
             border: 1px solid rgba(255, 0, 255, 0.3);
-            padding: 30px;
             border-radius: 10px;
-            margin: 30px 0;
-            text-align: left;
-            box-shadow: 0 0 20px rgba(255, 0, 255, 0.1);
+            padding: 20px;
+            margin: 20px 0;
         }
-
-        .next-steps h3 {
+        .user-info h3 {
             color: #ff00ff;
-            margin-bottom: 20px;
-            text-shadow: 0 0 10px #ff00ff;
-            font-size: 1.3em;
+            margin-bottom: 10px;
         }
-
-        .next-steps ol {
-            list-style: none;
-            counter-reset: step-counter;
+        .email-info {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
         }
-
-        .next-steps li {
-            counter-increment: step-counter;
+        .email-info h3 {
+            color: #00ff88;
             margin-bottom: 15px;
-            padding-left: 40px;
-            position: relative;
-            color: #fff;
-            line-height: 1.5;
         }
-
-        .next-steps li::before {
-            content: counter(step-counter);
-            position: absolute;
-            left: 0;
-            top: 0;
-            background: linear-gradient(45deg, #00ffff, #ff00ff);
-            color: #000;
-            width: 25px;
-            height: 25px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 14px;
+        .email-info ul {
+            text-align: left;
+            margin: 10px 0 0 20px;
         }
-
-        .next-steps strong {
-            color: #00ffff;
-        }
-
-        .next-steps small {
+        .email-info li {
+            margin-bottom: 8px;
             color: #adc2ff;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
-            display: block;
-            margin-top: 15px;
-            border-left: 3px solid #ff00ff;
         }
-
         .button {
             display: inline-block;
             padding: 15px 30px;
@@ -190,8 +139,10 @@
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
         }
-
         .button::before {
             content: '';
             position: absolute;
@@ -202,80 +153,30 @@
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
             transition: left 0.5s;
         }
-
         .button:hover::before {
             left: 100%;
         }
-
         .button:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0, 255, 255, 0.4);
         }
-
-        .button.secondary {
-            background: transparent;
-            color: #00ffff;
-            border: 2px solid #00ffff;
+        .button-secondary {
+            background: linear-gradient(45deg, #666, #999);
         }
-
-        .button.secondary:hover {
-            background: rgba(0, 255, 255, 0.1);
-            box-shadow: 0 10px 25px rgba(0, 255, 255, 0.3);
+        .button-secondary:hover {
+            box-shadow: 0 10px 25px rgba(150, 150, 150, 0.4);
         }
-
-        .contact-info {
-            margin-top: 40px;
-            font-size: 14px;
-            color: #adc2ff;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid rgba(0, 255, 255, 0.2);
-        }
-
-        .contact-info a {
-            color: #00ffff;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-
-        .contact-info a:hover {
-            color: #ff00ff;
-            text-shadow: 0 0 5px #ff00ff;
-        }
-
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.3);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(45deg, #00ffff, #ff00ff);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(45deg, #ff00ff, #00ffff);
-        }
-
         @media (max-width: 768px) {
             .container {
                 padding: 30px 20px;
                 margin: 10px;
             }
-
             h1 {
                 font-size: 2em;
             }
-
             .success-icon {
                 font-size: 60px;
             }
-
             .button {
                 display: block;
                 margin: 10px 0;
@@ -286,32 +187,39 @@
 </head>
 <body>
     <div class="container">
-        <div class="success-icon">✅</div>
+        <div class="success-icon">🎉</div>
         <h1>Registration Successful!</h1>
         
-        <div class="message">
-            <h3>Welcome to GiverAI! 🎉</h3>
-            <p>Your account has been created successfully. We've sent a verification email to your inbox.</p>
+        <div class="user-info">
+            <h3>Welcome {{ username }}!</h3>
+            <p>Your account has been created successfully.</p>
         </div>
         
-        <div class="next-steps">
-            <h3>📧 Next Steps:</h3>
-            <ol>
-                <li><strong>Check your email</strong> - Look for a verification message from GiverAI</li>
-                <li><strong>Click the verification link</strong> - This will activate your account</li>
-                <li><strong>Start creating amazing tweets</strong> - Once verified, you can begin using GiverAI</li>
-            </ol>
-            
-            <small><strong>Note:</strong> The verification link expires in 24 hours. If you don't see the email, check your spam folder.</small>
+        <div class="email-info">
+            <h3>📧 Next Step: Verify Your Email</h3>
+            <p>We've sent a verification email to <strong>{{ email }}</strong></p>
+            <ul>
+                <li>Click the verification link in the email to activate your account</li>
+                <li>Check your spam/junk folder if you don't see it</li>
+                <li>The verification link expires in 24 hours</li>
+                <li>You must verify your email before you can log in</li>
+            </ul>
+        </div>
+        
+        <div class="message">
+            <p>Didn't receive the verification email? No problem!</p>
         </div>
         
         <div style="margin-top: 40px;">
-            <a href="/login" class="button">Go to Login</a>
-            <a href="/" class="button secondary">Back to Home</a>
-        </div>
-        
-        <div class="contact-info">
-            <p>Need help? Contact us at <a href="mailto:support@giverai.me">support@giverai.me</a></p>
+            <a href="/resend-verification" class="button">
+                📧 Resend Verification Email
+            </a>
+            <a href="/login" class="button button-secondary">
+                Go to Login
+            </a>
+            <a href="/" class="button button-secondary">
+                Back to Home
+            </a>
         </div>
     </div>
 </body>
