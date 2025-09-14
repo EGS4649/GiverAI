@@ -1923,6 +1923,7 @@ def forgot_password_get(request: Request):
     user = get_optional_user(request)
     return templates.TemplateResponse("forgot_password.html", {
         "request": request,
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         "user": user
     })
                       
@@ -2155,6 +2156,28 @@ async def locked_handler(request: Request, exc: HTTPException):
         status_code=423
     )
     
+@app.get("/debug/test-email/{email}")
+async def test_email_debug(email: str):
+    """Debug endpoint to test email service"""
+    try:
+        print(f"🧪 Testing email service to: {email}")
+        
+        # Test basic email sending
+        await email_service.send_email(
+            email, 
+            "Test Email from GiverAI", 
+            "This is a test email to verify your email service is working!"
+        )
+        
+        print(f"✅ Test email sent successfully to {email}")
+        return {"status": "success", "message": f"Test email sent to {email}"}
+        
+    except Exception as e:
+        print(f"❌ Email test failed: {e}")
+        import traceback
+        print(traceback.format_exc())
+        return {"status": "error", "message": str(e)}
+        
 @app.get("/verify-email")
 def verify_email(request: Request, token: str = Query(...)):
     db = SessionLocal()
