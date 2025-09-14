@@ -128,7 +128,7 @@ class EmailService:
         self.smtp_password = os.getenv("SMTP_PASSWORD")
         self.from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
         self.sender_name = os.getenv("EMAIL_SENDER_NAME", "GiverAI")
-        # ADD THIS MISSING METHOD!
+       
     async def send_email(self, to_email: str, subject: str, body: str):
         """Base email sending method"""
         try:
@@ -2219,27 +2219,16 @@ async def locked_handler(request: Request, exc: HTTPException):
         status_code=423
     )
     
-@app.get("/debug/test-email/{email}")
-async def test_email_debug(email: str):
-    """Debug endpoint to test email service"""
+@app.get("/admin/verify-all")
+async def verify_all():
+    """Verify all unverified accounts"""
+    db = SessionLocal()
     try:
-        print(f"🧪 Testing email service to: {email}")
-        
-        # Test basic email sending
-        await email_service.send_email(
-            email, 
-            "Test Email from GiverAI", 
-            "This is a test email to verify your email service is working!"
-        )
-        
-        print(f"✅ Test email sent successfully to {email}")
-        return {"status": "success", "message": f"Test email sent to {email}"}
-        
-    except Exception as e:
-        print(f"❌ Email test failed: {e}")
-        import traceback
-        print(traceback.format_exc())
-        return {"status": "error", "message": str(e)}
+        db.query(User).filter(User.is_active == False).update({User.is_active: True})
+        db.commit()
+        return {"message": "All accounts verified"}
+    finally:
+        db.close()
         
 @app.get("/verify-email")
 def verify_email(request: Request, token: str = Query(...)):
