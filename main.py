@@ -1,6 +1,7 @@
 import datetime
 from datetime import datetime, timedelta, date
 import os
+import re
 import secrets
 import requests 
 import hashlib
@@ -1795,7 +1796,7 @@ def register(request: Request, success: str = None):
     })
 
 @app.post("/register", response_class=HTMLResponse)
-def register_user(
+async def register_post(
     request: Request, 
     username: str = Form(...), 
     email: str = Form(...), 
@@ -1877,14 +1878,14 @@ def register_user(
         db_user = db.query(User).filter(User.id == user_id).first()
         if db_user:
             try:
-                email_service.send_verification_email(db_user, verification.token)
+                await email_service.send_verification_email(new_user, verification_token)
                 print("✅ Verification email sent successfully")
             except Exception as e:
                 print(f"❌ Failed to send verification email: {str(e)}")
         
         # Also send welcome email
         try:
-            email_service.send_welcome_email(db_user)
+            await email_service.send_welcome_email(db_user)
             print("✅ Welcome email sent successfully")
         except Exception as e:
             print(f"❌ Failed to send welcome email: {str(e)}")
