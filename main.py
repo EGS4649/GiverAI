@@ -1923,7 +1923,7 @@ def forgot_password_get(request: Request):
     user = get_optional_user(request)
     return templates.TemplateResponse("forgot_password.html", {
         "request": request,
-        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
         "user": user
     })
                       
