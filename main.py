@@ -1926,11 +1926,23 @@ def forgot_password_get(request: Request):
     })
                       
 @app.post("/forgot-password")
-async def forgot_password_post(
+async def forgot_password_post(  # <- Add async here
     request: Request,
+    reset_type: str = Form(...),
     email_or_username: str = Form(...),
-    reset_type: str = Form(...)  # 'password' or 'username'
+    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
 ):
+    # Get client IP
+    client_ip = request.headers.get("X-Forwarded-For", "").split(',')[0].strip()
+    if not client_ip:
+        client_ip = request.headers.get("X-Real-IP", "unknown")
+    
+    if not verify_recaptcha(g_recaptcha_response):
+        return templates.TemplateResponse("forgot_password.html", {
+            "request": request,
+            "error": "Please complete the reCAPTCHA verification"
+        })
+    
     db = SessionLocal()
     try:
         # Get IP address
@@ -1950,10 +1962,11 @@ async def forgot_password_post(
             })
         
         if reset_type == "password":
+        
             # Send password reset email
             reset_record = create_password_reset_record(user.id, db)
             try:
-                email_service.send_password_reset_email(user, reset_record.token, ip_address)
+                await email_service.send_password_reset_email(user, reset_record.token, client_ip)
                 success_message = "Password reset email sent! Check your inbox."
             except Exception as e:
                 print(f"Failed to send password reset email: {str(e)}")
@@ -1962,7 +1975,7 @@ async def forgot_password_post(
         elif reset_type == "username":
             # Send username reminder email
             try:
-                email_service.send_username_reminder_email(user)
+                await email_service.send_username_reminder_email(user, client_ip)
                 success_message = "Username reminder sent! Check your inbox."
             except Exception as e:
                 print(f"Failed to send username reminder: {str(e)}")
