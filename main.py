@@ -2219,17 +2219,6 @@ async def locked_handler(request: Request, exc: HTTPException):
         status_code=423
     )
     
-@app.get("/admin/verify-all")
-async def verify_all():
-    """Verify all unverified accounts"""
-    db = SessionLocal()
-    try:
-        db.query(User).filter(User.is_active == False).update({User.is_active: True})
-        db.commit()
-        return {"message": "All accounts verified"}
-    finally:
-        db.close()
-        
 @app.get("/verify-email")
 def verify_email(request: Request, token: str = Query(...)):
     db = SessionLocal()
