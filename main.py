@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResp
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text, Text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
@@ -83,7 +83,7 @@ class User(Base):
     posting_frequency = Column(String, nullable=True)
     original_plan = Column(String, nullable=True)
     is_suspended = Column(Boolean, default=False)
-    suspension_reason = Column(Text, nullable=True)
+    suspension_reason = Column(String, nullable=True)
     suspended_at = Column(DateTime, nullable=True)
     suspended_by = Column(String, nullable=True) 
     last_login = Column(DateTime, nullable=True)
