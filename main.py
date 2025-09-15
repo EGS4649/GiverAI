@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy.orm import Session
+from sqlalchemy import func, and_, or_
 from sqlalchemy import LargeBinary
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError, ProgrammingError 
@@ -1340,7 +1341,6 @@ def get_db():
     finally:
         db.close()
 
-
 # Database models for email verification
 class EmailVerification(Base):
     __tablename__ = "email_verifications"
@@ -2430,95 +2430,319 @@ async def admin_dashboard(
     db: Session = Depends(get_db),
     admin: User = Depends(get_admin_user)
 ):
-    """Admin dashboard with user management tools"""
-    
-    # Get user statistics
-    total_users = db.query(User).count()
-    suspended_users = db.query(User).filter(User.is_suspended == True).count()
-    recent_signups = db.query(User).filter(
-        User.created_at > datetime.utcnow() - timedelta(days=7)
-    ).count()
-    
-    # Get recent users
-    recent_users = db.query(User).order_by(User.created_at.desc()).limit(10).all()
-    
-    # Get suspended users
-    suspended_users_list = db.query(User).filter(User.is_suspended == True).all()
-    
-    return templates.TemplateResponse("admin/dashboard.html", {
-        "request": request,
-        "total_users": total_users,
-        "suspended_count": suspended_users,
-        "recent_signups": recent_signups,
-        "recent_users": recent_users,
-        "suspended_users": suspended_users_list
-    })
-
+    """Enhanced admin dashboard"""
+    db = SessionLocal()
+    try:
+        # Get statistics
+        total_users = db.query(User).count()
+        suspended_count = db.query(User).filter(User.is_suspended == True).count()
+        
+        # Recent signups (last 7 days)
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        recent_signups = db.query(User).filter(User.created_at > week_ago).count()
+        
+        # Active today (users who logged in today)
+        today = datetime.utcnow().date()
+        active_today = db.query(User).filter(
+            func.date(User.last_login) == today
+        ).count() if hasattr(User, 'last_login') else 0
+        
+        return templates.TemplateResponse("admin/dashboard.html", {
+            "request": request,
+            "total_users": total_users,
+            "suspended_count": suspended_count,
+            "recent_signups": recent_signups,
+            "active_today": active_today
+        })
+    finally:
+        db.close()
+        
+@app.get("/admin/api/users")
+async def get_users_api(
+    request: Request,
+    search: str = Query(""),
+    status: str = Query(""),
+    plan: str = Query(""),
+    date_filter: str = Query(""),
+    page: int = Query(1),
+    limit: int = Query(50),
+    admin: User = Depends(get_admin_user)
+):
+    """API endpoint to get users with filtering"""
+    db = SessionLocal()
+    try:
+        # Base query
+        query = db.query(User)
+        
+        # Apply filters
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                or_(
+                    User.username.ilike(search_term),
+                    User.email.ilike(search_term)
+                )
+            )
+        
+        if status == "active":
+            query = query.filter(User.is_suspended == False)
+        elif status == "suspended":
+            query = query.filter(User.is_suspended == True)
+        
+        if plan:
+            query = query.filter(User.plan == plan)
+        
+        if date_filter:
+            now = datetime.utcnow()
+            if date_filter == "today":
+                query = query.filter(func.date(User.created_at) == now.date())
+            elif date_filter == "week":
+                week_ago = now - timedelta(days=7)
+                query = query.filter(User.created_at > week_ago)
+            elif date_filter == "month":
+                month_ago = now - timedelta(days=30)
+                query = query.filter(User.created_at > month_ago)
+            elif date_filter == "3months":
+                three_months_ago = now - timedelta(days=90)
+                query = query.filter(User.created_at > three_months_ago)
+        
+        # Get total count
+        total = query.count()
+        
+        # Apply pagination
+        offset = (page - 1) * limit
+        users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+        
+        # Convert to JSON-serializable format
+        users_data = []
+        for user in users:
+            users_data.append({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "plan": user.plan,
+                "created_at": user.created_at.isoformat(),
+                "last_login": user.last_login.isoformat() if hasattr(user, 'last_login') and user.last_login else None,
+                "is_suspended": user.is_suspended,
+                "suspension_reason": user.suspension_reason,
+                "suspended_at": user.suspended_at.isoformat() if user.suspended_at else None,
+                "suspended_by": user.suspended_by
+            })
+        
+        return {
+            "users": users_data,
+            "total": total,
+            "page": page,
+            "pages": (total + limit - 1) // limit
+        }
+    finally:
+        db.close()
+        
+@app.get("/admin/user/{user_id}")
+async def get_user_profile(
+    user_id: int,
+    admin: User = Depends(get_admin_user)
+):
+    """Get detailed user profile for admin"""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get usage statistics
+        total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user_id).count()
+        
+        # Monthly tweets (last 30 days)
+        month_ago = datetime.utcnow() - timedelta(days=30)
+        monthly_tweets = db.query(GeneratedTweet).filter(
+            and_(
+                GeneratedTweet.user_id == user_id,
+                GeneratedTweet.generated_at > month_ago
+            )
+        ).count()
+        
+        # Weekly tweets (last 7 days)
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        weekly_tweets = db.query(GeneratedTweet).filter(
+            and_(
+                GeneratedTweet.user_id == user_id,
+                GeneratedTweet.generated_at > week_ago
+            )
+        ).count()
+        
+        return JSONResponse({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "plan": user.plan,
+            "created_at": user.created_at.isoformat(),
+            "last_login": user.last_login.isoformat() if hasattr(user, 'last_login') and user.last_login else None,
+            "is_suspended": user.is_suspended,
+            "suspension_reason": user.suspension_reason,
+            "suspended_at": user.suspended_at.isoformat() if user.suspended_at else None,
+            "suspended_by": user.suspended_by,
+            "stripe_customer_id": user.stripe_customer_id,
+            "api_key": bool(user.api_key),
+            "original_plan": user.original_plan,
+            "total_tweets": total_tweets,
+            "monthly_tweets": monthly_tweets,
+            "weekly_tweets": weekly_tweets
+        })
+    finally:
+        db.close()
+        
 @app.post("/admin/suspend-user")
-async def suspend_user_admin(
+async def suspend_user_endpoint(
+    request: Request,
     user_id: int = Form(...),
     reason: str = Form(...),
-    db: Session = Depends(get_db),
     admin: User = Depends(get_admin_user)
 ):
     """Suspend a user account"""
-    await suspend_user(user_id, reason, admin.email, db)
-    return RedirectResponse("/admin", status_code=302)
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "User not found"}
+            )
+        
+        # Update user
+        user.is_suspended = True
+        user.suspension_reason = reason
+        user.suspended_at = datetime.utcnow()
+        user.suspended_by = admin.email
+        
+        db.commit()
+        
+        # Send suspension email
+        try:
+            await email_service.send_suspension_email(user.email, reason)
+        except Exception as e:
+            print(f"Failed to send suspension email: {e}")
+        
+        # Log the action
+        print(f"User {user.username} suspended by {admin.email}: {reason}")
+        
+        return JSONResponse({"success": True, "message": "User suspended successfully"})
+    
+    except Exception as e:
+        db.rollback()
+        print(f"Error suspending user: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to suspend user"}
+        )
+    finally:
+        db.close()
 
 @app.post("/admin/unsuspend-user")
-async def unsuspend_user_admin(
+async def unsuspend_user_endpoint(
+    request: Request,
     user_id: int = Form(...),
-    db: Session = Depends(get_db),
     admin: User = Depends(get_admin_user)
 ):
     """Unsuspend a user account"""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "User not found"}
+            )
+        
+        # Update user
+        user.is_suspended = False
+        user.suspension_reason = None
+        user.suspended_at = None
+        user.suspended_by = None
+        
+        db.commit()
+        
+        # Send restoration email
+        try:
+            await send_account_restored_email(user.email, admin.email)
+        except Exception as e:
+            print(f"Failed to send restoration email: {e}")
+        
+        # Log the action
+        print(f"User {user.username} unsuspended by {admin.email}")
+        
+        return JSONResponse({"success": True, "message": "User unsuspended successfully"})
     
-    user.is_suspended = False
-    user.suspension_reason = None
-    user.suspended_at = None
-    user.suspended_by = None
-    
-    db.commit()
-    
-    # Send restoration email
-    await send_account_restored_email(user.email)
-    
-    return RedirectResponse("/admin", status_code=302)
+    except Exception as e:
+        db.rollback()
+        print(f"Error unsuspending user: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to unsuspend user"}
+        )
+    finally:
+        db.close()
 
 @app.post("/admin/force-password-reset")
-async def force_password_reset_admin(
+async def force_password_reset_endpoint(
+    request: Request,
     user_id: int = Form(...),
-    db: Session = Depends(get_db),
     admin: User = Depends(get_admin_user)
 ):
     """Force a user to reset their password"""
-    await force_password_reset(user_id, db)
-    return RedirectResponse("/admin", status_code=302)
-
-@app.get("/admin/user/{user_id}")
-async def view_user_admin(
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "User not found"}
+            )
+        
+        # Create password reset record
+        reset_record = create_password_reset_record(user.id, db)
+        
+        # Send reset email
+        try:
+            await email_service.send_password_reset_email(user, reset_record.token, "Admin Request")
+            print(f"Password reset forced for user {user.username} by admin {admin.email}")
+            return JSONResponse({"success": True, "message": "Password reset email sent"})
+        except Exception as e:
+            print(f"Failed to send password reset email: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Failed to send password reset email"}
+            )
+    
+    finally:
+        db.close()
+        
+@app.get("/admin/user/{user_id}/activity")
+async def get_user_activity(
     user_id: int,
     request: Request,
-    db: Session = Depends(get_db),
     admin: User = Depends(get_admin_user)
 ):
-    """View detailed user information"""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Get user's tweet history
-    tweets = db.query(Tweet).filter(Tweet.user_id == user_id).limit(50).all()
-    
-    return templates.TemplateResponse("admin/user_detail.html", {
-        "request": request,
-        "user": user,
-        "tweets": tweets
-    })
-    
+    """Get user activity log"""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get recent tweets
+        recent_tweets = db.query(GeneratedTweet).filter(
+            GeneratedTweet.user_id == user_id
+        ).order_by(GeneratedTweet.generated_at.desc()).limit(50).all()
+        
+        return templates.TemplateResponse("admin/user_activity.html", {
+            "request": request,
+            "user": user,
+            "recent_tweets": recent_tweets
+        })
+    finally:
+        db.close()
+
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
     user = get_optional_user(request)
