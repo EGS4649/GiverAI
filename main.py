@@ -5,6 +5,7 @@ import re
 import secrets
 import requests 
 import hashlib
+from typing import Optional, List
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -84,7 +85,9 @@ class User(Base):
     is_suspended = Column(Boolean, default=False)
     suspension_reason = Column(Text, nullable=True)
     suspended_at = Column(DateTime, nullable=True)
-    suspended_by = Column(String, nullable=True)  # admin username/email
+    suspended_by = Column(String, nullable=True) 
+    last_login = Column(DateTime, nullable=True)
+
 
     # Security logging
     last_password_change = Column(DateTime, nullable=True)
@@ -99,7 +102,19 @@ class Usage(Base):
     date = Column(String)
     count = Column(Integer, default=0)
     user = relationship("User")
-
+    
+class UserActivity(Base):
+    __tablename__ = "user_activity"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    activity_type = Column(String)  # 'login', 'tweet_generated', 'plan_change', etc.
+    description = Column(String, nullable=True)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    metadata = Column(String, nullable=True)  # JSON string for additional data
+    user = relationship("User")
+    
 class PasswordReset(Base):
     __tablename__ = "password_resets"
     id = Column(Integer, primary_key=True, index=True)
@@ -1724,7 +1739,43 @@ def migrate_database():
                     print(f"Error creating {table_name}: {table_error}")
     
     print("Database migration completed")
+    
+def update_user_model():
+    """Add missing columns to users table"""
+    engine = create_engine(DATABASE_URL)
+    
+    missing_columns = {
+        'last_login': "ALTER TABLE users ADD COLUMN last_login TIMESTAMP",
+        'is_suspended': "ALTER TABLE users ADD COLUMN is_suspended BOOLEAN DEFAULT FALSE",
+        'suspension_reason': "ALTER TABLE users ADD COLUMN suspension_reason TEXT",
+        'suspended_at': "ALTER TABLE users ADD COLUMN suspended_at TIMESTAMP",
+        'suspended_by': "ALTER TABLE users ADD COLUMN suspended_by VARCHAR",
+        'failed_login_attempts': "ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0",
+        'last_failed_login': "ALTER TABLE users ADD COLUMN last_failed_login TIMESTAMP",
+        'account_locked_until': "ALTER TABLE users ADD COLUMN account_locked_until TIMESTAMP"
+    }
+    
+    inspector = inspect(engine)
+    if 'users' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        
+        for col_name, sql in missing_columns.items():
+            if col_name not in columns:
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(sql))
+                    print(f"Added {col_name} column to users table")
+                except Exception as e:
+                    print(f"Error adding {col_name}: {e}")
 
+# Helper function to create dependency for database session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        
 def fix_corrupted_user_data():
     """Fix corrupted hashed_password data in the database"""
     from sqlalchemy import create_engine, text
@@ -1776,7 +1827,44 @@ def fix_corrupted_user_data():
         print(f"Error checking user data: {e}")
         import traceback
         traceback.print_exc()
-
+        
+# Activity logging function
+def log_user_activity(
+    user_id: int, 
+    activity_type: str, 
+    description: str = None, 
+    ip_address: str = None,
+    user_agent: str = None,
+    metadata: dict = None,
+    db: Session = None
+):
+    """Log user activity"""
+    if db is None:
+        db = SessionLocal()
+        should_close = True
+    else:
+        should_close = False
+    
+    try:
+        activity = UserActivity(
+            user_id=user_id,
+            activity_type=activity_type,
+            description=description,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata=json.dumps(metadata) if metadata else None
+        )
+        db.add(activity)
+        if should_close:
+            db.commit()
+    except Exception as e:
+        print(f"Error logging activity: {e}")
+        if should_close:
+            db.rollback()
+    finally:
+        if should_close:
+            db.close()
+            
 # Run migrations
 migrate_database()
 
@@ -2457,291 +2545,432 @@ async def admin_dashboard(
     finally:
         db.close()
         
+@app.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Admin dashboard with user management tools"""
+    # Check if user is admin
+    if not current_user or current_user.email not in ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return templates.TemplateResponse("admin/dashboard.html", {
+        "request": request,
+        "user": current_user
+    })
+    
+# API endpoint to get users data
 @app.get("/admin/api/users")
 async def get_users_api(
     request: Request,
-    search: str = Query(""),
-    status: str = Query(""),
-    plan: str = Query(""),
-    date_filter: str = Query(""),
-    page: int = Query(1),
-    limit: int = Query(50),
-    admin: User = Depends(get_admin_user)
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    plan: Optional[str] = None,
+    date_filter: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """API endpoint to get users with filtering"""
-    db = SessionLocal()
-    try:
-        # Base query
-        query = db.query(User)
-        
-        # Apply filters
-        if search:
-            search_term = f"%{search}%"
-            query = query.filter(
-                or_(
-                    User.username.ilike(search_term),
-                    User.email.ilike(search_term)
-                )
+    """API endpoint to get users with filtering and pagination"""
+    # Check if user is admin
+    if not current_user or current_user.email not in ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Base query
+    query = db.query(User).options(defer(User.hashed_password))
+    
+    # Apply filters
+    if search:
+        search_filter = f"%{search.lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(User.username).like(search_filter),
+                func.lower(User.email).like(search_filter)
             )
-        
+        )
+    
+    if status:
         if status == "active":
             query = query.filter(User.is_suspended == False)
         elif status == "suspended":
             query = query.filter(User.is_suspended == True)
-        
-        if plan:
-            query = query.filter(User.plan == plan)
-        
-        if date_filter:
-            now = datetime.utcnow()
-            if date_filter == "today":
-                query = query.filter(func.date(User.created_at) == now.date())
-            elif date_filter == "week":
-                week_ago = now - timedelta(days=7)
-                query = query.filter(User.created_at > week_ago)
-            elif date_filter == "month":
-                month_ago = now - timedelta(days=30)
-                query = query.filter(User.created_at > month_ago)
-            elif date_filter == "3months":
-                three_months_ago = now - timedelta(days=90)
-                query = query.filter(User.created_at > three_months_ago)
-        
-        # Get total count
-        total = query.count()
-        
-        # Apply pagination
-        offset = (page - 1) * limit
-        users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
-        
-        # Convert to JSON-serializable format
-        users_data = []
-        for user in users:
-            users_data.append({
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "plan": user.plan,
-                "created_at": user.created_at.isoformat(),
-                "last_login": user.last_login.isoformat() if hasattr(user, 'last_login') and user.last_login else None,
-                "is_suspended": user.is_suspended,
-                "suspension_reason": user.suspension_reason,
-                "suspended_at": user.suspended_at.isoformat() if user.suspended_at else None,
-                "suspended_by": user.suspended_by
-            })
-        
-        return {
-            "users": users_data,
-            "total": total,
-            "page": page,
-            "pages": (total + limit - 1) // limit
-        }
-    finally:
-        db.close()
-        
-@app.get("/admin/user/{user_id}")
-async def get_user_profile(
-    user_id: int,
-    admin: User = Depends(get_admin_user)
-):
-    """Get detailed user profile for admin"""
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Get usage statistics
-        total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user_id).count()
-        
-        # Monthly tweets (last 30 days)
-        month_ago = datetime.utcnow() - timedelta(days=30)
-        monthly_tweets = db.query(GeneratedTweet).filter(
+    
+    if plan:
+        query = query.filter(User.plan == plan)
+    
+    if date_filter:
+        now = datetime.utcnow()
+        if date_filter == "today":
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            query = query.filter(User.created_at >= start_date)
+        elif date_filter == "week":
+            start_date = now - timedelta(days=7)
+            query = query.filter(User.created_at >= start_date)
+        elif date_filter == "month":
+            start_date = now - timedelta(days=30)
+            query = query.filter(User.created_at >= start_date)
+        elif date_filter == "3months":
+            start_date = now - timedelta(days=90)
+            query = query.filter(User.created_at >= start_date)
+    
+    # Get total count before pagination
+    total_users = query.count()
+    
+    # Apply pagination
+    users = query.order_by(User.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    
+    # Calculate statistics
+    stats = {
+        "total_users": db.query(User).count(),
+        "suspended_count": db.query(User).filter(User.is_suspended == True).count(),
+        "recent_signups": db.query(User).filter(
+            User.created_at > datetime.utcnow() - timedelta(days=7)
+        ).count(),
+        "active_today": db.query(User).filter(
             and_(
-                GeneratedTweet.user_id == user_id,
-                GeneratedTweet.generated_at > month_ago
+                User.last_login.isnot(None),
+                User.last_login > datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
             )
         ).count()
-        
-        # Weekly tweets (last 7 days)
-        week_ago = datetime.utcnow() - timedelta(days=7)
-        weekly_tweets = db.query(GeneratedTweet).filter(
-            and_(
-                GeneratedTweet.user_id == user_id,
-                GeneratedTweet.generated_at > week_ago
-            )
-        ).count()
-        
-        return JSONResponse({
+    }
+    
+    # Convert users to dictionary format
+    users_data = []
+    for user in users:
+        user_dict = {
             "id": user.id,
             "username": user.username,
             "email": user.email,
             "plan": user.plan,
-            "created_at": user.created_at.isoformat(),
-            "last_login": user.last_login.isoformat() if hasattr(user, 'last_login') and user.last_login else None,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "last_login": user.last_login.isoformat() if user.last_login else None,
             "is_suspended": user.is_suspended,
             "suspension_reason": user.suspension_reason,
             "suspended_at": user.suspended_at.isoformat() if user.suspended_at else None,
             "suspended_by": user.suspended_by,
-            "stripe_customer_id": user.stripe_customer_id,
-            "api_key": bool(user.api_key),
-            "original_plan": user.original_plan,
-            "total_tweets": total_tweets,
-            "monthly_tweets": monthly_tweets,
-            "weekly_tweets": weekly_tweets
+            "is_active": user.is_active
+        }
+        users_data.append(user_dict)
+    
+    return {
+        "users": users_data,
+        "stats": stats,
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total_users,
+            "pages": (total_users + per_page - 1) // per_page
+        }
+    }
+        
+# Get individual user details
+@app.get("/admin/user/{user_id}")
+async def get_user_details(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get detailed user information including activity"""
+    # Check if user is admin
+    if not current_user or current_user.email not in ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get user
+    user = db.query(User).options(defer(User.hashed_password)).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get user's tweet count statistics
+    total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user_id).count()
+    
+    # Monthly tweets (last 30 days)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    monthly_tweets = db.query(GeneratedTweet).filter(
+        and_(
+            GeneratedTweet.user_id == user_id,
+            GeneratedTweet.generated_at >= thirty_days_ago
+        )
+    ).count()
+    
+    # Weekly tweets (last 7 days)
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    weekly_tweets = db.query(GeneratedTweet).filter(
+        and_(
+            GeneratedTweet.user_id == user_id,
+            GeneratedTweet.generated_at >= seven_days_ago
+        )
+    ).count()
+    
+    # Get recent activity
+    recent_activity = db.query(UserActivity).filter(
+        UserActivity.user_id == user_id
+    ).order_by(UserActivity.timestamp.desc()).limit(10).all()
+    
+    activity_data = []
+    for activity in recent_activity:
+        activity_data.append({
+            "type": activity.activity_type,
+            "description": activity.description,
+            "timestamp": activity.timestamp.isoformat(),
+            "ip_address": activity.ip_address
         })
-    finally:
-        db.close()
+    
+    # If no activity logged, create some basic activity from existing data
+    if not activity_data:
+        if user.created_at:
+            activity_data.append({
+                "type": "account_created",
+                "description": "Account created",
+                "timestamp": user.created_at.isoformat(),
+                "ip_address": None
+            })
+        if user.last_login:
+            activity_data.append({
+                "type": "login",
+                "description": "Last login",
+                "timestamp": user.last_login.isoformat(),
+                "ip_address": None
+            })
+    
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "plan": user.plan,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "last_login": user.last_login.isoformat() if user.last_login else None,
+        "is_suspended": user.is_suspended,
+        "suspension_reason": user.suspension_reason,
+        "suspended_at": user.suspended_at.isoformat() if user.suspended_at else None,
+        "suspended_by": user.suspended_by,
+        "is_active": user.is_active,
+        "stripe_customer_id": user.stripe_customer_id,
+        "api_key": bool(user.api_key),
+        "original_plan": user.original_plan,
+        "total_tweets": total_tweets,
+        "monthly_tweets": monthly_tweets,
+        "weekly_tweets": weekly_tweets,
+        "activity": activity_data
+    }
         
 @app.post("/admin/suspend-user")
 async def suspend_user_endpoint(
     request: Request,
     user_id: int = Form(...),
     reason: str = Form(...),
-    admin: User = Depends(get_admin_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Suspend a user account"""
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            return JSONResponse(
-                status_code=404,
-                content={"error": "User not found"}
-            )
-        
-        # Update user
-        user.is_suspended = True
-        user.suspension_reason = reason
-        user.suspended_at = datetime.utcnow()
-        user.suspended_by = admin.email
-        
-        db.commit()
-        
-        # Send suspension email
-        try:
-            await email_service.send_suspension_email(user.email, reason)
-        except Exception as e:
-            print(f"Failed to send suspension email: {e}")
-        
-        # Log the action
-        print(f"User {user.username} suspended by {admin.email}: {reason}")
-        
-        return JSONResponse({"success": True, "message": "User suspended successfully"})
+    # Check if user is admin
+    if not current_user or current_user.email not in ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Admin access required")
     
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update user suspension status
+    user.is_suspended = True
+    user.suspension_reason = reason
+    user.suspended_at = datetime.utcnow()
+    user.suspended_by = current_user.email
+    
+    db.commit()
+    
+    # Log the activity
+    log_user_activity(
+        user_id=user.id,
+        activity_type="suspended",
+        description=f"Account suspended by admin: {reason}",
+        ip_address=request.client.host if request.client else None,
+        metadata={"admin": current_user.email, "reason": reason},
+        db=db
+    )
+    
+    # Send suspension email
+    try:
+        await email_service.send_suspension_email(user.email, reason)
+        print(f"✅ Suspension email sent to {user.email}")
     except Exception as e:
-        db.rollback()
-        print(f"Error suspending user: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": "Failed to suspend user"}
-        )
-    finally:
-        db.close()
-
+        print(f"❌ Failed to send suspension email: {str(e)}")
+    
+    return {"message": "User suspended successfully"}
+    
 @app.post("/admin/unsuspend-user")
 async def unsuspend_user_endpoint(
     request: Request,
     user_id: int = Form(...),
-    admin: User = Depends(get_admin_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Unsuspend a user account"""
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            return JSONResponse(
-                status_code=404,
-                content={"error": "User not found"}
-            )
-        
-        # Update user
-        user.is_suspended = False
-        user.suspension_reason = None
-        user.suspended_at = None
-        user.suspended_by = None
-        
-        db.commit()
-        
-        # Send restoration email
-        try:
-            await send_account_restored_email(user.email, admin.email)
-        except Exception as e:
-            print(f"Failed to send restoration email: {e}")
-        
-        # Log the action
-        print(f"User {user.username} unsuspended by {admin.email}")
-        
-        return JSONResponse({"success": True, "message": "User unsuspended successfully"})
+    # Check if user is admin
+    if not current_user or current_user.email not in ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Admin access required")
     
-    except Exception as e:
-        db.rollback()
-        print(f"Error unsuspending user: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": "Failed to unsuspend user"}
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Clear suspension
+    old_reason = user.suspension_reason
+    user.is_suspended = False
+    user.suspension_reason = None
+    user.suspended_at = None
+    user.suspended_by = None
+    
+    db.commit()
+    
+    # Log the activity
+    log_user_activity(
+        user_id=user.id,
+        activity_type="unsuspended",
+        description=f"Account unsuspended by admin",
+        ip_address=request.client.host if request.client else None,
+        metadata={"admin": current_user.email, "previous_reason": old_reason},
+        db=db
+    )
+    
+    # Send account restored email
+    try:
+        html_body = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h1 style="color: #28a745;">Account Restored! 🎉</h1>
+              <p>Hi {user.username}!</p>
+              <p>Good news! Your GiverAI account has been restored and is now active.</p>
+              <p>You can now log in and use all features normally.</p>
+              <p style="text-align: center;">
+                <a href="https://giverai.me/login"
+                   style="background: #28a745; color: white; padding: 12px 24px;
+                          text-decoration: none; border-radius: 4px;
+                          display: inline-block;">
+                  Log In to GiverAI
+                </a>
+              </p>
+              <p>If you have any questions, please contact our support team.</p>
+              <p>Welcome back!<br>The GiverAI Team</p>
+            </div>
+          </body>
+        </html>
+        """
+        
+        email_service.send_simple_email(
+            user.email,
+            "Your GiverAI Account Has Been Restored! 🎉",
+            html_body
         )
-    finally:
-        db.close()
-
+        print(f"✅ Account restored email sent to {user.email}")
+    except Exception as e:
+        print(f"❌ Failed to send restoration email: {str(e)}")
+    
+    return {"message": "User unsuspended successfully"}
+    
+# Updated force password reset endpoint
 @app.post("/admin/force-password-reset")
 async def force_password_reset_endpoint(
     request: Request,
     user_id: int = Form(...),
-    admin: User = Depends(get_admin_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Force a user to reset their password"""
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            return JSONResponse(
-                status_code=404,
-                content={"error": "User not found"}
-            )
-        
-        # Create password reset record
-        reset_record = create_password_reset_record(user.id, db)
-        
-        # Send reset email
-        try:
-            await email_service.send_password_reset_email(user, reset_record.token, "Admin Request")
-            print(f"Password reset forced for user {user.username} by admin {admin.email}")
-            return JSONResponse({"success": True, "message": "Password reset email sent"})
-        except Exception as e:
-            print(f"Failed to send password reset email: {e}")
-            return JSONResponse(
-                status_code=500,
-                content={"error": "Failed to send password reset email"}
-            )
+    # Check if user is admin
+    if not current_user or current_user.email not in ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Admin access required")
     
-    finally:
-        db.close()
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Create password reset record
+    reset_record = create_password_reset_record(user.id, db)
+    
+    # Send password reset email
+    try:
+        await email_service.send_password_reset_email(
+            user, 
+            reset_record.token, 
+            request.client.host if request.client else "Admin Panel"
+        )
         
+        # Log the activity
+        log_user_activity(
+            user_id=user.id,
+            activity_type="password_reset_forced",
+            description="Password reset forced by admin",
+            ip_address=request.client.host if request.client else None,
+            metadata={"admin": current_user.email},
+            db=db
+        )
+        
+        return {"message": "Password reset email sent"}
+    except Exception as e:
+        print(f"Failed to send password reset email: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to send password reset email")
+        
+# User activity endpoint
 @app.get("/admin/user/{user_id}/activity")
 async def get_user_activity(
     user_id: int,
-    request: Request,
-    admin: User = Depends(get_admin_user)
+    page: int = 1,
+    per_page: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Get user activity log"""
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+    """Get detailed user activity log"""
+    # Check if user is admin
+    if not current_user or current_user.email not in ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get activity with pagination
+    activities = db.query(UserActivity).filter(
+        UserActivity.user_id == user_id
+    ).order_by(UserActivity.timestamp.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    
+    activity_data = []
+    for activity in activities:
+        metadata = None
+        if activity.metadata:
+            try:
+                metadata = json.loads(activity.metadata)
+            except:
+                pass
         
-        # Get recent tweets
-        recent_tweets = db.query(GeneratedTweet).filter(
-            GeneratedTweet.user_id == user_id
-        ).order_by(GeneratedTweet.generated_at.desc()).limit(50).all()
-        
-        return templates.TemplateResponse("admin/user_activity.html", {
-            "request": request,
-            "user": user,
-            "recent_tweets": recent_tweets
+        activity_data.append({
+            "id": activity.id,
+            "type": activity.activity_type,
+            "description": activity.description,
+            "timestamp": activity.timestamp.isoformat(),
+            "ip_address": activity.ip_address,
+            "user_agent": activity.user_agent,
+            "metadata": metadata
         })
-    finally:
-        db.close()
+    
+    total_activities = db.query(UserActivity).filter(UserActivity.user_id == user_id).count()
+    
+    return {
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email
+        },
+        "activities": activity_data,
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total_activities,
+            "pages": (total_activities + per_page - 1) // per_page
+        }
+    }
 
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
@@ -2753,7 +2982,7 @@ def login(request: Request):
     })
     
 @app.post("/login")
-async def login_post(
+def login_post_updated(
     request: Request, 
     username: str = Form(...), 
     password: str = Form(...),
@@ -2798,7 +3027,22 @@ async def login_post(
         # Authenticate user
         user = authenticate_user(db, username, password)
         
-        if not user:
+        if user and not user.is_suspended and user.is_active:
+        # Update last login timestamp
+            user.last_login = datetime.utcnow()
+            user.failed_login_attempts = 0
+            user.last_failed_login = None
+            user.account_locked_until = None
+            db.commit()
+            
+            log_user_activity(
+                user_id=user.id,
+                activity_type="login",
+                description="User logged in",
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("User-Agent"),
+                db=db
+            )
             # Track failed login attempts
             if user_record:
                 user_record.failed_login_attempts = (user_record.failed_login_attempts or 0) + 1
