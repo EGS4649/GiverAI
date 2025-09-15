@@ -4,126 +4,618 @@
   <meta charset="UTF-8">
   <title>Admin Dashboard - GiverAI</title>
   <link rel="stylesheet" href="/static/style.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <style>
-    .admin-container {
-      max-width: 1100px;
-      margin: 40px auto 0 auto;
-      padding: 40px 20px;
-    }
-    .admin-header {
-      color: #00ffff;
-      border-bottom: 2px solid #00cccc;
-      margin-bottom: 30px;
-      letter-spacing: 2px;
-    }
-    .admin-summary-cards {
-      display: flex;
-      gap: 22px;
-      margin-bottom: 32px;
-    }
-    .summary-card {
-      flex: 1;
-      background: rgba(0,0,0,0.45);
-      border: 2px solid #00ffff;
-      border-radius: 12px;
-      padding: 24px 16px;
-      text-align: center;
-      color: #fff;
-    }
-    .summary-card h2 {
-      color: #00ffff;
-      margin: 0 0 10px 0;
-      font-size: 22px;
-      font-weight: bold;
-      letter-spacing: 1px;
-    }
-    .summary-card p {
+    * {
       margin: 0;
-      font-size: 26px;
-      font-weight: bold;
+      padding: 0;
+      box-sizing: border-box;
     }
-    table.admin-user-table {
+
+    body {
+      background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+      color: #ffffff;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .admin-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .admin-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .admin-header h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00ffff, #ff00ff);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    .admin-header p {
+      color: #a0a0a0;
+      font-size: 1.1rem;
+    }
+
+    /* Summary Cards */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .summary-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 255, 255, 0.2);
+      border-radius: 15px;
+      padding: 1.5rem;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .summary-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #00ffff, #ff00ff);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .summary-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(0, 255, 255, 0.5);
+    }
+
+    .summary-card:hover::before {
+      opacity: 1;
+    }
+
+    .summary-card .icon {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: #00ffff;
+    }
+
+    .summary-card h3 {
+      font-size: 0.9rem;
+      color: #a0a0a0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.5rem;
+    }
+
+    .summary-card .value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    /* Filters Section */
+    .filters-section {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .filters-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .filters-header h2 {
+      color: #00ffff;
+      margin-right: 1rem;
+    }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      align-items: end;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .filter-group label {
+      color: #a0a0a0;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    .filter-input, .filter-select {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 0.75rem;
+      color: #ffffff;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+
+    .filter-input:focus, .filter-select:focus {
+      outline: none;
+      border-color: #00ffff;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+    }
+
+    .filter-input::placeholder {
+      color: #666;
+    }
+
+    .filter-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #00ffff, #0080ff);
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 255, 255, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Users Table */
+    .users-section {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .section-header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .section-header h2 {
+      color: #00ffff;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    .users-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 40px;
     }
-    table.admin-user-table th,
-    table.admin-user-table td {
-      padding: 10px 8px;
-      border-bottom: 1px solid #00cccc;
-    }
-    table.admin-user-table th {
-      background: #003f4e;
+
+    .users-table th {
+      background: rgba(0, 255, 255, 0.1);
       color: #00ffff;
-      font-weight: 600;
+      padding: 1rem;
       text-align: left;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
-    table.admin-user-table tbody tr:nth-child(even) {
-      background: rgba(0,255,255,0.05);
+
+    .users-table td {
+      padding: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      vertical-align: middle;
     }
+
+    .users-table tbody tr {
+      transition: all 0.3s ease;
+    }
+
+    .users-table tbody tr:hover {
+      background: rgba(0, 255, 255, 0.05);
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00ffff, #ff00ff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #000;
+    }
+
+    .user-details h4 {
+      color: #ffffff;
+      font-size: 0.95rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .user-details p {
+      color: #a0a0a0;
+      font-size: 0.85rem;
+    }
+
+    .status-badge {
+      padding: 0.4rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-active {
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .status-suspended {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
     .plan-badge {
-      background: linear-gradient(45deg, #00ffff, #ff9cff);
-      color: #000;
-      padding: 2px 10px;
+      padding: 0.3rem 0.6rem;
       border-radius: 12px;
-      font-weight: bold;
-      font-size: 14px;
-      margin-left: 2px;
-      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
-    .suspend-btn {
-      background: #ff5555;
-      border: none;
-      color: #fff;
-      border-radius: 5px;
-      padding: 6px 16px;
-      margin-right: 6px;
-      cursor: pointer;
-      font-weight: bold;
+
+    .plan-free {
+      background: rgba(156, 163, 175, 0.2);
+      color: #9ca3af;
+      border: 1px solid rgba(156, 163, 175, 0.3);
     }
-    .unsuspend-btn {
-      background: #55ff99;
-      border: none;
+
+    .plan-creator {
+      background: rgba(168, 85, 247, 0.2);
+      color: #a855f7;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+
+    .plan-small-team {
+      background: rgba(59, 130, 246, 0.2);
+      color: #3b82f6;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .plan-agency {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .plan-enterprise {
+      background: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .btn-small {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+      min-width: auto;
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #ffffff;
+    }
+
+    .btn-danger:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 10px rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #ffffff;
+    }
+
+    .btn-success:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 10px rgba(34, 197, 94, 0.4);
+    }
+
+    .btn-info {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #ffffff;
+    }
+
+    .btn-info:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 10px rgba(59, 130, 246, 0.4);
+    }
+
+    /* Suspend Form */
+    .suspend-form {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .reason-input {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 0.4rem 0.6rem;
+      color: #ffffff;
+      font-size: 0.8rem;
+      width: 120px;
+    }
+
+    .reason-input:focus {
+      outline: none;
+      border-color: #ef4444;
+    }
+
+    .reason-input::placeholder {
+      color: #666;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 2rem;
+    }
+
+    .pagination .btn {
+      min-width: 40px;
+      height: 40px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pagination .btn.active {
+      background: linear-gradient(135deg, #00ffff, #0080ff);
       color: #000;
-      border-radius: 5px;
-      padding: 6px 16px;
-      margin-right: 6px;
-      cursor: pointer;
-      font-weight: bold;
     }
-    .view-btn {
-      background: #00bfff;
-      border: none;
-      color: #fff;
-      border-radius: 5px;
-      padding: 6px 16px;
-      cursor: pointer;
-      font-weight: bold;
+
+    /* User Profile Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      z-index: 1000;
     }
-    .admin-section-title {
+
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 20px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .modal-header {
+      padding: 2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 {
       color: #00ffff;
-      margin: 40px 0 16px 0;
+      margin: 0;
     }
-    .suspension-form,
-    .unsuspension-form {
-      display: inline;
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: #a0a0a0;
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: color 0.3s ease;
     }
-    .success-message,
-    .error-message {
-      margin: 0 0 30px 0;
-      border-radius: 5px;
-      padding: 14px;
-      font-weight: bold;
+
+    .modal-close:hover {
+      color: #ffffff;
     }
-    .success-message {
-      background: rgba(0,255,128,0.14);
-      border: 1px solid #00ff9c;
-      color: #00aa5e;
+
+    .modal-body {
+      padding: 2rem;
     }
-    .error-message {
-      background: rgba(255,0,0,0.10);
-      border: 1px solid #fc6666;
-      color: #ff2d2d;
+
+    .profile-section {
+      margin-bottom: 2rem;
+    }
+
+    .profile-section h3 {
+      color: #00ffff;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .profile-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .profile-item {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .profile-item label {
+      color: #a0a0a0;
+      font-size: 0.85rem;
+      display: block;
+      margin-bottom: 0.3rem;
+    }
+
+    .profile-item value {
+      color: #ffffff;
+      font-weight: 500;
+    }
+
+    /* Loading States */
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+      position: relative;
+    }
+
+    .loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #00ffff;
+      border-top: 2px solid transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      transform: translate(-50%, -50%);
+    }
+
+    @keyframes spin {
+      0% { transform: translate(-50%, -50%) rotate(0deg); }
+      100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .admin-container {
+        padding: 1rem;
+      }
+
+      .admin-header h1 {
+        font-size: 2rem;
+      }
+
+      .filters-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .users-table {
+        font-size: 0.85rem;
+      }
+
+      .action-buttons {
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+
+      .btn-small {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.6rem;
+      }
+    }
+
+    /* Success/Error Messages */
+    .alert {
+      padding: 1rem 1.5rem;
+      border-radius: 10px;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .alert-success {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #22c55e;
+    }
+
+    .alert-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #ef4444;
     }
   </style>
 </head>
@@ -138,117 +630,158 @@
       <li><a href="/logout">Logout</a></li>
     </ul>
   </nav>
-  <div class="admin-container">
-    <h1 class="admin-header">Admin Dashboard</h1>
 
+  <div class="admin-container">
+    <!-- Header -->
+    <div class="admin-header">
+      <h1>Admin Dashboard</h1>
+      <p>Manage users, monitor activity, and maintain platform security</p>
+    </div>
+
+    <!-- Alert Messages -->
     {% if success %}
-      <div class="success-message">{{ success }}</div>
+      <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        {{ success }}
+      </div>
     {% endif %}
     {% if error %}
-      <div class="error-message">{{ error }}</div>
+      <div class="alert alert-error">
+        <i class="fas fa-exclamation-circle"></i>
+        {{ error }}
+      </div>
     {% endif %}
 
-    <div class="admin-summary-cards">
+    <!-- Summary Cards -->
+    <div class="summary-grid">
       <div class="summary-card">
-        <h2>Total Users</h2>
-        <p>{{ total_users }}</p>
+        <div class="icon">
+          <i class="fas fa-users"></i>
+        </div>
+        <h3>Total Users</h3>
+        <div class="value" id="totalUsers">{{ total_users or 0 }}</div>
       </div>
       <div class="summary-card">
-        <h2>Suspended Accounts</h2>
-        <p>{{ suspended_count }}</p>
+        <div class="icon">
+          <i class="fas fa-user-slash"></i>
+        </div>
+        <h3>Suspended</h3>
+        <div class="value" id="suspendedUsers">{{ suspended_count or 0 }}</div>
       </div>
       <div class="summary-card">
-        <h2>New Signups<br>Last 7 Days</h2>
-        <p>{{ recent_signups }}</p>
+        <div class="icon">
+          <i class="fas fa-user-plus"></i>
+        </div>
+        <h3>New (7 days)</h3>
+        <div class="value" id="newUsers">{{ recent_signups or 0 }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="icon">
+          <i class="fas fa-chart-line"></i>
+        </div>
+        <h3>Active Today</h3>
+        <div class="value" id="activeUsers">{{ active_today or 0 }}</div>
       </div>
     </div>
 
-    <h2 class="admin-section-title">Recent Users</h2>
-    <table class="admin-user-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Username</th>
-          <th>Email</th>
-          <th>Plan</th>
-          <th>Since</th>
-          <th>Status</th>
-          <th>Admin Tools</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for user in recent_users %}
-        <tr>
-            <td>{{ user.id }}</td>
-            <td>{{ user.username }}</td>
-            <td>{{ user.email }}</td>
-            <td>
-              <span class="plan-badge">{{ user.plan|replace('_', ' ')|title }}</span>
-            </td>
-            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
-            <td>
-              {% if user.is_suspended %}
-                <span style="color: #ff4444; font-weight: bold;">Suspended</span>
-              {% else %}
-                <span style="color: #51ff51; font-weight: bold;">Active</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if not user.is_suspended %}
-                <form method="post" action="/admin/suspend-user" class="suspension-form" style="display: inline;">
-                  <input type="hidden" name="user_id" value="{{ user.id }}">
-                  <input type="text" name="reason" required placeholder="Reason" style="width:110px;">
-                  <button type="submit" class="suspend-btn" onclick="return confirm('Suspend {{ user.username }}?');">Suspend</button>
-                </form>
-              {% else %}
-                <form method="post" action="/admin/unsuspend-user" class="unsuspension-form" style="display: inline;">
-                  <input type="hidden" name="user_id" value="{{ user.id }}">
-                  <button type="submit" class="unsuspend-btn" onclick="return confirm('Unsuspend {{ user.username }}?');">Unsuspend</button>
-                </form>
-              {% endif %}
-              <form method="get" action="/admin/user/{{ user.id }}" style="display: inline;">
-                <button type="submit" class="view-btn">View</button>
-              </form>
-            </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <!-- Filters -->
+    <div class="filters-section">
+      <div class="filters-header">
+        <h2><i class="fas fa-filter"></i> Filter Users</h2>
+      </div>
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label for="searchFilter">Search</label>
+          <input type="text" id="searchFilter" class="filter-input" placeholder="Username or email...">
+        </div>
+        <div class="filter-group">
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter" class="filter-select">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="planFilter">Plan</label>
+          <select id="planFilter" class="filter-select">
+            <option value="">All Plans</option>
+            <option value="free">Free</option>
+            <option value="creator">Creator</option>
+            <option value="small_team">Small Team</option>
+            <option value="agency">Agency</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="dateFilter">Joined</label>
+          <select id="dateFilter" class="filter-select">
+            <option value="">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="3months">Last 3 Months</option>
+          </select>
+        </div>
+        <div class="filter-actions">
+          <button class="btn btn-primary" onclick="applyFilters()">
+            <i class="fas fa-search"></i> Apply
+          </button>
+          <button class="btn btn-secondary" onclick="clearFilters()">
+            <i class="fas fa-times"></i> Clear
+          </button>
+        </div>
+      </div>
+    </div>
 
-    <h2 class="admin-section-title">Currently Suspended Users</h2>
-    <table class="admin-user-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Username</th>
-          <th>Email</th>
-          <th>Suspended Since</th>
-          <th>Reason</th>
-          <th>Admin Tools</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for user in suspended_users %}
-        <tr>
-            <td>{{ user.id }}</td>
-            <td>{{ user.username }}</td>
-            <td>{{ user.email }}</td>
-            <td>{{ user.suspended_at.strftime('%Y-%m-%d %H:%M') if user.suspended_at else "—" }}</td>
-            <td>{{ user.suspension_reason or "—" }}</td>
-            <td>
-              <form method="post" action="/admin/unsuspend-user" style="display: inline;">
-                <input type="hidden" name="user_id" value="{{ user.id }}">
-                <button type="submit" class="unsuspend-btn" onclick="return confirm('Unsuspend {{ user.username }}?');">Unsuspend</button>
-              </form>
-              <form method="get" action="/admin/user/{{ user.id }}" style="display: inline;">
-                <button type="submit" class="view-btn">View</button>
-              </form>
-            </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <!-- Users Table -->
+    <div class="users-section">
+      <div class="section-header">
+        <h2><i class="fas fa-users"></i> Users (<span id="userCount">0</span>)</h2>
+        <div class="filter-actions">
+          <button class="btn btn-secondary btn-small" onclick="exportUsers()">
+            <i class="fas fa-download"></i> Export
+          </button>
+        </div>
+      </div>
+      <div class="table-container">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Plan</th>
+              <th>Joined</th>
+              <th>Last Login</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <!-- Users will be populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination" id="pagination">
+      <!-- Pagination will be populated by JavaScript -->
+    </div>
   </div>
+
+  <!-- User Profile Modal -->
+  <div class="modal" id="userModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>User Profile</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Profile content will be loaded here -->
+      </div>
+    </div>
+  </div>
+
   <footer>
     <div class="footer-container">
       <div class="footer-left">
@@ -266,5 +799,114 @@
       </div>
     </div>
   </footer>
-</body>
-</html>
+
+  <script>
+    // Sample data - Replace with actual data from your backend
+    let allUsers = [
+      {
+        id: 40,
+        username: "Admin",
+        email: "support@giverai.me",
+        plan: "free",
+        created_at: "2025-09-15",
+        last_login: "2025-09-15 10:30:00",
+        is_suspended: false,
+        suspension_reason: null
+      },
+      {
+        id: 35,
+        username: "TEST",
+        email: "popcorn.under.pressure@gmail.com",
+        plan: "free",
+        created_at: "2025-09-14",
+        last_login: "2025-09-14 15:45:00",
+        is_suspended: false,
+        suspension_reason: null
+      }
+    ];
+
+    let filteredUsers = [...allUsers];
+    let currentPage = 1;
+    const usersPerPage = 10;
+
+    function renderUsers() {
+      const tbody = document.getElementById('usersTableBody');
+      const startIndex = (currentPage - 1) * usersPerPage;
+      const endIndex = startIndex + usersPerPage;
+      const usersToShow = filteredUsers.slice(startIndex, endIndex);
+
+      tbody.innerHTML = usersToShow.map(user => {
+        const planClass = `plan-${user.plan.replace('_', '-')}`;
+        const statusClass = user.is_suspended ? 'status-suspended' : 'status-active';
+        const statusText = user.is_suspended ? 'Suspended' : 'Active';
+        const avatar = user.username.charAt(0).toUpperCase();
+        
+        const suspendButton = user.is_suspended 
+          ? `<button class="btn btn-success btn-small" onclick="unsuspendUser(${user.id}, '${user.username}')">
+               <i class="fas fa-user-check"></i> Unsuspend
+             </button>`
+          : `<form class="suspend-form" onsubmit="suspendUser(event, ${user.id}, '${user.username}')">
+               <input type="text" class="reason-input" placeholder="Reason..." required>
+               <button type="submit" class="btn btn-danger btn-small">
+                 <i class="fas fa-user-slash"></i> Suspend
+               </button>
+             </form>`;
+
+        return `
+          <tr>
+            <td>
+              <div class="user-info">
+                <div class="user-avatar">${avatar}</div>
+                <div class="user-details">
+                  <h4>${user.username}</h4>
+                  <p>${user.email}</p>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="plan-badge ${planClass}">${user.plan.replace('_', ' ')}</span>
+            </td>
+            <td>${formatDate(user.created_at)}</td>
+            <td>${user.last_login ? formatDateTime(user.last_login) : 'Never'}</td>
+            <td>
+              <span class="status-badge ${statusClass}">${statusText}</span>
+              ${user.is_suspended && user.suspension_reason ? `<br><small style="color: #a0a0a0;">Reason: ${user.suspension_reason}</small>` : ''}
+            </td>
+            <td>
+              <div class="action-buttons">
+                ${suspendButton}
+                <button class="btn btn-info btn-small" onclick="viewUser(${user.id})">
+                  <i class="fas fa-eye"></i> View
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('userCount').textContent = filteredUsers.length;
+      renderPagination();
+    }
+
+    function renderPagination() {
+      const pagination = document.getElementById('pagination');
+      const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+      
+      if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+      }
+
+      let paginationHTML = '';
+      
+      // Previous button
+      if (currentPage > 1) {
+        paginationHTML += `<button class="btn btn-secondary" onclick="changePage(${currentPage - 1})">
+                             <i class="fas fa-chevron-left"></i>
+                           </button>`;
+      }
+
+      // Page numbers
+      for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+        const activeClass = i === currentPage ? ' active' : '';
+        paginationHTML += `<button class="btn btn-secondary${activeClass}" onclick
