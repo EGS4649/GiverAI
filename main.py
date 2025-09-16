@@ -4119,8 +4119,8 @@ async def checkout_success(request: Request, session_id: str = None):
         session = stripe.checkout.Session.retrieve(session_id)
         print(f"✅ Session retrieved: {session.payment_status}")
         
-        plan_name = session.user_metadata.get("plan", "Unknown Plan")
-        print(f"📦 Plan from user_metadata: {plan_name}")
+        plan_name = session.metadata.get("plan", "Unknown Plan")
+        print(f"📦 Plan from metadata: {plan_name}")
         
         # Check if payment was successful
         if session.payment_status != 'paid':
