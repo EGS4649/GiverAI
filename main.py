@@ -112,7 +112,7 @@ class UserActivity(Base):
     ip_address = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
-    user_metadata = Column(String, nullable=True)  # JSON string for additional data
+    user_user_metadata = Column(String, nullable=True) 
     user = relationship("User")
     
 class PasswordReset(Base):
@@ -1715,7 +1715,7 @@ def migrate_database():
     if 'password_resets' not in existing_tables:
         print("Creating password_resets table...")
         try:
-            Base.metadata.tables['password_resets'].create(bind=engine)
+            Base.user_metadata.tables['password_resets'].create(bind=engine)
             print("✅ password_resets table created")
         except Exception as e:
             print(f"❌ Error creating password_resets table: {e}")
@@ -1724,16 +1724,16 @@ def migrate_database():
     if tables_to_create:
         print(f"Creating missing tables: {tables_to_create}")
         try:
-            # Create all tables defined in Base.metadata
-            Base.metadata.create_all(bind=engine)
+            # Create all tables defined in Base.user_metadata
+            Base.user_metadata.create_all(bind=engine)
             print("All missing tables created successfully")
         except Exception as e:
             print(f"Error creating tables: {e}")
             # Try creating them individually
             for table_name in tables_to_create:
                 try:
-                    if table_name in Base.metadata.tables:
-                        Base.metadata.tables[table_name].create(bind=engine)
+                    if table_name in Base.user_metadata.tables:
+                        Base.user_metadata.tables[table_name].create(bind=engine)
                         print(f"Created {table_name} table")
                 except Exception as table_error:
                     print(f"Error creating {table_name}: {table_error}")
@@ -1835,7 +1835,7 @@ def log_user_activity(
     description: str = None, 
     ip_address: str = None,
     user_agent: str = None,
-    metadata: dict = None,
+    user_metadata: dict = None,
     db: Session = None
 ):
     """Log user activity"""
@@ -1852,7 +1852,7 @@ def log_user_activity(
             description=description,
             ip_address=ip_address,
             user_agent=user_agent,
-            user_metadata=json.dumps(user_metadata) if metadata else None
+            user_user_metadata=json.dumps(user_user_metadata) if user_metadata else None
         )
         db.add(activity)
         if should_close:
@@ -2786,7 +2786,7 @@ async def suspend_user_endpoint(
         activity_type="suspended",
         description=f"Account suspended by admin: {reason}",
         ip_address=request.client.host if request.client else None,
-        metadata={"admin": current_user.email, "reason": reason},
+        user_metadata={"admin": current_user.email, "reason": reason},
         db=db
     )
     
@@ -2830,7 +2830,7 @@ async def unsuspend_user_endpoint(
         activity_type="unsuspended",
         description=f"Account unsuspended by admin",
         ip_address=request.client.host if request.client else None,
-        metadata={"admin": current_user.email, "previous_reason": old_reason},
+        user_metadata={"admin": current_user.email, "previous_reason": old_reason},
         db=db
     )
     
@@ -2904,7 +2904,7 @@ async def force_password_reset_endpoint(
             activity_type="password_reset_forced",
             description="Password reset forced by admin",
             ip_address=request.client.host if request.client else None,
-            metadata={"admin": current_user.email},
+            user_metadata={"admin": current_user.email},
             db=db
         )
         
@@ -2938,10 +2938,10 @@ async def get_user_activity(
     
     activity_data = []
     for activity in activities:
-        user_metadata = None
-        if activity.metadata:
+        user_user_metadata = None
+        if activity.user_metadata:
             try:
-                user_metadata = json.loads(activity.metadata)
+                user_user_metadata = json.loads(activity.user_metadata)
             except:
                 pass
         
@@ -2952,7 +2952,7 @@ async def get_user_activity(
             "timestamp": activity.timestamp.isoformat(),
             "ip_address": activity.ip_address,
             "user_agent": activity.user_agent,
-            "metadata": metadata
+            "user_metadata": user_metadata
         })
     
     total_activities = db.query(UserActivity).filter(UserActivity.user_id == user_id).count()
@@ -3986,7 +3986,7 @@ async def create_checkout_session(request: Request, plan_type: str):
                 customer = stripe.Customer.create(
                     email=user.email,
                     name=getattr(user, 'name', None),  # Use name if your User model has it
-                    metadata={
+                    user_metadata={
                         "user_id": str(user.id),
                         "created_from": "checkout"
                     }
@@ -4021,7 +4021,7 @@ async def create_checkout_session(request: Request, plan_type: str):
             success_url=str(request.url_for('checkout_success')) + "?session_id={CHECKOUT_SESSION_ID}",
             cancel_url=str(request.url_for('pricing')),
             customer=customer_id,  # Use customer ID instead of customer_email
-            metadata={
+            user_metadata={
                 "user_id": user.id,
                 "plan": plan_type
             }
@@ -4093,8 +4093,8 @@ async def checkout_success(request: Request, session_id: str = None):
         session = stripe.checkout.Session.retrieve(session_id)
         print(f"✅ Session retrieved: {session.payment_status}")
         
-        plan_name = session.metadata.get("plan", "Unknown Plan")
-        print(f"📦 Plan from metadata: {plan_name}")
+        plan_name = session.user_metadata.get("plan", "Unknown Plan")
+        print(f"📦 Plan from user_metadata: {plan_name}")
         
         # Check if payment was successful
         if session.payment_status != 'paid':
@@ -5375,7 +5375,7 @@ async def handle_subscription_deleted(subscription):
         user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
         
         if user:
-            old_plan = user.plan if user.plan != "canceling" else subscription.get('metadata', {}).get('original_plan', 'creator')
+            old_plan = user.plan if user.plan != "canceling" else subscription.get('user_metadata', {}).get('original_plan', 'creator')
             user.plan = "free"
             db.commit()
             
