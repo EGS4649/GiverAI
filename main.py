@@ -4047,7 +4047,7 @@ async def create_checkout_session(request: Request, plan_type: str):
             success_url=str(request.url_for('checkout_success')) + "?session_id={CHECKOUT_SESSION_ID}",
             cancel_url=str(request.url_for('pricing')),
             customer=customer_id,  # Use customer ID instead of customer_email
-            user_metadata={
+            metadata={
                 "user_id": user.id,
                 "plan": plan_type
             }
