@@ -2872,31 +2872,6 @@ async def unsuspend_user_endpoint(
         print(f"❌ Failed to send restoration email: {str(e)}")
     
     return {"message": "User unsuspended successfully"}
-    
-@app.get("/debug-user/{identifier}")
-def debug_user(identifier: str):
-    db = SessionLocal()
-    try:
-        # Check both username and email
-        user = db.query(User).filter(
-            (User.username == identifier) | (User.email == identifier)
-        ).first()
-        
-        if user:
-            return {
-                "found": True,
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "is_active": user.is_active,
-                "failed_attempts": user.failed_login_attempts,
-                "hash_type": str(type(user.hashed_password)),
-                "hash_length": len(user.hashed_password) if user.hashed_password else 0
-            }
-        else:
-            return {"found": False}
-    finally:
-        db.close()
         
 # Updated force password reset endpoint
 @app.post("/admin/force-password-reset")
