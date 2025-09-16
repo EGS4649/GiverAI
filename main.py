@@ -4012,7 +4012,7 @@ async def create_checkout_session(request: Request, plan_type: str):
                 customer = stripe.Customer.create(
                     email=user.email,
                     name=getattr(user, 'name', None),  # Use name if your User model has it
-                    user_metadata={
+                    metadata={
                         "user_id": str(user.id),
                         "created_from": "checkout"
                     }
