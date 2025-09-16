@@ -112,7 +112,7 @@ class UserActivity(Base):
     ip_address = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
-    metadata = Column(String, nullable=True)  # JSON string for additional data
+    user_metadata = Column(String, nullable=True)  # JSON string for additional data
     user = relationship("User")
     
 class PasswordReset(Base):
@@ -1852,7 +1852,7 @@ def log_user_activity(
             description=description,
             ip_address=ip_address,
             user_agent=user_agent,
-            metadata=json.dumps(metadata) if metadata else None
+            user_metadata=json.dumps(user_metadata) if metadata else None
         )
         db.add(activity)
         if should_close:
@@ -2938,10 +2938,10 @@ async def get_user_activity(
     
     activity_data = []
     for activity in activities:
-        metadata = None
+        user_metadata = None
         if activity.metadata:
             try:
-                metadata = json.loads(activity.metadata)
+                user_metadata = json.loads(activity.metadata)
             except:
                 pass
         
