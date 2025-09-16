@@ -1515,8 +1515,11 @@ def get_user(db, username: str):
         raise
 
 def authenticate_user(db, username: str, password: str):
-    # We need to load the password for verification
-    user = db.query(User).filter(User.username == username).first()
+    # Search by both username AND email (same as in login handler)
+    user = db.query(User).filter(
+        (User.username == username) | (User.email == username)
+    ).first()
+    
     if not user or not verify_password(password, user.hashed_password): 
         return None
     return user
