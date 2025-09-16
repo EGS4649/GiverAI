@@ -3124,12 +3124,13 @@ def login_post(
         
         print("✅ All checks passed - creating access token...")
         
-        # Successful login - reset failed attempts
-        user.failed_login_attempts = 0
-        user.last_failed_login = None
-        user.account_locked_until = None
-        # user.last_login = datetime.utcnow()  # Commented out - this field might not exist
-        db.commit()
+       if user:  # successful authentication
+           # Successful login - reset failed attempts and track login
+           user.failed_login_attempts = 0
+           user.last_failed_login = None
+           user.account_locked_until = None
+           user.last_login = datetime.utcnow()  # ✅ Track last login
+           db.commit()
         
         # Create access token
         access_token = create_access_token(
