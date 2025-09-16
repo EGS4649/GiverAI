@@ -2215,7 +2215,33 @@ async def resend_verification_post(
 
     finally:
         db.close()
-
+        
+@app.get("/debug-auth")
+def debug_auth(username: str, password: str):
+    """Temporary debug endpoint - REMOVE IN PRODUCTION"""
+    db = SessionLocal()
+    try:
+        # Test direct authentication
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            return {"error": "User not found"}
+        
+        # Test password verification
+        result = verify_password(password, user.hashed_password)
+        
+        return {
+            "user_found": True,
+            "username": user.username,
+            "is_active": user.is_active,
+            "is_suspended": user.is_suspended,
+            "failed_attempts": user.failed_login_attempts,
+            "account_locked": user.account_locked_until,
+            "password_check": result,
+            "hash_type": type(user.hashed_password).__name__
+        }
+    finally:
+        db.close()
+        
 # Also add a quick resend route for already logged-in users who aren't verified
 @app.post("/quick-resend-verification")
 async def quick_resend_verification(request: Request):
