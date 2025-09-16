@@ -1515,13 +1515,29 @@ def get_user(db, username: str):
         raise
 
 def authenticate_user(db, username: str, password: str):
-    # Search by both username AND email (same as in login handler)
+    # Load the user WITH password (don't use get_user which defers password)
+    # Search by both username and email
     user = db.query(User).filter(
         (User.username == username) | (User.email == username)
     ).first()
     
-    if not user or not verify_password(password, user.hashed_password): 
+    if not user:
+        print(f"❌ No user found for: {username}")
         return None
+    
+    if not user.hashed_password:
+        print(f"❌ No password hash for user: {user.username}")
+        return None
+    
+    print(f"🔍 Verifying password for user: {user.username}")
+    print(f"   Hash type: {type(user.hashed_password)}")
+    print(f"   Hash length: {len(user.hashed_password)}")
+    
+    if not verify_password(password, user.hashed_password):
+        print(f"❌ Password verification failed for user: {user.username}")
+        return None
+    
+    print(f"✅ Password verified successfully for user: {user.username}")
     return user
 
 def get_plan_features(plan_name):
