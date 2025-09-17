@@ -1698,7 +1698,7 @@ def migrate_database():
             'industry': "ALTER TABLE users ADD COLUMN industry VARCHAR",
             'goals': "ALTER TABLE users ADD COLUMN goals VARCHAR",
             'posting_frequency': "ALTER TABLE users ADD COLUMN posting_frequency VARCHAR",
-            'original_plan': "ALTER TABLE users ADD COLUMN original_plan VARCHAR"
+            'original_plan': "ALTER TABLE users ADD COLUMN original_plan VARCHAR",
             'last_login': "ALTER TABLE users ADD COLUMN last_login TIMESTAMP",
             'suspended_at': "ALTER TABLE users ADD COLUMN suspended_at TIMESTAMP",
             'suspended_by': "ALTER TABLE users ADD COLUMN suspended_by VARCHAR",
