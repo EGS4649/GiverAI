@@ -3124,8 +3124,8 @@ def login_post(
         
         print("✅ All checks passed - creating access token...")
         
-         if user:  # successful authentication
-           # Successful login - reset failed attempts and track login
+        if user:  # successful authentication
+            # Successful login - reset failed attempts and track login
             user.failed_login_attempts = 0
             user.last_failed_login = None
             user.account_locked_until = None
