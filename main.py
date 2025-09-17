@@ -3056,7 +3056,7 @@ def login_post(
             user.failed_login_attempts = 0
             user.last_failed_login = None
             user.account_locked_until = None
-            user.last_login = datetime.timezone.utc()  # ✅ Track last login
+            user.last_login = datetime.now(timezone.utc)  # ✅ Track last login
             db.commit()
         
         # Create access token
