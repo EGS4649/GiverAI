@@ -3129,7 +3129,7 @@ def login_post(
             user.failed_login_attempts = 0
             user.last_failed_login = None
             user.account_locked_until = None
-            user.last_login = datetime.utcnow()  # ✅ Track last login
+            user.last_login = datetime.timezone.utc()  # ✅ Track last login
             db.commit()
         
         # Create access token
@@ -3375,12 +3375,6 @@ def faq_page(request: Request):
         "request": request, 
         "user": user
     })
-    
-@app.get("/debug-email")
-def debug_email(email: str = "test@example.com"):
-    """Debug email configuration"""
-    result = test_simple_email(email)
-    return {"status": "success" if result else "failed"}
 
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
@@ -5090,6 +5084,7 @@ async def stripe_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Invalid signature")
     
     db = SessionLocal()
+
     try:
         if event['type'] == 'invoice.payment_succeeded':
             invoice = event['data']['object']
@@ -5130,11 +5125,46 @@ async def stripe_webhook(request: Request):
                     print(f"✅ Upgrade email sent to {user.email}")
                 except Exception as e:
                     print(f"❌ Failed to send upgrade email: {str(e)}")
-        
+
+        if event['type'] == 'checkout.session.completed':
+            session = event['data']['object']
+            user_id = int(session['metadata']['user_id'])
+            new_plan = session['metadata']['plan']
+            user = db.query(User).filter(User.id == user_id).first()
+
+            if user:
+                # Store original plan if this is their first upgrade
+                if not user.original_plan and user.plan == 'free':
+                    user.original_plan = user.plan  # Store current plan as original
+
+                # Update to new plan
+                old_plan = user.plan
+                user.plan = new_plan
+                db.commit()
+
+                try:
+                    await email_service.send_subscription_upgrade_email(
+                        user, old_plan, new_plan,
+                        get_plan_price(new_plan),
+                        datetime.utcnow() + timedelta(days=30)  # Next billing date
+                    )
+                    print(f"✅ Upgrade email sent to {user.email}")
+                except Exception as e:
+                    print(f"Failed to send upgrade email: {e}")
+
         return {"status": "success"}
-        
     finally:
         db.close()
+
+def get_plan_price(plan):
+    """Get plan price for emails"""
+    prices = {
+        'creator': 29,
+        'small_team': 79,
+        'agency': 199,
+        'enterprise': 499
+    }
+    return prices.get(plan, 0)
         
 def get_plan_from_price_id(price_id):
     """Map Stripe price IDs back to plan names"""
