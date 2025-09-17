@@ -801,583 +801,627 @@
   </footer>
 
   <script>
-    // Sample data - Replace with actual data from your backend
-    let allUsers = [
-      {
-        id: 40,
-        username: "Admin",
-        email: "support@giverai.me",
-        plan: "free",
-        created_at: "2025-09-15",
-        last_login: "2025-09-15 10:30:00",
-        is_suspended: false,
-        suspension_reason: null
-      },
-      {
-        id: 35,
-        username: "TEST",
-        email: "popcorn.under.pressure@gmail.com",
-        plan: "free",
-        created_at: "2025-09-14",
-        last_login: "2025-09-14 15:45:00",
-        is_suspended: false,
-        suspension_reason: null
-      }
-    ];
+// Complete Admin Dashboard JavaScript
+let allUsers = [];
+let filteredUsers = [];
+let currentPage = 1;
+const usersPerPage = 10;
 
-    let filteredUsers = [...allUsers];
-    let currentPage = 1;
-    const usersPerPage = 10;
+// Load real user data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadUsers();
+});
 
-    function renderUsers() {
-      const tbody = document.getElementById('usersTableBody');
-      const startIndex = (currentPage - 1) * usersPerPage;
-      const endIndex = startIndex + usersPerPage;
-      const usersToShow = filteredUsers.slice(startIndex, endIndex);
+async function loadUsers() {
+    try {
+        console.log('Loading users...');
+        const response = await fetch('/admin/api/users?limit=100');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Users loaded:', data);
+        
+        allUsers = data.users || [];
+        filteredUsers = [...allUsers];
+        
+        updateStats();
+        renderUsers();
+    } catch (error) {
+        console.error('Error loading users:', error);
+        showAlert(`Failed to load users: ${error.message}`, 'error');
+        
+        // Show empty state
+        document.getElementById('usersTableBody').innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: #ef4444;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                    <br>Failed to load users: ${error.message}
+                </td>
+            </tr>
+        `;
+    }
+}
 
-      tbody.innerHTML = usersToShow.map(user => {
+function updateStats() {
+    const total = allUsers.length;
+    const suspended = allUsers.filter(u => u.is_suspended).length;
+    
+    // Calculate new users in last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recent = allUsers.filter(u => {
+        if (!u.created_at) return false;
+        return new Date(u.created_at) >= sevenDaysAgo;
+    }).length;
+    
+    // Calculate active users (logged in last 24 hours)
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+    const activeToday = allUsers.filter(u => {
+        if (!u.last_login) return false;
+        return new Date(u.last_login) >= oneDayAgo;
+    }).length;
+    
+    document.getElementById('totalUsers').textContent = total;
+    document.getElementById('suspendedUsers').textContent = suspended;
+    document.getElementById('newUsers').textContent = recent;
+    document.getElementById('activeUsers').textContent = activeToday;
+}
+
+function renderUsers() {
+    const tbody = document.getElementById('usersTableBody');
+    const startIndex = (currentPage - 1) * usersPerPage;
+    const endIndex = startIndex + usersPerPage;
+    const usersToShow = filteredUsers.slice(startIndex, endIndex);
+
+    if (usersToShow.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: #a0a0a0;">
+                    <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                    <br>No users found
+                </td>
+            </tr>
+        `;
+        document.getElementById('userCount').textContent = '0';
+        document.getElementById('pagination').innerHTML = '';
+        return;
+    }
+
+    tbody.innerHTML = usersToShow.map(user => {
         const planClass = `plan-${user.plan.replace('_', '-')}`;
         const statusClass = user.is_suspended ? 'status-suspended' : 'status-active';
         const statusText = user.is_suspended ? 'Suspended' : 'Active';
         const avatar = user.username.charAt(0).toUpperCase();
         
         const suspendButton = user.is_suspended 
-          ? `<button class="btn btn-success btn-small" onclick="unsuspendUser(${user.id}, '${user.username}')">
-               <i class="fas fa-user-check"></i> Unsuspend
-             </button>`
-          : `<form class="suspend-form" onsubmit="suspendUser(event, ${user.id}, '${user.username}')">
-               <input type="text" class="reason-input" placeholder="Reason..." required>
-               <button type="submit" class="btn btn-danger btn-small">
-                 <i class="fas fa-user-slash"></i> Suspend
-               </button>
-             </form>`;
+            ? `<button class="btn btn-success btn-small" onclick="unsuspendUser(${user.id}, '${user.username}')">
+                 <i class="fas fa-user-check"></i> Unsuspend
+               </button>`
+            : `<form class="suspend-form" onsubmit="suspendUser(event, ${user.id}, '${user.username}')">
+                 <input type="text" class="reason-input" placeholder="Reason..." required>
+                 <button type="submit" class="btn btn-danger btn-small">
+                   <i class="fas fa-user-slash"></i> Suspend
+                 </button>
+               </form>`;
+
+        const joinedDate = user.created_at ? formatDate(user.created_at) : 'Unknown';
+        const lastLogin = user.last_login ? formatDateTime(user.last_login) : 'Never';
 
         return `
-          <tr>
-            <td>
-              <div class="user-info">
-                <div class="user-avatar">${avatar}</div>
-                <div class="user-details">
-                  <h4>${user.username}</h4>
-                  <p>${user.email}</p>
-                </div>
-              </div>
-            </td>
-            <td>
-              <span class="plan-badge ${planClass}">${user.plan.replace('_', ' ')}</span>
-            </td>
-            <td>${formatDate(user.created_at)}</td>
-            <td>${user.last_login ? formatDateTime(user.last_login) : 'Never'}</td>
-            <td>
-              <span class="status-badge ${statusClass}">${statusText}</span>
-              ${user.is_suspended && user.suspension_reason ? `<br><small style="color: #a0a0a0;">Reason: ${user.suspension_reason}</small>` : ''}
-            </td>
-            <td>
-              <div class="action-buttons">
-                ${suspendButton}
-                <button class="btn btn-info btn-small" onclick="viewUser(${user.id})">
-                  <i class="fas fa-eye"></i> View
-                </button>
-              </div>
-            </td>
-          </tr>
+            <tr>
+                <td>
+                    <div class="user-info">
+                        <div class="user-avatar">${avatar}</div>
+                        <div class="user-details">
+                            <h4>${user.username}</h4>
+                            <p>${user.email}</p>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="plan-badge ${planClass}">${user.plan.replace('_', ' ')}</span>
+                </td>
+                <td>${joinedDate}</td>
+                <td>${lastLogin}</td>
+                <td>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                    ${user.is_suspended && user.suspension_reason ? 
+                        `<br><small style="color: #a0a0a0;">Reason: ${user.suspension_reason}</small>` : ''}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        ${suspendButton}
+                        <button class="btn btn-info btn-small" onclick="viewUser(${user.id})">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                    </div>
+                </td>
+            </tr>
         `;
-      }).join('');
+    }).join('');
 
-      document.getElementById('userCount').textContent = filteredUsers.length;
-      renderPagination();
-    }
+    document.getElementById('userCount').textContent = filteredUsers.length;
+    renderPagination();
+}
 
-    function renderPagination() {
-      const pagination = document.getElementById('pagination');
-      const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
-      
-      if (totalPages <= 1) {
+function renderPagination() {
+    const pagination = document.getElementById('pagination');
+    const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+    
+    if (totalPages <= 1) {
         pagination.innerHTML = '';
         return;
-      }
+    }
 
-      let paginationHTML = '';
-      
-      // Previous button
-      if (currentPage > 1) {
+    let paginationHTML = '';
+    
+    // Previous button
+    if (currentPage > 1) {
         paginationHTML += `<button class="btn btn-secondary" onclick="changePage(${currentPage - 1})">
                              <i class="fas fa-chevron-left"></i>
                            </button>`;
-      }
+    }
 
-      // Page numbers
-      for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+    // Page numbers
+    for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
         const activeClass = i === currentPage ? ' active' : '';
         paginationHTML += `<button class="btn btn-secondary${activeClass}" onclick="changePage(${i})">${i}</button>`;
-      }
+    }
 
-      // Next button
-      if (currentPage < totalPages) {
+    // Next button
+    if (currentPage < totalPages) {
         paginationHTML += `<button class="btn btn-secondary" onclick="changePage(${currentPage + 1})">
                              <i class="fas fa-chevron-right"></i>
                            </button>`;
-      }
-
-      pagination.innerHTML = paginationHTML;
     }
 
-    function changePage(page) {
-      currentPage = page;
-      renderUsers();
-    }
+    pagination.innerHTML = paginationHTML;
+}
 
-    function applyFilters() {
-      const search = document.getElementById('searchFilter').value.toLowerCase();
-      const status = document.getElementById('statusFilter').value;
-      const plan = document.getElementById('planFilter').value;
-      const dateFilter = document.getElementById('dateFilter').value;
+function changePage(page) {
+    currentPage = page;
+    renderUsers();
+}
 
-      filteredUsers = allUsers.filter(user => {
+function applyFilters() {
+    const search = document.getElementById('searchFilter').value.toLowerCase();
+    const status = document.getElementById('statusFilter').value;
+    const plan = document.getElementById('planFilter').value;
+    const dateFilter = document.getElementById('dateFilter').value;
+
+    filteredUsers = allUsers.filter(user => {
         // Search filter
         if (search && !user.username.toLowerCase().includes(search) && !user.email.toLowerCase().includes(search)) {
-          return false;
+            return false;
         }
 
         // Status filter
         if (status) {
-          if (status === 'active' && user.is_suspended) return false;
-          if (status === 'suspended' && !user.is_suspended) return false;
+            if (status === 'active' && user.is_suspended) return false;
+            if (status === 'suspended' && !user.is_suspended) return false;
         }
 
         // Plan filter
         if (plan && user.plan !== plan) return false;
 
         // Date filter
-        if (dateFilter) {
-          const userDate = new Date(user.created_at);
-          const now = new Date();
-          const daysDiff = Math.floor((now - userDate) / (1000 * 60 * 60 * 24));
+        if (dateFilter && user.created_at) {
+            const userDate = new Date(user.created_at);
+            const now = new Date();
+            const daysDiff = Math.floor((now - userDate) / (1000 * 60 * 60 * 24));
 
-          switch (dateFilter) {
-            case 'today':
-              if (daysDiff > 0) return false;
-              break;
-            case 'week':
-              if (daysDiff > 7) return false;
-              break;
-            case 'month':
-              if (daysDiff > 30) return false;
-              break;
-            case '3months':
-              if (daysDiff > 90) return false;
-              break;
-          }
+            switch (dateFilter) {
+                case 'today':
+                    if (daysDiff > 0) return false;
+                    break;
+                case 'week':
+                    if (daysDiff > 7) return false;
+                    break;
+                case 'month':
+                    if (daysDiff > 30) return false;
+                    break;
+                case '3months':
+                    if (daysDiff > 90) return false;
+                    break;
+            }
         }
 
         return true;
-      });
+    });
 
-      currentPage = 1;
-      renderUsers();
-    }
+    currentPage = 1;
+    renderUsers();
+}
 
-    function clearFilters() {
-      document.getElementById('searchFilter').value = '';
-      document.getElementById('statusFilter').value = '';
-      document.getElementById('planFilter').value = '';
-      document.getElementById('dateFilter').value = '';
-      filteredUsers = [...allUsers];
-      currentPage = 1;
-      renderUsers();
-    }
+function clearFilters() {
+    document.getElementById('searchFilter').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('planFilter').value = '';
+    document.getElementById('dateFilter').value = '';
+    filteredUsers = [...allUsers];
+    currentPage = 1;
+    renderUsers();
+}
 
-    async function suspendUser(event, userId, username) {
-      event.preventDefault();
-      const form = event.target;
-      const reason = form.querySelector('.reason-input').value;
+async function suspendUser(event, userId, username) {
+    event.preventDefault();
+    const form = event.target;
+    const reason = form.querySelector('.reason-input').value;
 
-      if (!confirm(`Suspend ${username}?`)) return;
+    if (!confirm(`Suspend ${username}?`)) return;
 
-      try {
+    try {
         const response = await fetch('/admin/suspend-user', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: `user_id=${userId}&reason=${encodeURIComponent(reason)}`
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `user_id=${userId}&reason=${encodeURIComponent(reason)}`
         });
 
-        if (response.ok) {
-          // Update local data
-          const user = allUsers.find(u => u.id === userId);
-          if (user) {
-            user.is_suspended = true;
-            user.suspension_reason = reason;
-          }
-          
-          applyFilters();
-          showAlert('User suspended successfully', 'success');
-          updateStats();
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            // Update local data
+            const user = allUsers.find(u => u.id === userId);
+            if (user) {
+                user.is_suspended = true;
+                user.suspension_reason = reason;
+            }
+            
+            applyFilters();
+            showAlert(result.message, 'success');
+            updateStats();
         } else {
-          showAlert('Failed to suspend user', 'error');
+            showAlert(result.message || 'Failed to suspend user', 'error');
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Error:', error);
         showAlert('Failed to suspend user', 'error');
-      }
     }
+}
 
-    async function unsuspendUser(userId, username) {
-      if (!confirm(`Unsuspend ${username}?`)) return;
+async function unsuspendUser(userId, username) {
+    if (!confirm(`Unsuspend ${username}?`)) return;
 
-      try {
+    try {
         const response = await fetch('/admin/unsuspend-user', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: `user_id=${userId}`
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `user_id=${userId}`
         });
 
-        if (response.ok) {
-          // Update local data
-          const user = allUsers.find(u => u.id === userId);
-          if (user) {
-            user.is_suspended = false;
-            user.suspension_reason = null;
-          }
-          
-          applyFilters();
-          showAlert('User unsuspended successfully', 'success');
-          updateStats();
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            // Update local data
+            const user = allUsers.find(u => u.id === userId);
+            if (user) {
+                user.is_suspended = false;
+                user.suspension_reason = null;
+            }
+            
+            applyFilters();
+            showAlert(result.message, 'success');
+            updateStats();
         } else {
-          showAlert('Failed to unsuspend user', 'error');
+            showAlert(result.message || 'Failed to unsuspend user', 'error');
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Error:', error);
         showAlert('Failed to unsuspend user', 'error');
-      }
     }
+}
 
-    async function viewUser(userId) {
-      const modal = document.getElementById('userModal');
-      const modalBody = document.getElementById('modalBody');
-      
-      // Show loading state
-      modalBody.innerHTML = '<div class="loading" style="height: 200px;"></div>';
-      modal.classList.add('show');
+async function viewUser(userId) {
+    const modal = document.getElementById('userModal');
+    const modalBody = document.getElementById('modalBody');
+    
+    // Show loading state
+    modalBody.innerHTML = '<div class="loading" style="height: 200px;"></div>';
+    modal.classList.add('show');
 
-      try {
+    try {
         // Fetch user details from server
         const response = await fetch(`/admin/user/${userId}`);
         if (!response.ok) throw new Error('Failed to fetch user data');
         
         const userData = await response.json();
         renderUserProfile(userData);
-      } catch (error) {
+    } catch (error) {
         console.error('Error:', error);
         modalBody.innerHTML = `
-          <div class="alert alert-error">
-            <i class="fas fa-exclamation-circle"></i>
-            Failed to load user profile
-          </div>
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                Failed to load user profile: ${error.message}
+            </div>
         `;
-      }
     }
+}
 
-    function renderUserProfile(user) {
-      const modalBody = document.getElementById('modalBody');
-      
-      modalBody.innerHTML = `
+function renderUserProfile(user) {
+    const modalBody = document.getElementById('modalBody');
+    
+    modalBody.innerHTML = `
         <div class="profile-section">
-          <h3><i class="fas fa-user"></i> Basic Information</h3>
-          <div class="profile-grid">
-            <div class="profile-item">
-              <label>Username</label>
-              <value>${user.username}</value>
+            <h3><i class="fas fa-user"></i> Basic Information</h3>
+            <div class="profile-grid">
+                <div class="profile-item">
+                    <label>Username</label>
+                    <value>${user.username}</value>
+                </div>
+                <div class="profile-item">
+                    <label>Email</label>
+                    <value>${user.email}</value>
+                </div>
+                <div class="profile-item">
+                    <label>User ID</label>
+                    <value>${user.id}</value>
+                </div>
+                <div class="profile-item">
+                    <label>Plan</label>
+                    <value><span class="plan-badge plan-${user.plan.replace('_', '-')}">${user.plan.replace('_', ' ')}</span></value>
+                </div>
             </div>
-            <div class="profile-item">
-              <label>Email</label>
-              <value>${user.email}</value>
-            </div>
-            <div class="profile-item">
-              <label>User ID</label>
-              <value>${user.id}</value>
-            </div>
-            <div class="profile-item">
-              <label>Plan</label>
-              <value><span class="plan-badge plan-${user.plan.replace('_', '-')}">${user.plan.replace('_', ' ')}</span></value>
-            </div>
-          </div>
         </div>
 
         <div class="profile-section">
-          <h3><i class="fas fa-calendar"></i> Account Timeline</h3>
-          <div class="profile-grid">
-            <div class="profile-item">
-              <label>Join Date</label>
-              <value>${formatDate(user.created_at)}</value>
+            <h3><i class="fas fa-calendar"></i> Account Timeline</h3>
+            <div class="profile-grid">
+                <div class="profile-item">
+                    <label>Join Date</label>
+                    <value>${user.created_at ? formatDate(user.created_at) : 'Unknown'}</value>
+                </div>
+                <div class="profile-item">
+                    <label>Last Login</label>
+                    <value>${user.last_login ? formatDateTime(user.last_login) : 'Never'}</value>
+                </div>
+                <div class="profile-item">
+                    <label>Account Age</label>
+                    <value>${user.created_at ? getAccountAge(user.created_at) : 'Unknown'}</value>
+                </div>
+                <div class="profile-item">
+                    <label>Status</label>
+                    <value><span class="status-badge ${user.is_suspended ? 'status-suspended' : 'status-active'}">${user.is_suspended ? 'Suspended' : 'Active'}</span></value>
+                </div>
             </div>
-            <div class="profile-item">
-              <label>Last Login</label>
-              <value>${user.last_login ? formatDateTime(user.last_login) : 'Never'}</value>
-            </div>
-            <div class="profile-item">
-              <label>Account Age</label>
-              <value>${getAccountAge(user.created_at)}</value>
-            </div>
-            <div class="profile-item">
-              <label>Status</label>
-              <value><span class="status-badge ${user.is_suspended ? 'status-suspended' : 'status-active'}">${user.is_suspended ? 'Suspended' : 'Active'}</span></value>
-            </div>
-          </div>
         </div>
 
         ${user.is_suspended ? `
         <div class="profile-section">
-          <h3><i class="fas fa-exclamation-triangle"></i> Suspension Details</h3>
-          <div class="profile-grid">
-            <div class="profile-item">
-              <label>Reason</label>
-              <value>${user.suspension_reason || 'No reason provided'}</value>
+            <h3><i class="fas fa-exclamation-triangle"></i> Suspension Details</h3>
+            <div class="profile-grid">
+                <div class="profile-item">
+                    <label>Reason</label>
+                    <value>${user.suspension_reason || 'No reason provided'}</value>
+                </div>
+                <div class="profile-item">
+                    <label>Suspended At</label>
+                    <value>${user.suspended_at ? formatDateTime(user.suspended_at) : 'Unknown'}</value>
+                </div>
+                <div class="profile-item">
+                    <label>Suspended By</label>
+                    <value>${user.suspended_by || 'Unknown'}</value>
+                </div>
             </div>
-            <div class="profile-item">
-              <label>Suspended At</label>
-              <value>${user.suspended_at ? formatDateTime(user.suspended_at) : 'Unknown'}</value>
-            </div>
-            <div class="profile-item">
-              <label>Suspended By</label>
-              <value>${user.suspended_by || 'Unknown'}</value>
-            </div>
-          </div>
         </div>
         ` : ''}
 
         <div class="profile-section">
-          <h3><i class="fas fa-chart-bar"></i> Usage Statistics</h3>
-          <div class="profile-grid">
-            <div class="profile-item">
-              <label>Total Tweets Generated</label>
-              <value>${user.total_tweets || 0}</value>
+            <h3><i class="fas fa-chart-bar"></i> Usage Statistics</h3>
+            <div class="profile-grid">
+                <div class="profile-item">
+                    <label>Total Tweets Generated</label>
+                    <value>${user.total_tweets || 0}</value>
+                </div>
+                <div class="profile-item">
+                    <label>This Month</label>
+                    <value>${user.monthly_tweets || 0}</value>
+                </div>
+                <div class="profile-item">
+                    <label>Last 7 Days</label>
+                    <value>${user.weekly_tweets || 0}</value>
+                </div>
+                <div class="profile-item">
+                    <label>API Key Status</label>
+                    <value>${user.api_key ? 'Generated' : 'Not Generated'}</value>
+                </div>
             </div>
-            <div class="profile-item">
-              <label>This Month</label>
-              <value>${user.monthly_tweets || 0}</value>
-            </div>
-            <div class="profile-item">
-              <label>Last 7 Days</label>
-              <value>${user.weekly_tweets || 0}</value>
-            </div>
-            <div class="profile-item">
-              <label>API Key Status</label>
-              <value>${user.api_key ? 'Generated' : 'Not Generated'}</value>
-            </div>
-          </div>
         </div>
 
         ${user.stripe_customer_id ? `
         <div class="profile-section">
-          <h3><i class="fas fa-credit-card"></i> Billing Information</h3>
-          <div class="profile-grid">
-            <div class="profile-item">
-              <label>Stripe Customer ID</label>
-              <value>${user.stripe_customer_id}</value>
+            <h3><i class="fas fa-credit-card"></i> Billing Information</h3>
+            <div class="profile-grid">
+                <div class="profile-item">
+                    <label>Stripe Customer ID</label>
+                    <value>${user.stripe_customer_id}</value>
+                </div>
+                <div class="profile-item">
+                    <label>Original Plan</label>
+                    <value>${user.original_plan || 'N/A'}</value>
+                </div>
             </div>
-            <div class="profile-item">
-              <label>Original Plan</label>
-              <value>${user.original_plan || 'N/A'}</value>
-            </div>
-          </div>
         </div>
         ` : ''}
 
         <div class="profile-section">
-          <h3><i class="fas fa-cog"></i> Admin Actions</h3>
-          <div class="action-buttons">
-            ${user.is_suspended ? 
-              `<button class="btn btn-success" onclick="unsuspendUser(${user.id}, '${user.username}'); closeModal();">
-                 <i class="fas fa-user-check"></i> Unsuspend User
-               </button>` :
-              `<button class="btn btn-danger" onclick="showSuspendForm(${user.id}, '${user.username}')">
-                 <i class="fas fa-user-slash"></i> Suspend User
-               </button>`
-            }
-            <button class="btn btn-secondary" onclick="sendPasswordReset(${user.id})">
-              <i class="fas fa-key"></i> Force Password Reset
-            </button>
-            <button class="btn btn-info" onclick="viewUserActivity(${user.id})">
-              <i class="fas fa-history"></i> View Activity
-            </button>
-          </div>
+            <h3><i class="fas fa-cog"></i> Admin Actions</h3>
+            <div class="action-buttons">
+                ${user.is_suspended ? 
+                  `<button class="btn btn-success" onclick="unsuspendUser(${user.id}, '${user.username}'); closeModal();">
+                     <i class="fas fa-user-check"></i> Unsuspend User
+                   </button>` :
+                  `<button class="btn btn-danger" onclick="showSuspendForm(${user.id}, '${user.username}')">
+                     <i class="fas fa-user-slash"></i> Suspend User
+                   </button>`
+                }
+                <button class="btn btn-secondary" onclick="sendPasswordReset(${user.id})">
+                  <i class="fas fa-key"></i> Force Password Reset
+                </button>
+                <button class="btn btn-info" onclick="viewUserActivity(${user.id})">
+                  <i class="fas fa-history"></i> View Activity
+                </button>
+            </div>
         </div>
-      `;
-    }
+    `;
+}
 
-    function closeModal() {
-      document.getElementById('userModal').classList.remove('show');
-    }
+function closeModal() {
+    document.getElementById('userModal').classList.remove('show');
+}
 
-    function showSuspendForm(userId, username) {
-      const reason = prompt(`Enter suspension reason for ${username}:`);
-      if (reason && reason.trim()) {
+function showSuspendForm(userId, username) {
+    const reason = prompt(`Enter suspension reason for ${username}:`);
+    if (reason && reason.trim()) {
         suspendUserFromProfile(userId, username, reason.trim());
-      }
     }
+}
 
-    async function suspendUserFromProfile(userId, username, reason) {
-      try {
+async function suspendUserFromProfile(userId, username, reason) {
+    try {
         const response = await fetch('/admin/suspend-user', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: `user_id=${userId}&reason=${encodeURIComponent(reason)}`
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `user_id=${userId}&reason=${encodeURIComponent(reason)}`
         });
 
-        if (response.ok) {
-          // Update local data
-          const user = allUsers.find(u => u.id === userId);
-          if (user) {
-            user.is_suspended = true;
-            user.suspension_reason = reason;
-          }
-          
-          closeModal();
-          applyFilters();
-          showAlert('User suspended successfully', 'success');
-          updateStats();
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            // Update local data
+            const user = allUsers.find(u => u.id === userId);
+            if (user) {
+                user.is_suspended = true;
+                user.suspension_reason = reason;
+            }
+            
+            closeModal();
+            applyFilters();
+            showAlert(result.message, 'success');
+            updateStats();
         } else {
-          showAlert('Failed to suspend user', 'error');
+            showAlert(result.message || 'Failed to suspend user', 'error');
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Error:', error);
         showAlert('Failed to suspend user', 'error');
-      }
     }
+}
 
-    async function sendPasswordReset(userId) {
-      if (!confirm('Send password reset email to this user?')) return;
+async function sendPasswordReset(userId) {
+    if (!confirm('Send password reset email to this user?')) return;
 
-      try {
+    try {
         const response = await fetch('/admin/force-password-reset', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: `user_id=${userId}`
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `user_id=${userId}`
         });
 
-        if (response.ok) {
-          showAlert('Password reset email sent', 'success');
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            showAlert(result.message, 'success');
         } else {
-          showAlert('Failed to send password reset', 'error');
+            showAlert(result.message || 'Failed to send password reset', 'error');
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Error:', error);
         showAlert('Failed to send password reset', 'error');
-      }
     }
+}
 
-    function viewUserActivity(userId) {
-      // Redirect to activity page or load in modal
-      window.open(`/admin/user/${userId}/activity`, '_blank');
-    }
+function viewUserActivity(userId) {
+    window.open(`/admin/user/${userId}/activity`, '_blank');
+}
 
-    function exportUsers() {
-      const csvContent = "data:text/csv;charset=utf-8," 
+function exportUsers() {
+    const csvContent = "data:text/csv;charset=utf-8," 
         + "ID,Username,Email,Plan,Status,Join Date,Last Login,Suspension Reason\n"
         + filteredUsers.map(user => {
             const status = user.is_suspended ? 'Suspended' : 'Active';
-            const lastLogin = user.last_login || 'Never';
+            const lastLogin = user.last_login ? formatDateTime(user.last_login) : 'Never';
+            const joinDate = user.created_at ? formatDate(user.created_at) : 'Unknown';
             const suspensionReason = user.suspension_reason || '';
-            return `${user.id},"${user.username}","${user.email}","${user.plan}","${status}","${user.created_at}","${lastLogin}","${suspensionReason}"`;
-          }).join("\n");
+            return `${user.id},"${user.username}","${user.email}","${user.plan}","${status}","${joinDate}","${lastLogin}","${suspensionReason}"`;
+        }).join("\n");
 
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `users_export_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `users_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
-    function showAlert(message, type) {
-      const alertDiv = document.createElement('div');
-      alertDiv.className = `alert alert-${type}`;
-      alertDiv.innerHTML = `
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.innerHTML = `
         <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
         ${message}
-      `;
-      
-      // Insert after header
-      const header = document.querySelector('.admin-header');
-      header.parentNode.insertBefore(alertDiv, header.nextSibling);
-      
-      // Remove after 5 seconds
-      setTimeout(() => {
+    `;
+    
+    // Insert after header
+    const header = document.querySelector('.admin-header');
+    header.parentNode.insertBefore(alertDiv, header.nextSibling);
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
         if (alertDiv.parentNode) {
-          alertDiv.parentNode.removeChild(alertDiv);
+            alertDiv.parentNode.removeChild(alertDiv);
         }
-      }, 5000);
-    }
+    }, 5000);
+}
 
-    function updateStats() {
-      const suspended = allUsers.filter(u => u.is_suspended).length;
-      document.getElementById('suspendedUsers').textContent = suspended;
-    }
+// Utility functions
+function formatDate(dateString) {
+    return new Date(dateString).toLocaleDateString();
+}
 
-    // Utility functions
-    function formatDate(dateString) {
-      return new Date(dateString).toLocaleDateString();
-    }
+function formatDateTime(dateString) {
+    return new Date(dateString).toLocaleString();
+}
 
-    function formatDateTime(dateString) {
-      return new Date(dateString).toLocaleString();
-    }
-
-    function getAccountAge(createdAt) {
-      const created = new Date(createdAt);
-      const now = new Date();
-      const diffTime = Math.abs(now - created);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays < 30) {
+function getAccountAge(createdAt) {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now - created);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 30) {
         return `${diffDays} days`;
-      } else if (diffDays < 365) {
+    } else if (diffDays < 365) {
         const months = Math.floor(diffDays / 30);
         return `${months} month${months > 1 ? 's' : ''}`;
-      } else {
+    } else {
         const years = Math.floor(diffDays / 365);
         return `${years} year${years > 1 ? 's' : ''}`;
-      }
     }
+}
 
-    // Modal click outside to close
-    document.getElementById('userModal').addEventListener('click', function(e) {
-      if (e.target === this) {
+// Modal click outside to close
+document.getElementById('userModal').addEventListener('click', function(e) {
+    if (e.target === this) {
         closeModal();
-      }
-    });
+    }
+});
 
-    // Initialize search on input
-    document.getElementById('searchFilter').addEventListener('input', function() {
-      clearTimeout(this.searchTimeout);
-      this.searchTimeout = setTimeout(applyFilters, 500);
-    });
-
-    // Initialize on load
-    document.addEventListener('DOMContentLoaded', function() {
-      renderUsers();
-    });
-
-    // Auto-refresh every 30 seconds
-    setInterval(async function() {
-      try {
-        const response = await fetch('/admin/api/users');
-        if (response.ok) {
-          allUsers = await response.json();
-          applyFilters();
-          updateStats();
-        }
-      } catch (error) {
-        console.error('Auto-refresh failed:', error);
-      }
-    }, 30000);
-  </script>
+// Initialize search on input
+document.getElementById('searchFilter').addEventListener('input', function() {
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(applyFilters, 500);
+});
+</script>
