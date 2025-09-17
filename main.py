@@ -1,6 +1,5 @@
 import datetime
 from datetime import datetime, time, timedelta, date, timezone
-import pytz
 import os
 import re
 import secrets
@@ -3058,9 +3057,6 @@ def login_post(
             user.last_failed_login = None
             user.account_locked_until = None
             user.last_login = datetime.now(timezone.utc)  # ✅ Track last login
-
-            eastern = pytz.timezone('US/Eastern')
-            est_time = user.last_login.astimezone(eastern)
             db.commit()
         
         # Create access token
