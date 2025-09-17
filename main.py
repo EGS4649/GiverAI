@@ -2530,6 +2530,13 @@ def verify_email_change(request: Request, token: str = Query(...)):
         
 ADMIN_USERS = {"support@giverai.me"}
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 def get_admin_user(current_user: User = Depends(get_current_user)):
     if not current_user or current_user.email not in ADMIN_USERS:
         raise HTTPException(status_code=403, detail="Admin access required")
@@ -2591,64 +2598,67 @@ async def get_admin_users(
     search: str = Query(None),
     status: str = Query(None),
     plan: str = Query(None),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user)
 ):
     """Get users for admin dashboard"""
     # Check admin permissions
     if current_user.email not in ADMIN_USERS:
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    # Build query
-    query = db.query(User)
-    
-    # Apply filters
-    if search:
-        query = query.filter(
-            (User.username.ilike(f"%{search}%")) | 
-            (User.email.ilike(f"%{search}%"))
-        )
-    
-    if status == 'active':
-        query = query.filter(User.is_suspended == False)
-    elif status == 'suspended':
-        query = query.filter(User.is_suspended == True)
-    
-    if plan:
-        query = query.filter(User.plan == plan)
-    
-    # Get total count
-    total = query.count()
-    
-    # Apply pagination
-    offset = (page - 1) * limit
-    users = query.offset(offset).limit(limit).all()
-    
-    # Format users for frontend
-    users_data = []
-    for user in users:
-        users_data.append({
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'plan': user.plan,
-            'original_plan': user.original_plan,
-            'created_at': user.created_at.isoformat() if user.created_at else None,
-            'last_login': user.last_login.isoformat() if user.last_login else None,
-            'is_suspended': user.is_suspended,
-            'suspension_reason': user.suspension_reason,
-            'suspended_at': user.suspended_at.isoformat() if user.suspended_at else None,
-            'suspended_by': user.suspended_by,
-            'stripe_customer_id': user.stripe_customer_id,
-            'is_active': user.is_active
-        })
-    
-    return {
-        'users': users_data,
-        'total': total,
-        'page': page,
-        'pages': (total + limit - 1) // limit
-    }
+    db = SessionLocal()
+    try:
+        # Build query
+        query = db.query(User)
+        
+        # Apply filters
+        if search:
+            query = query.filter(
+                (User.username.ilike(f"%{search}%")) | 
+                (User.email.ilike(f"%{search}%"))
+            )
+        
+        if status == 'active':
+            query = query.filter(User.is_suspended == False)
+        elif status == 'suspended':
+            query = query.filter(User.is_suspended == True)
+        
+        if plan:
+            query = query.filter(User.plan == plan)
+        
+        # Get total count
+        total = query.count()
+        
+        # Apply pagination
+        offset = (page - 1) * limit
+        users = query.offset(offset).limit(limit).all()
+        
+        # Format users for frontend
+        users_data = []
+        for user in users:
+            users_data.append({
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'plan': user.plan,
+                'original_plan': user.original_plan,
+                'created_at': user.created_at.isoformat() if user.created_at else None,
+                'last_login': user.last_login.isoformat() if user.last_login else None,
+                'is_suspended': user.is_suspended,
+                'suspension_reason': user.suspension_reason,
+                'suspended_at': user.suspended_at.isoformat() if user.suspended_at else None,
+                'suspended_by': user.suspended_by,
+                'stripe_customer_id': user.stripe_customer_id,
+                'is_active': user.is_active
+            })
+        
+        return {
+            'users': users_data,
+            'total': total,
+            'page': page,
+            'pages': (total + limit - 1) // limit
+        }
+    finally:
+        db.close()
        
 @app.post("/admin/suspend-user")
 async def suspend_user_admin(
@@ -2803,54 +2813,57 @@ async def force_password_reset_endpoint(
 @app.get("/admin/user/{user_id}")
 async def get_admin_user_detail(
     user_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user)
 ):
     """Get detailed user information for admin"""
     # Check admin permissions
     if current_user.email not in ADMIN_USERS:
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Get user's tweet count
-    total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user_id).count()
-    
-    # Get monthly tweets (last 30 days)
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    monthly_tweets = db.query(GeneratedTweet).filter(
-        GeneratedTweet.user_id == user_id,
-        GeneratedTweet.generated_at >= thirty_days_ago
-    ).count()
-    
-    # Get weekly tweets (last 7 days)  
-    seven_days_ago = datetime.utcnow() - timedelta(days=7)
-    weekly_tweets = db.query(GeneratedTweet).filter(
-        GeneratedTweet.user_id == user_id,
-        GeneratedTweet.generated_at >= seven_days_ago
-    ).count()
-    
-    return {
-        'id': user.id,
-        'username': user.username,
-        'email': user.email,
-        'plan': user.plan,
-        'original_plan': user.original_plan,
-        'created_at': user.created_at.isoformat() if user.created_at else None,
-        'last_login': user.last_login.isoformat() if user.last_login else None,
-        'is_suspended': user.is_suspended,
-        'suspension_reason': user.suspension_reason,
-        'suspended_at': user.suspended_at.isoformat() if user.suspended_at else None,
-        'suspended_by': user.suspended_by,
-        'stripe_customer_id': user.stripe_customer_id,
-        'is_active': user.is_active,
-        'api_key': bool(user.api_key),
-        'total_tweets': total_tweets,
-        'monthly_tweets': monthly_tweets,
-        'weekly_tweets': weekly_tweets
-    }
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get user's tweet count
+        total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user_id).count()
+        
+        # Get monthly tweets (last 30 days)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        monthly_tweets = db.query(GeneratedTweet).filter(
+            GeneratedTweet.user_id == user_id,
+            GeneratedTweet.generated_at >= thirty_days_ago
+        ).count()
+        
+        # Get weekly tweets (last 7 days)  
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        weekly_tweets = db.query(GeneratedTweet).filter(
+            GeneratedTweet.user_id == user_id,
+            GeneratedTweet.generated_at >= seven_days_ago
+        ).count()
+        
+        return {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'plan': user.plan,
+            'original_plan': user.original_plan,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'last_login': user.last_login.isoformat() if user.last_login else None,
+            'is_suspended': user.is_suspended,
+            'suspension_reason': user.suspension_reason,
+            'suspended_at': user.suspended_at.isoformat() if user.suspended_at else None,
+            'suspended_by': user.suspended_by,
+            'stripe_customer_id': user.stripe_customer_id,
+            'is_active': user.is_active,
+            'api_key': bool(user.api_key),
+            'total_tweets': total_tweets,
+            'monthly_tweets': monthly_tweets,
+            'weekly_tweets': weekly_tweets
+        }
+    finally:
+        db.close()
       
 # User activity endpoint
 @app.get("/admin/user/{user_id}/activity")
