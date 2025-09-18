@@ -1,6 +1,5 @@
 import datetime
 from datetime import datetime, time, timedelta, date, timezone
-import pytz
 import os
 import re
 import secrets
