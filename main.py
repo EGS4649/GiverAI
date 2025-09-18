@@ -50,6 +50,19 @@ try:
 except Exception as e:
     print("bcrypt import error:", e)
 
+try:
+    from zoneinfo import ZoneInfo
+    TIMEZONE_AVAILABLE = True
+    
+except ImportError:
+    # Fallback for older Python versions
+    try:
+        import pytz
+        TIMEZONE_AVAILABLE = True
+    except ImportError:
+        TIMEZONE_AVAILABLE = False
+        print("⚠️ Neither zoneinfo nor pytz available. Timestamps will be shown in UTC.")
+
 # ----- DB Setup -----
 DATABASE_URL = os.getenv("DATABASE_URL")  # Should be your Render PostgreSQL URL
 engine = create_engine(DATABASE_URL)
@@ -2578,124 +2591,195 @@ async def admin_dashboard(
 @app.get("/admin/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(
     request: Request,
+    success: str = Query(default=""),
+    error: str = Query(default=""),
     current_user: User = Depends(get_current_user)
 ):
-    """Admin dashboard with user management tools"""
-    # Check if user is admin
-    if not current_user or current_user.email not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    """Admin dashboard with timezone-aware statistics"""
     
-    return templates.TemplateResponse("admin/dashboard.html", {
-        "request": request,
-        "user": current_user
-    })
-    
-# API endpoint to get users data
-@app.get("/admin/api/users")
-async def get_admin_users(
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
-    search: str = Query(None),
-    status: str = Query(None),
-    plan: str = Query(None),
-    current_user: User = Depends(get_current_user)
-):
-    """Get users for admin dashboard"""
-    # Check admin permissions
     if current_user.email not in ADMIN_USERS:
         raise HTTPException(status_code=403, detail="Admin access required")
     
     db = SessionLocal()
     try:
-        # Build query
+        # Get statistics with Eastern Time awareness
+        now_utc = datetime.utcnow()
+        now_eastern = convert_to_eastern(now_utc)
+        
+        # Calculate today's start in Eastern Time, then convert back to UTC for querying
+        today_eastern_start = now_eastern.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_utc_start = today_eastern_start.astimezone(datetime.timezone.utc)
+        
+        # Calculate 7 days ago in Eastern Time
+        seven_days_eastern = today_eastern_start - timedelta(days=7)
+        seven_days_utc = seven_days_eastern.astimezone(datetime.timezone.utc)
+        
+        total_users = db.query(User).count()
+        suspended_count = db.query(User).filter(User.is_suspended == True).count()
+        recent_signups = db.query(User).filter(User.created_at >= seven_days_utc).count()
+        
+        # Active today (users who logged in since midnight Eastern Time)
+        active_today = db.query(User).filter(
+            User.last_login >= today_utc_start
+        ).count()
+        
+        return templates.TemplateResponse("admin/dashboard.html", {
+            "request": request,
+            "user": current_user,
+            "total_users": total_users,
+            "suspended_count": suspended_count,
+            "recent_signups": recent_signups,
+            "active_today": active_today,
+            "success": success,
+            "error": error,
+            "timezone_info": f"Times shown in {'Eastern Time' if TIMEZONE_AVAILABLE else 'UTC'}"
+        })
+        
+    finally:
+        db.close()
+  
+# API endpoint to get users data
+@app.get("/admin/api/users")
+async def admin_api_users(
+    request: Request,
+    limit: int = Query(default=50, le=200),
+    page: int = Query(default=1, ge=1),
+    search: str = Query(default=""),
+    status: str = Query(default=""),
+    plan: str = Query(default=""),
+    date_filter: str = Query(default=""),
+    current_user: User = Depends(get_current_user)
+):
+    """API endpoint for admin dashboard to fetch users with timezone conversion"""
+    
+    # Check if user is admin
+    if current_user.email not in ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    db = SessionLocal()
+    try:
+        # Build the base query
         query = db.query(User)
         
-        # Apply filters
+        # Apply search filter
         if search:
             query = query.filter(
                 (User.username.ilike(f"%{search}%")) | 
                 (User.email.ilike(f"%{search}%"))
             )
         
-        if status == 'active':
+        # Apply status filter
+        if status == "active":
             query = query.filter(User.is_suspended == False)
-        elif status == 'suspended':
+        elif status == "suspended":
             query = query.filter(User.is_suspended == True)
         
+        # Apply plan filter
         if plan:
             query = query.filter(User.plan == plan)
         
-        # Get total count
-        total = query.count()
+        # Apply date filter
+        if date_filter:
+            now_eastern = convert_to_eastern(datetime.utcnow())
+            today_start = now_eastern.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            if date_filter == "today":
+                query = query.filter(User.created_at >= today_start.astimezone(datetime.timezone.utc))
+            elif date_filter == "week":
+                week_start = today_start - timedelta(days=7)
+                query = query.filter(User.created_at >= week_start.astimezone(datetime.timezone.utc))
+            elif date_filter == "month":
+                month_start = today_start - timedelta(days=30)
+                query = query.filter(User.created_at >= month_start.astimezone(datetime.timezone.utc))
+            elif date_filter == "3months":
+                three_months_start = today_start - timedelta(days=90)
+                query = query.filter(User.created_at >= three_months_start.astimezone(datetime.timezone.utc))
+        
+        # Get total count for pagination
+        total_users = query.count()
         
         # Apply pagination
         offset = (page - 1) * limit
         users = query.offset(offset).limit(limit).all()
         
-        # Format users for frontend
+        # Convert users to dict with timezone-converted timestamps
         users_data = []
         for user in users:
-            users_data.append({
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'plan': user.plan,
-                'original_plan': user.original_plan,
-                'created_at': user.created_at.isoformat() if user.created_at else None,
-                'last_login': user.last_login.isoformat() if user.last_login else None,
-                'is_suspended': user.is_suspended,
-                'suspension_reason': user.suspension_reason,
-                'suspended_at': user.suspended_at.isoformat() if user.suspended_at else None,
-                'suspended_by': user.suspended_by,
-                'stripe_customer_id': user.stripe_customer_id,
-                'is_active': user.is_active
-            })
+            # Get tweet count for this user
+            tweet_count = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).count()
+            
+            user_dict = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "plan": user.plan,
+                "is_suspended": user.is_suspended,
+                "suspension_reason": user.suspension_reason,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "created_at_eastern": format_eastern_datetime(user.created_at),
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+                "last_login_eastern": format_eastern_datetime(user.last_login),
+                "suspended_at": user.suspended_at.isoformat() if user.suspended_at else None,
+                "suspended_at_eastern": format_eastern_datetime(user.suspended_at),
+                "suspended_by": user.suspended_by,
+                "total_tweets": tweet_count,
+                "stripe_customer_id": user.stripe_customer_id,
+                "original_plan": user.original_plan
+            }
+            users_data.append(user_dict)
         
         return {
-            'users': users_data,
-            'total': total,
-            'page': page,
-            'pages': (total + limit - 1) // limit
+            "users": users_data,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_users,
+                "pages": (total_users + limit - 1) // limit
+            },
+            "timezone": "America/New_York" if TIMEZONE_AVAILABLE else "UTC"
         }
+        
     finally:
         db.close()
        
 @app.post("/admin/suspend-user")
-async def suspend_user_admin(
-    request: Request,
+async def admin_suspend_user(
     user_id: int = Form(...),
     reason: str = Form(...),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user)
 ):
-    """Suspend a user account"""
-    # Check admin permissions
+    """Suspend user account - returns JSON for AJAX"""
+    
     if current_user.email not in ADMIN_USERS:
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Suspend the user
-    user.is_suspended = True
-    user.suspension_reason = reason
-    user.suspended_at = datetime.utcnow()
-    user.suspended_by = current_user.email
-    
-    db.commit()
-    
-    # Send suspension email
+    db = SessionLocal()
     try:
-        await email_service.send_suspension_email(user.email, reason)
-    except Exception as e:
-        print(f"Failed to send suspension email: {e}")
-    
-    # Return JSON response for AJAX
-    return JSONResponse({
-        "success": True,
-        "message": f"User {user.username} suspended successfully"
-    })
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return JSONResponse({"success": False, "message": "User not found"})
+        
+        # Update user
+        user.is_suspended = True
+        user.suspension_reason = reason
+        user.suspended_at = datetime.utcnow()
+        user.suspended_by = current_user.email
+        
+        db.commit()
+        
+        # Send suspension email
+        try:
+            await email_service.send_suspension_email(user.email, reason)
+        except Exception as e:
+            print(f"Failed to send suspension email: {e}")
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"User {user.username} suspended successfully"
+        })
+        
+    finally:
+        db.close()
 
 @app.post("/admin/unsuspend-user")
 async def unsuspend_user_endpoint(
@@ -2867,56 +2951,69 @@ async def get_admin_user_detail(
       
 # User activity endpoint
 @app.get("/admin/user/{user_id}/activity")
-async def get_user_activity(
+async def admin_user_activity(
     user_id: int,
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    request: Request,
+    page: int = Query(default=1, ge=1),
+    current_user: User = Depends(get_current_user)
 ):
-    """Get user activity log"""
-    # Check admin permissions
+    """Get user activity log with Eastern Time conversion"""
+    
     if current_user.email not in ADMIN_USERS:
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # For now, return sample activity data since you don't have activity logging yet
-    # You'll need to implement an ActivityLog model later
-    activities = [
-        {
-            'type': 'account_created',
-            'description': f'Account created for {user.username}',
-            'timestamp': user.created_at.isoformat() if user.created_at else datetime.utcnow().isoformat(),
-            'ip_address': 'Unknown',
-            'metadata': {}
+    db = SessionLocal()
+    try:
+        # Get the user
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # For now, we'll create some sample activity data
+        # You'll need to implement an actual ActivityLog model
+        sample_activities = [
+            {
+                "id": 1,
+                "type": "login",
+                "description": "User logged in",
+                "timestamp": user.last_login or datetime.utcnow(),
+                "ip_address": "192.168.1.1",
+                "metadata": {"user_agent": "Mozilla/5.0..."}
+            },
+            {
+                "id": 2,
+                "type": "account_created",
+                "description": "Account created",
+                "timestamp": user.created_at,
+                "ip_address": "192.168.1.1",
+                "metadata": {"signup_method": "email"}
+            }
+        ]
+        
+        # Convert timestamps to Eastern Time
+        for activity in sample_activities:
+            activity["timestamp_eastern"] = format_eastern_datetime(activity["timestamp"])
+            activity["timestamp"] = activity["timestamp"].isoformat()
+        
+        return {
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "created_at_eastern": format_eastern_datetime(user.created_at)
+            },
+            "activities": sample_activities,
+            "pagination": {
+                "page": page,
+                "pages": 1,
+                "total": len(sample_activities)
+            },
+            "timezone": "America/New_York" if TIMEZONE_AVAILABLE else "UTC"
         }
-    ]
-    
-    if user.last_login:
-        activities.append({
-            'type': 'login',
-            'description': 'User logged in',
-            'timestamp': user.last_login.isoformat(),
-            'ip_address': 'Unknown', 
-            'metadata': {}
-        })
-    
-    return {
-        'user': {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email
-        },
-        'activities': activities,
-        'pagination': {
-            'page': page,
-            'pages': 1,
-            'total': len(activities)
-        }
-    }
+        
+    finally:
+        db.close()
   
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
