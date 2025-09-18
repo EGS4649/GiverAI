@@ -1145,8 +1145,14 @@ async function viewUser(userId) {
     }
 }
 
+// Updated JavaScript for Admin Dashboard with Eastern Time support
 function renderUserProfile(user) {
     const modalBody = document.getElementById('modalBody');
+    
+    // Use Eastern Time formatted dates if available
+    const joinDate = user.created_at_eastern || (user.created_at ? formatDate(user.created_at) : 'Unknown');
+    const lastLogin = user.last_login_eastern || (user.last_login ? formatDateTime(user.last_login) : 'Never');
+    const suspendedAt = user.suspended_at_eastern || (user.suspended_at ? formatDateTime(user.suspended_at) : 'Unknown');
     
     modalBody.innerHTML = `
         <div class="profile-section">
@@ -1172,15 +1178,15 @@ function renderUserProfile(user) {
         </div>
 
         <div class="profile-section">
-            <h3><i class="fas fa-calendar"></i> Account Timeline</h3>
+            <h3><i class="fas fa-calendar"></i> Account Timeline <small style="color: #a0a0a0; font-size: 0.8em;">(Eastern Time)</small></h3>
             <div class="profile-grid">
                 <div class="profile-item">
                     <label>Join Date</label>
-                    <value>${user.created_at ? formatDate(user.created_at) : 'Unknown'}</value>
+                    <value>${joinDate}</value>
                 </div>
                 <div class="profile-item">
                     <label>Last Login</label>
-                    <value>${user.last_login ? formatDateTime(user.last_login) : 'Never'}</value>
+                    <value>${lastLogin}</value>
                 </div>
                 <div class="profile-item">
                     <label>Account Age</label>
@@ -1203,7 +1209,7 @@ function renderUserProfile(user) {
                 </div>
                 <div class="profile-item">
                     <label>Suspended At</label>
-                    <value>${user.suspended_at ? formatDateTime(user.suspended_at) : 'Unknown'}</value>
+                    <value>${suspendedAt}</value>
                 </div>
                 <div class="profile-item">
                     <label>Suspended By</label>
@@ -1273,86 +1279,182 @@ function renderUserProfile(user) {
     `;
 }
 
-function closeModal() {
-    document.getElementById('userModal').classList.remove('show');
-}
+function renderUsers() {
+    const tbody = document.getElementById('usersTableBody');
+    const startIndex = (currentPage - 1) * usersPerPage;
+    const endIndex = startIndex + usersPerPage;
+    const usersToShow = filteredUsers.slice(startIndex, endIndex);
 
-function showSuspendForm(userId, username) {
-    const reason = prompt(`Enter suspension reason for ${username}:`);
-    if (reason && reason.trim()) {
-        suspendUserFromProfile(userId, username, reason.trim());
+    if (usersToShow.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: #a0a0a0;">
+                    <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                    <br>No users found
+                </td>
+            </tr>
+        `;
+        document.getElementById('userCount').textContent = '0';
+        document.getElementById('pagination').innerHTML = '';
+        return;
     }
-}
 
-async function suspendUserFromProfile(userId, username, reason) {
-    try {
-        const response = await fetch('/admin/suspend-user', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `user_id=${userId}&reason=${encodeURIComponent(reason)}`
-        });
+    tbody.innerHTML = usersToShow.map(user => {
+        const planClass = `plan-${user.plan.replace('_', '-')}`;
+        const statusClass = user.is_suspended ? 'status-suspended' : 'status-active';
+        const statusText = user.is_suspended ? 'Suspended' : 'Active';
+        const avatar = user.username.charAt(0).toUpperCase();
+        
+        const suspendButton = user.is_suspended 
+            ? `<button class="btn btn-success btn-small" onclick="unsuspendUser(${user.id}, '${user.username}')">
+                 <i class="fas fa-user-check"></i> Unsuspend
+               </button>`
+            : `<form class="suspend-form" onsubmit="suspendUser(event, ${user.id}, '${user.username}')">
+                 <input type="text" class="reason-input" placeholder="Reason..." required>
+                 <button type="submit" class="btn btn-danger btn-small">
+                   <i class="fas fa-user-slash"></i> Suspend
+                 </button>
+               </form>`;
 
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-            // Update local data
-            const user = allUsers.find(u => u.id === userId);
-            if (user) {
-                user.is_suspended = true;
-                user.suspension_reason = reason;
-            }
+        // Use Eastern Time formatted dates if available, otherwise fall back to UTC formatting
+        const joinedDate = user.created_at_eastern ? 
+            user.created_at_eastern.split(' ')[0] : // Just the date part
+            (user.created_at ? formatDate(user.created_at) : 'Unknown');
             
-            closeModal();
-            applyFilters();
-            showAlert(result.message, 'success');
-            updateStats();
-        } else {
-            showAlert(result.message || 'Failed to suspend user', 'error');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showAlert('Failed to suspend user', 'error');
+        const lastLogin = user.last_login_eastern ? 
+            user.last_login_eastern : 
+            (user.last_login ? formatDateTime(user.last_login) : 'Never');
+
+        return `
+            <tr>
+                <td>
+                    <div class="user-info">
+                        <div class="user-avatar">${avatar}</div>
+                        <div class="user-details">
+                            <h4>${user.username}</h4>
+                            <p>${user.email}</p>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="plan-badge ${planClass}">${user.plan.replace('_', ' ')}</span>
+                </td>
+                <td>${joinedDate}</td>
+                <td>${lastLogin}</td>
+                <td>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                    ${user.is_suspended && user.suspension_reason ? 
+                        `<br><small style="color: #a0a0a0;">Reason: ${user.suspension_reason}</small>` : ''}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        ${suspendButton}
+                        <button class="btn btn-info btn-small" onclick="viewUser(${user.id})">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    document.getElementById('userCount').textContent = filteredUsers.length;
+    renderPagination();
+}
+
+// Update the renderActivities function for activity page
+function renderActivities(activities) {
+    const container = document.getElementById('activityContainer');
+    
+    if (!activities || activities.length === 0) {
+        container.innerHTML = `
+            <div class="no-activity">
+                <i class="fas fa-clock" style="font-size: 3rem; color: #a0a0a0; margin-bottom: 1rem;"></i>
+                <h3>No Activity Found</h3>
+                <p>This user has no recorded activity yet.</p>
+            </div>
+        `;
+        return;
     }
-}
 
-async function sendPasswordReset(userId) {
-    if (!confirm('Send password reset email to this user?')) return;
-
-    try {
-        const response = await fetch('/admin/force-password-reset', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `user_id=${userId}`
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-            showAlert(result.message, 'success');
-        } else {
-            showAlert(result.message || 'Failed to send password reset', 'error');
+    const activitiesHTML = activities.map(activity => {
+        // Use Eastern Time formatted timestamp if available
+        const timestamp = activity.timestamp_eastern || new Date(activity.timestamp).toLocaleString();
+        const typeIcon = getActivityIcon(activity.type);
+        
+        let metadataHTML = '';
+        if (activity.metadata && Object.keys(activity.metadata).length > 0) {
+            metadataHTML = `
+                <div class="activity-metadata">
+                    <strong>Additional Details:</strong><br>
+                    ${JSON.stringify(activity.metadata, null, 2)}
+                </div>
+            `;
         }
-    } catch (error) {
-        console.error('Error:', error);
-        showAlert('Failed to send password reset', 'error');
+        
+        return `
+            <div class="activity-item">
+                <div class="activity-type">
+                    <i class="fas ${typeIcon}"></i> ${formatActivityType(activity.type)}
+                </div>
+                <div class="activity-description">
+                    ${activity.description || 'No description available'}
+                </div>
+                <div class="activity-meta">
+                    <span><i class="fas fa-clock"></i> ${timestamp} ET</span>
+                    ${activity.ip_address ? `<span><i class="fas fa-map-marker-alt"></i> ${activity.ip_address}</span>` : ''}
+                </div>
+                ${metadataHTML}
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = activitiesHTML;
+}
+
+// Add timezone indicator to the dashboard
+function addTimezoneIndicator() {
+    const timezoneInfo = document.createElement('div');
+    timezoneInfo.id = 'timezoneInfo';
+    timezoneInfo.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(0, 255, 255, 0.1);
+        border: 1px solid rgba(0, 255, 255, 0.3);
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        color: #00ffff;
+        z-index: 1000;
+    `;
+    timezoneInfo.innerHTML = '<i class="fas fa-clock"></i> Times shown in Eastern Time';
+    document.body.appendChild(timezoneInfo);
+}
+
+// Call this when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Get user ID from URL
+    const pathParts = window.location.pathname.split('/');
+    const userIdIndex = pathParts.indexOf('user') + 1;
+    if (userIdIndex > 0 && userIdIndex < pathParts.length) {
+        currentUserId = parseInt(pathParts[userIdIndex]);
+        loadUserActivity(currentUserId, currentPage);
+    } else {
+        // On main admin dashboard, load users and add timezone indicator
+        loadUsers();
+        addTimezoneIndicator();
     }
-}
+});
 
-function viewUserActivity(userId) {
-    window.open(`/admin/user/${userId}/activity`, '_blank');
-}
-
+// Update the export function to include timezone info
 function exportUsers() {
     const csvContent = "data:text/csv;charset=utf-8," 
-        + "ID,Username,Email,Plan,Status,Join Date,Last Login,Suspension Reason\n"
+        + "ID,Username,Email,Plan,Status,Join Date (ET),Last Login (ET),Suspension Reason\n"
         + filteredUsers.map(user => {
             const status = user.is_suspended ? 'Suspended' : 'Active';
-            const lastLogin = user.last_login ? formatDateTime(user.last_login) : 'Never';
-            const joinDate = user.created_at ? formatDate(user.created_at) : 'Unknown';
+            const lastLogin = user.last_login_eastern || 'Never';
+            const joinDate = user.created_at_eastern ? user.created_at_eastern.split(' ')[0] : 'Unknown';
             const suspensionReason = user.suspension_reason || '';
             return `${user.id},"${user.username}","${user.email}","${user.plan}","${status}","${joinDate}","${lastLogin}","${suspensionReason}"`;
         }).join("\n");
@@ -1360,68 +1462,9 @@ function exportUsers() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `users_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `users_export_eastern_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  </script>
 }
-
-function showAlert(message, type) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type}`;
-    alertDiv.innerHTML = `
-        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-        ${message}
-    `;
-    
-    // Insert after header
-    const header = document.querySelector('.admin-header');
-    header.parentNode.insertBefore(alertDiv, header.nextSibling);
-    
-    // Remove after 5 seconds
-    setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.parentNode.removeChild(alertDiv);
-        }
-    }, 5000);
-}
-
-// Utility functions
-function formatDate(dateString) {
-    return new Date(dateString).toLocaleDateString();
-}
-
-function formatDateTime(dateString) {
-    return new Date(dateString).toLocaleString();
-}
-
-function getAccountAge(createdAt) {
-    const created = new Date(createdAt);
-    const now = new Date();
-    const diffTime = Math.abs(now - created);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 30) {
-        return `${diffDays} days`;
-    } else if (diffDays < 365) {
-        const months = Math.floor(diffDays / 30);
-        return `${months} month${months > 1 ? 's' : ''}`;
-    } else {
-        const years = Math.floor(diffDays / 365);
-        return `${years} year${years > 1 ? 's' : ''}`;
-    }
-}
-
-// Modal click outside to close
-document.getElementById('userModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
-});
-
-// Initialize search on input
-document.getElementById('searchFilter').addEventListener('input', function() {
-    clearTimeout(this.searchTimeout);
-    this.searchTimeout = setTimeout(applyFilters, 500);
-});
-</script>
