@@ -1761,6 +1761,22 @@ async def check_ip_ban(request: Request, db: Session):
             detail="Access denied: IP address is banned"
         )
     
+def check_ip_ban(ip_address: str, db) -> bool:
+    """Check if an IP address is banned"""
+    ban = db.query(IPBan).filter(  # Make sure this matches your model name
+        IPBan.ip_address == ip_address,
+        IPBan.is_active == True
+    ).first()
+    
+    if ban:
+        # Check if ban has expired
+        if ban.expires_at and ban.expires_at < datetime.utcnow():
+            ban.is_active = False
+            db.commit()
+            return False
+        return True
+    return False
+
 def generate_email_change_token():
     """Generate secure email change token"""
     return secrets.token_urlsafe(32)
@@ -2971,6 +2987,32 @@ def get_admin_user(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
+# Add this before your routes
+@app.middleware("http")
+async def ip_ban_middleware(request: Request, call_next):
+    """Middleware to check for IP bans"""
+    # Skip IP ban check for admin routes (so admins can unban themselves)
+    if request.url.path.startswith("/admin"):
+        response = await call_next(request)
+        return response
+    
+    # Get client IP
+    ip_address = request.client.host if request.client else None
+    
+    if ip_address:
+        db = SessionLocal()
+        try:
+            if check_ip_ban(ip_address, db):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Your IP address has been banned"}
+                )
+        finally:
+            db.close()
+    
+    response = await call_next(request)
+    return response
+
 # Middleware to track user IPs and check bans
 @app.middleware("http")
 async def ip_tracking_middleware(request: Request, call_next):
@@ -3173,6 +3215,25 @@ def get_users_admin_api(
             "error": str(e)
         }, status_code=500)
     
+@app.get("/admin/ban-ip", response_class=HTMLResponse)
+async def admin_ban_ip_page(
+    request: Request,
+    admin: User = Depends(get_admin_user)
+):
+    """Admin page to ban IP addresses"""
+    db = SessionLocal()
+    try:
+        # Get current active bans
+        active_bans = db.query(IPBan).filter(IPBan.is_active == True).all()
+        
+        return templates.TemplateResponse("admin/ban_ip.html", {
+            "request": request,
+            "user": admin,
+            "active_bans": active_bans
+        })
+    finally:
+        db.close()
+
 @app.post("/admin/ban-ip")
 async def ban_ip_admin(
     request: Request,
