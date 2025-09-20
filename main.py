@@ -2108,6 +2108,9 @@ def migrate_database():
 
     if 'email_change_requests' not in existing_tables:
         tables_to_create.append('email_change_requests')
+    
+    if 'ip_bans' not in existing_tables:
+        tables_to_create.append('ip_bans')
 
     if 'password_resets' not in existing_tables:
         print("Creating password_resets table...")
