@@ -139,6 +139,8 @@ class User(Base):
     last_failed_login = Column(DateTime, nullable=True)
     account_locked_until = Column(DateTime, nullable=True)
 
+    
+
 class Usage(Base):
     __tablename__ = "usage"
     id = Column(Integer, primary_key=True, index=True)
@@ -2076,7 +2078,11 @@ def migrate_database():
             'last_login': "ALTER TABLE users ADD COLUMN last_login TIMESTAMP",
             'suspended_at': "ALTER TABLE users ADD COLUMN suspended_at TIMESTAMP",
             'suspended_by': "ALTER TABLE users ADD COLUMN suspended_by VARCHAR",
-            'suspension_reason': "ALTER TABLE users ADD COLUMN suspension_reason TEXT"
+            'suspension_reason': "ALTER TABLE users ADD COLUMN suspension_reason TEXT",
+            'last_login': "ALTER TABLE users ADD COLUMN last_login TIMESTAMP",
+            'last_known_ip': "ALTER TABLE users ADD COLUMN last_known_ip VARCHAR",
+            'registration_ip': "ALTER TABLE users ADD COLUMN registration_ip VARCHAR",
+            'is_ip_banned': "ALTER TABLE users ADD COLUMN is_ip_banned BOOLEAN DEFAULT FALSE"
         }
         
         for col_name, sql in required_columns.items():
