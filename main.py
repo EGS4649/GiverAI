@@ -2614,52 +2614,44 @@ async def admin_dashboard(
 @app.get("/admin/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(
     request: Request,
-    success: str = Query(default=""),
-    error: str = Query(default=""),
-    current_user: User = Depends(get_current_user)
+    success: str = Query(None),
+    error: str = Query(None),
+    db: Session = Depends(get_db)
 ):
-    """Admin dashboard with timezone-aware statistics"""
-    
-    if current_user.email not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    db = SessionLocal()
+    """Admin dashboard page"""
     try:
-        # Get statistics with Eastern Time awareness
-        now_utc = datetime.utcnow()
-        now_eastern = convert_to_eastern(now_utc)
+        # Check if user is admin
+        user = get_optional_user(request)
+        if not user or user.email not in ["support@giverai.me"]:
+            raise HTTPException(status_code=403, detail="Admin access required")
         
-        # Calculate today's start in Eastern Time, then convert back to UTC for querying
-        today_eastern_start = now_eastern.replace(hour=0, minute=0, second=0, microsecond=0)
-        today_utc_start = today_eastern_start.astimezone(datetime.timezone.utc)
-        
-        # Calculate 7 days ago in Eastern Time
-        seven_days_eastern = today_eastern_start - timedelta(days=7)
-        seven_days_utc = seven_days_eastern.astimezone(datetime.timezone.utc)
-        
+        # Get statistics
         total_users = db.query(User).count()
         suspended_count = db.query(User).filter(User.is_suspended == True).count()
-        recent_signups = db.query(User).filter(User.created_at >= seven_days_utc).count()
         
-        # Active today (users who logged in since midnight Eastern Time)
-        active_today = db.query(User).filter(
-            User.last_login >= today_utc_start
-        ).count()
+        # Recent signups (last 7 days)
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        recent_signups = db.query(User).filter(User.created_at >= seven_days_ago).count()
+        
+        # Active today (logged in last 24 hours)
+        one_day_ago = datetime.utcnow() - timedelta(days=1)
+        active_today = db.query(User).filter(User.last_login >= one_day_ago).count()
         
         return templates.TemplateResponse("admin/dashboard.html", {
             "request": request,
-            "user": current_user,
+            "user": user,
             "total_users": total_users,
             "suspended_count": suspended_count,
             "recent_signups": recent_signups,
             "active_today": active_today,
             "success": success,
-            "error": error,
-            "timezone_info": f"Times shown in {'Eastern Time' if TIMEZONE_AVAILABLE else 'UTC'}"
+            "error": error
         })
         
-    finally:
-        db.close()
+    except Exception as e:
+        print(f"Admin dashboard error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Admin dashboard error")
+    
   
 # API endpoint to get users data
 @app.get("/admin/api/users")
@@ -2886,6 +2878,7 @@ async def force_password_reset_endpoint(
     except Exception as e:
         print(f"Failed to send password reset email: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to send password reset email")
+    
 @app.get("/admin/user/{user_id}")
 async def get_admin_user_detail(
     user_id: int,
