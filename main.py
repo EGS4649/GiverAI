@@ -30,6 +30,7 @@ import json
 import asyncio
 import smtplib
 import pytz
+import ipaddress
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
@@ -80,7 +81,32 @@ class GeneratedTweet(Base):
     tweet_text = Column(String)
     generated_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User")
-    
+
+class IPBan(Base):
+    __tablename__ = "ip_bans"
+    id = Column(Integer, primary_key=True, index=True)
+    ip_address = Column(String, index=True)
+    reason = Column(Text, nullable=True)
+    banned_at = Column(DateTime, default=datetime.utcnow)
+    banned_by = Column(String, nullable=True)  # admin who banned the IP
+    expires_at = Column(DateTime, nullable=True)  # null = permanent ban
+    is_active = Column(Boolean, default=True)
+
+class SuspensionAppeal(Base):
+    __tablename__ = "suspension_appeals"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    appeal_type = Column(String, nullable=False)
+    appeal_message = Column(Text, nullable=False)
+    status = Column(String, default="pending")  # pending, approved, denied
+    created_at = Column(DateTime, default=datetime.utcnow)
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by = Column(String, nullable=True)
+    admin_notes = Column(Text, nullable=True)
+    user = relationship("User")
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -103,7 +129,9 @@ class User(Base):
     suspended_at = Column(DateTime, nullable=True)
     suspended_by = Column(String, nullable=True) 
     last_login = Column(DateTime, nullable=True)
-
+    last_known_ip = Column(String, nullable=True)
+    registration_ip = Column(String, nullable=True)
+    is_ip_banned = Column(Boolean, default=False)
 
     # Security logging
     last_password_change = Column(DateTime, nullable=True)
@@ -1174,7 +1202,187 @@ class EmailService:
             "We're Sorry to See You Go - Your GiverAI Account Has Been Deleted 👋",
             html_body
         )
+    def send_suspension_appeal_notification(self, user, appeal_type, appeal_message, appellant_name):
+        """Send notification to support team about new suspension appeal"""
+        
+        appeal_type_labels = {
+            "wrongful_suspension": "Wrongful Suspension",
+            "policy_misunderstanding": "Policy Misunderstanding", 
+            "technical_error": "Technical Error",
+            "account_compromise": "Account Compromised",
+            "content_misidentified": "Content Misidentified",
+            "first_time_offense": "First Time Offense - Request Leniency",
+            "other": "Other"
+        }
+        
+        appeal_label = appeal_type_labels.get(appeal_type, appeal_type)
+        formatted_message = appeal_message.replace('\n', '<br>')
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; max-width: 700px; margin: 0 auto;">
+            <div style="background: #dc3545; color: white; padding: 20px; text-align: center;">
+                <h1 style="margin: 0; color: white;">🚨 New Suspension Appeal</h1>
+                <p style="margin: 10px 0 0 0; color: white;">Urgent: User appealing account suspension</p>
+            </div>
+    
+            <div style="padding: 30px; background: white; border: 1px solid #eee;">
+                <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin-bottom: 25px; border-radius: 8px;">
+                    <h2 style="margin: 0; color: #721c24;">⚠️ PRIORITY: Suspension Appeal</h2>
+                    <p style="margin: 5px 0 0 0; color: #721c24;">This user is requesting review of their account suspension.</p>
+                </div>
+    
+                <h2 style="color: #333; border-bottom: 2px solid #dc3545; padding-bottom: 10px;">Appeal Details</h2>
+    
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                    <tr style="background: #f8f9fa;">
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold; width: 30%;">Suspended User:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">
+                            <strong>{user.username}</strong> ({user.email})
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Appellant Name:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">{appellant_name}</td>
+                    </tr>
+                    <tr style="background: #f8f9fa;">
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Appeal Type:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">
+                            <span style="background: #dc3545; color: white; padding: 4px 12px; border-radius: 15px; font-size: 12px;">
+                                {appeal_label}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Current Status:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">
+                            <span style="color: #dc3545; font-weight: bold;">SUSPENDED</span>
+                            {f'<br><small>Reason: {user.suspension_reason}</small>' if user.suspension_reason else ''}
+                        </td>
+                    </tr>
+                    <tr style="background: #f8f9fa;">
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Suspended Date:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">
+                            {user.suspended_at.strftime('%Y-%m-%d %H:%M UTC') if user.suspended_at else 'Unknown'}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Plan:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">{user.plan.replace('_', ' ').title()}</td>
+                    </tr>
+                    <tr style="background: #f8f9fa;">
+                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Appeal Submitted:</td>
+                        <td style="padding: 12px; border: 1px solid #dee2e6;">{datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}</td>
+                    </tr>
+                </table>
+    
+                <h3 style="color: #333; margin-top: 30px;">User's Appeal Statement:</h3>
+                <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #dc3545; border-radius: 4px; line-height: 1.6;">
+                    {formatted_message}
+                </div>
+    
+                <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+                    <h3 style="margin-top: 0; color: #333;">⏰ Action Required</h3>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>Review the user's suspension reason and appeal statement</li>
+                        <li>Check user's account history and previous violations</li>
+                        <li>Investigate the circumstances of the original suspension</li>
+                        <li>Make a decision: approve or deny the appeal</li>
+                        <li>Respond within 24-48 hours as promised</li>
+                    </ul>
+                </div>
+    
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="https://giverai.me/admin/appeals" 
+                       style="display: inline-block; background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                        Review Appeal in Admin Panel
+                    </a>
+                </div>
+            </div>
+    
+            <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
+                <p>This appeal was submitted via the GiverAI suspension appeal form</p>
+                <p><strong>Priority:</strong> Review within 24-48 hours</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self.send_simple_email(
+            "support@giverai.me",
+            f"🚨 URGENT: Suspension Appeal - {user.username} ({appeal_label})",
+            html_body
+        )
+    
+    def send_appeal_confirmation_email(self, user, appeal_type):
+        """Send confirmation email to user who submitted appeal"""
+        
+        appeal_type_labels = {
+            "wrongful_suspension": "Wrongful Suspension",
+            "policy_misunderstanding": "Policy Misunderstanding", 
+            "technical_error": "Technical Error",
+            "account_compromise": "Account Compromised",
+            "content_misidentified": "Content Misidentified",
+            "first_time_offense": "First Time Offense",
+            "other": "Other"
+        }
+        
+        appeal_label = appeal_type_labels.get(appeal_type, appeal_type)
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: #28a745; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+                    <h1 style="margin: 0; color: white;">Appeal Received ✅</h1>
+                    <p style="margin: 10px 0 0 0; color: white;">We're reviewing your suspension appeal</p>
+                </div>
+    
+                <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                    <h2 style="color: #333;">Hi {user.username}!</h2>
+    
+                    <p>Thank you for submitting your suspension appeal. We've received your request to review the suspension of your GiverAI account.</p>
+    
+                    <div style="background: #e3f2fd; padding: 15px; margin: 20px 0; border-radius: 6px;">
+                        <p style="margin: 0;"><strong>📋 Appeal Details:</strong></p>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li><strong>Type:</strong> {appeal_label}</li>
+                            <li><strong>Submitted:</strong> {datetime.now().strftime("%B %d, %Y at %I:%M %p UTC")}</li>
+                            <li>
+                                <strong>Status:</strong> Under Review
+                            </li>
+                        </ul>
+                    </div>
 
+                    <p>
+                        Our team will carefully review your appeal and may reach out if we need more information.<br>
+                        You'll receive a follow-up email within <strong>24-48 hours</strong> with our decision.
+                    </p>
+
+                    <p>If you have further questions, reply to this email or contact <a href="mailto:support@giverai.me">support@giverai.me</a>.</p>
+                    
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 6px; margin-top: 20px;">
+                        <p style="margin: 0;">
+                            <strong>Need urgent assistance?</strong> Please reply with any additional context or requests for expedited review.
+                        </p>
+                    </div>
+
+                    <p style="margin-top: 30px; color: #888; font-size: 13px;">
+                        This confirmation was automatically generated by GiverAI Suspension Appeals.<br>
+                        Reference ID: <strong>{user.id}</strong>
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        return self.send_simple_email(
+            user.email,
+            "✅ GiverAI Suspension Appeal Received",
+            html_body
+        )
+    
     def test_simple_email(self, to_email: str):
         """Simple email test with minimal HTML"""
         try:
@@ -1433,6 +1641,123 @@ def create_verification_record(user_id: int, db):
     db.add(verification)
     db.commit()
     return verification
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request, handling proxies"""
+    # Check for forwarded IP first (for reverse proxies)
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        # X-Forwarded-For can contain multiple IPs, get the first one
+        return forwarded_for.split(",")[0].strip()
+    
+    # Check other common proxy headers
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
+    
+    # Fallback to direct client IP
+    return request.client.host if request.client else "Unknown"
+
+def is_ip_banned(ip_address: str, db: Session) -> bool:
+    """Check if an IP address is banned"""
+    if not ip_address or ip_address == "Unknown":
+        return False
+    
+    # Check for exact IP match
+    ban = db.query(IPBan).filter(
+        IPBan.ip_address == ip_address,
+        IPBan.is_active == True
+    ).first()
+    
+    if ban:
+        # Check if ban has expired
+        if ban.expires_at and ban.expires_at < datetime.utcnow():
+            ban.is_active = False
+            db.commit()
+            return False
+        return True
+    
+    # TODO: Add subnet/range checking if needed
+    return False
+
+def ban_ip_address(ip_address: str, reason: str, banned_by: str, db: Session, expires_hours: int = None):
+    """Ban an IP address"""
+    if not ip_address or ip_address == "Unknown":
+        return False
+    
+    # Check if IP is already banned
+    existing_ban = db.query(IPBan).filter(
+        IPBan.ip_address == ip_address,
+        IPBan.is_active == True
+    ).first()
+    
+    if existing_ban:
+        # Update existing ban
+        existing_ban.reason = reason
+        existing_ban.banned_by = banned_by
+        existing_ban.banned_at = datetime.utcnow()
+        if expires_hours:
+            existing_ban.expires_at = datetime.utcnow() + timedelta(hours=expires_hours)
+        else:
+            existing_ban.expires_at = None  # Permanent
+    else:
+        # Create new ban
+        expires_at = None
+        if expires_hours:
+            expires_at = datetime.utcnow() + timedelta(hours=expires_hours)
+        
+        ban = IPBan(
+            ip_address=ip_address,
+            reason=reason,
+            banned_by=banned_by,
+            expires_at=expires_at
+        )
+        db.add(ban)
+    
+    db.commit()
+    
+    # Also mark any users with this IP as IP banned
+    users_with_ip = db.query(User).filter(
+        (User.last_known_ip == ip_address) | (User.registration_ip == ip_address)
+    ).all()
+    
+    for user in users_with_ip:
+        user.is_ip_banned = True
+    
+    db.commit()
+    return True
+
+def unban_ip_address(ip_address: str, db: Session):
+    """Unban an IP address"""
+    bans = db.query(IPBan).filter(
+        IPBan.ip_address == ip_address,
+        IPBan.is_active == True
+    ).all()
+    
+    for ban in bans:
+        ban.is_active = False
+    
+    # Unmark users with this IP
+    users_with_ip = db.query(User).filter(
+        (User.last_known_ip == ip_address) | (User.registration_ip == ip_address)
+    ).all()
+    
+    for user in users_with_ip:
+        user.is_ip_banned = False
+    
+    db.commit()
+    return True
+
+# Middleware to check IP bans
+async def check_ip_ban(request: Request, db: Session):
+    """Check if the requesting IP is banned"""
+    client_ip = get_client_ip(request)
+    
+    if is_ip_banned(client_ip, db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: IP address is banned"
+        )
     
 def generate_email_change_token():
     """Generate secure email change token"""
@@ -1847,7 +2172,53 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def migrate_database_suspension():
+    """Add suspension-related database updates"""
+    engine = create_engine(DATABASE_URL)
+    inspector = inspect(engine)
+    
+    # Get list of existing tables
+    existing_tables = inspector.get_table_names()
+    
+    # Create new tables if they don't exist
+    if 'ip_bans' not in existing_tables:
+        print("Creating ip_bans table...")
+        try:
+            Base.metadata.tables['ip_bans'].create(bind=engine)
+            print("✅ ip_bans table created")
+        except Exception as e:
+            print(f"❌ Error creating ip_bans table: {e}")
+    
+    if 'suspension_appeals' not in existing_tables:
+        print("Creating suspension_appeals table...")
+        try:
+            Base.metadata.tables['suspension_appeals'].create(bind=engine)
+            print("✅ suspension_appeals table created")
+        except Exception as e:
+            print(f"❌ Error creating suspension_appeals table: {e}")
+    
+    # Add new columns to users table
+    if 'users' in existing_tables:
+        columns = [col['name'] for col in inspector.get_columns('users')]
         
+        new_columns = {
+            'last_known_ip': "ALTER TABLE users ADD COLUMN last_known_ip VARCHAR",
+            'registration_ip': "ALTER TABLE users ADD COLUMN registration_ip VARCHAR", 
+            'is_ip_banned': "ALTER TABLE users ADD COLUMN is_ip_banned BOOLEAN DEFAULT FALSE"
+        }
+        
+        for col_name, sql in new_columns.items():
+            if col_name not in columns:
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(sql))
+                    print(f"Added {col_name} column to users table")
+                except Exception as e:
+                    print(f"Error adding {col_name}: {e}")
+
+    print("Suspension database migration completed")
+
 def fix_corrupted_user_data():
     """Fix corrupted hashed_password data in the database"""
     from sqlalchemy import create_engine, text
@@ -2591,6 +2962,57 @@ def get_admin_user(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
+# Middleware to track user IPs and check bans
+@app.middleware("http")
+async def ip_tracking_middleware(request: Request, call_next):
+    """Track user IPs and check for IP bans"""
+    client_ip = get_client_ip(request)
+    
+    # Skip IP checking for certain routes
+    skip_routes = ["/static", "/favicon.ico", "/_health"]
+    if any(request.url.path.startswith(route) for route in skip_routes):
+        return await call_next(request)
+    
+    # Check IP ban for all routes except suspended page
+    if not request.url.path.startswith("/suspended"):
+        db = SessionLocal()
+        try:
+            if is_ip_banned(client_ip, db):
+                # Return a simple banned page
+                return HTMLResponse(
+                    content="""
+                    <!DOCTYPE html>
+                    <html>
+                    <head><title>Access Denied</title></head>
+                    <body style="font-family: Arial; text-align: center; padding: 50px;">
+                        <h1>Access Denied</h1>
+                        <p>Your IP address has been banned due to policy violations.</p>
+                        <p>Contact support@giverai.me if you believe this is an error.</p>
+                    </body>
+                    </html>
+                    """,
+                    status_code=403
+                )
+        finally:
+            db.close()
+    
+    response = await call_next(request)
+    
+    # Track IP for logged-in users
+    if hasattr(request.state, 'user'):
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == request.state.user.id).first()
+            if user:
+                user.last_known_ip = client_ip
+                db.commit()
+        except Exception as e:
+            print(f"Error tracking IP: {e}")
+        finally:
+            db.close()
+    
+    return response
+
 @app.get("/admin")
 async def admin_dashboard(
     request: Request,
@@ -2633,264 +3055,205 @@ async def admin_dashboard(
         raise HTTPException(status_code=500, detail="Admin dashboard error")
         
 @app.get("/admin/dashboard", response_class=HTMLResponse)
-async def admin_dashboard(
+def admin_dashboard_updated(
     request: Request,
-    success: str = Query(None),
-    error: str = Query(None)
+    db: Session = Depends(get_db),
+    admin_user = Depends(get_admin_user)
 ):
-    """Admin dashboard page with proper timezone handling"""
-    try:
-        db = SessionLocal()
-        
-        # Check if user is admin
-        user = get_optional_user(request)
-        if not user or user.email not in {"support@giverai.me", "admin@giverai.me"}:
-            db.close()
-            raise HTTPException(status_code=403, detail="Admin access required")
-        
-        # Get basic statistics safely
-        try:
-            total_users = db.query(User).count()
-        except Exception:
-            total_users = 0
-            
-        try:
-            suspended_count = db.query(User).filter(User.is_suspended == True).count()
-        except Exception:
-            suspended_count = 0
-        
-        try:
-            seven_days_ago = datetime.utcnow() - timedelta(days=7)
-            recent_signups = db.query(User).filter(User.created_at >= seven_days_ago).count()
-        except Exception:
-            recent_signups = 0
-        
-        try:
-            one_day_ago = datetime.utcnow() - timedelta(days=1)
-            # Check if last_login column exists
-            if hasattr(User, 'last_login'):
-                active_today = db.query(User).filter(User.last_login >= one_day_ago).count()
-            else:
-                active_today = 0
-        except Exception:
-            active_today = 0
-        
-        db.close()
-        
-        return templates.TemplateResponse("admin/dashboard.html", {
-            "request": request,
-            "user": user,
-            "total_users": total_users,
-            "suspended_count": suspended_count,
-            "recent_signups": recent_signups,
-            "active_today": active_today,
-            "success": success,
-            "error": error
-        })
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Admin dashboard error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return a basic error page instead of letting it crash
-        return templates.TemplateResponse("500.html", {
-            "request": request,
-            "error": "Admin dashboard temporarily unavailable"
-        }, status_code=500)
+    """Enhanced admin dashboard with suspension appeals and IP bans"""
+    
+    # Get user statistics
+    total_users = db.query(User).count()
+    suspended_count = db.query(User).filter(User.is_suspended == True).count()
+    recent_signups = db.query(User).filter(
+        User.created_at > datetime.utcnow() - timedelta(days=7)
+    ).count()
+    active_today = db.query(User).filter(
+        User.last_login > datetime.utcnow() - timedelta(hours=24)
+    ).count()
+    
+    # Get pending appeals
+    pending_appeals = db.query(SuspensionAppeal).filter(
+        SuspensionAppeal.status == "pending"
+    ).count()
+    
+    # Get active IP bans
+    active_ip_bans = db.query(IPBan).filter(IPBan.is_active == True).count()
+    
+    return templates.TemplateResponse("admin/dashboard.html", {
+        "request": request,
+        "user": admin_user,
+        "total_users": total_users,
+        "suspended_count": suspended_count,
+        "recent_signups": recent_signups,
+        "active_today": active_today,
+        "pending_appeals": pending_appeals,
+        "active_ip_bans": active_ip_bans
+    })
+
   
 # API endpoint to get users data
 @app.get("/admin/api/users")
-async def get_users_api(
+def get_users_admin_api(
     request: Request,
-    limit: int = Query(100, ge=1, le=1000),
-    page: int = Query(1, ge=1),
-    search: str = Query(""),
-    status: str = Query(""),
-    plan: str = Query(""),
+    limit: int = Query(100, le=500),
+    db: Session = Depends(get_db),
+    admin_user = Depends(get_admin_user)
 ):
-    """API endpoint to get users for admin dashboard with Eastern Time"""
-    db = None
+    """API endpoint to get users with enhanced info including IPs"""
     try:
-        # Get database session
-        db = SessionLocal()
+        # Get users with their data
+        users = db.query(User).order_by(User.created_at.desc()).limit(limit).all()
         
-        # Check admin authorization first
-        user = get_optional_user(request)
-        if not user:
-            return JSONResponse({
-                "success": False,
-                "error": "Authentication required",
-                "users": [],
-                "total": 0
-            }, status_code=401)
-        
-        # Check if user is admin
-        admin_emails = {"support@giverai.me"}
-        if user.email not in admin_emails:
-            return JSONResponse({
-                "success": False,
-                "error": "Admin access required",
-                "users": [],
-                "total": 0
-            }, status_code=403)
-        
-        # Build query
-        query = db.query(User)
-        
-        # Apply search filter
-        if search.strip():
-            search_term = f"%{search.lower().strip()}%"
-            query = query.filter(
-                (User.username.ilike(search_term)) |
-                (User.email.ilike(search_term))
-            )
-        
-        # Apply status filter
-        if status == "suspended":
-            query = query.filter(User.is_suspended == True)
-        elif status == "active":
-            query = query.filter(User.is_suspended == False)
-            
-        # Apply plan filter
-        if plan:
-            query = query.filter(User.plan == plan)
-        
-        # Get total count before pagination
-        total_users = query.count()
-        
-        # Apply pagination
-        offset = (page - 1) * limit
-        users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
-        
-        # Format users data safely with Eastern Time conversion
         users_data = []
-        for user_obj in users:
-            try:
-                # Safely extract all user attributes
-                user_data = {
-                    "id": user_obj.id,
-                    "username": user_obj.username or "Unknown",
-                    "email": user_obj.email or "No email",
-                    "plan": getattr(user_obj, 'plan', 'free'),
-                    "is_suspended": bool(getattr(user_obj, 'is_suspended', False)),
-                    "suspension_reason": getattr(user_obj, 'suspension_reason', None),
-                    "is_active": bool(getattr(user_obj, 'is_active', True)),
-                    "stripe_customer_id": getattr(user_obj, 'stripe_customer_id', None),
-                    "original_plan": getattr(user_obj, 'original_plan', None),
-                    "api_key": bool(getattr(user_obj, 'api_key', None))
-                }
-                
-                # Handle datetime fields with Eastern Time conversion
-                if hasattr(user_obj, 'created_at') and user_obj.created_at:
-                    user_data["created_at"] = user_obj.created_at.isoformat()
-                    user_data["created_at_eastern"] = convert_to_eastern(user_obj.created_at)
-                else:
-                    user_data["created_at"] = None
-                    user_data["created_at_eastern"] = "Unknown"
-                
-                if hasattr(user_obj, 'last_login') and user_obj.last_login:
-                    user_data["last_login"] = user_obj.last_login.isoformat()
-                    user_data["last_login_eastern"] = convert_to_eastern(user_obj.last_login)
-                else:
-                    user_data["last_login"] = None
-                    user_data["last_login_eastern"] = "Never"
-                
-                if hasattr(user_obj, 'suspended_at') and user_obj.suspended_at:
-                    user_data["suspended_at"] = user_obj.suspended_at.isoformat()
-                    user_data["suspended_at_eastern"] = convert_to_eastern(user_obj.suspended_at)
-                else:
-                    user_data["suspended_at"] = None
-                    user_data["suspended_at_eastern"] = None
-                
-                user_data["suspended_by"] = getattr(user_obj, 'suspended_by', None)
-                
-                users_data.append(user_data)
-                
-            except Exception as user_error:
-                print(f"Error processing user {user_obj.id}: {str(user_error)}")
-                # Add a minimal safe version
-                users_data.append({
-                    "id": user_obj.id,
-                    "username": f"User_{user_obj.id}",
-                    "email": "Error loading",
-                    "plan": "unknown",
-                    "is_suspended": False,
-                    "suspension_reason": None,
-                    "created_at": None,
-                    "created_at_eastern": "Error",
-                    "last_login": None,
-                    "last_login_eastern": "Error",
-                    "is_active": True,
-                    "error": "Data loading error"
-                })
+        for user in users:
+            # Calculate statistics
+            total_tweets = db.query(GeneratedTweet).filter(
+                GeneratedTweet.user_id == user.id
+            ).count()
+            
+            # Format dates in Eastern Time
+            created_at_eastern = None
+            last_login_eastern = None
+            suspended_at_eastern = None
+            
+            if user.created_at:
+                created_at_eastern = user.created_at.strftime('%Y-%m-%d %H:%M ET')
+            
+            if user.last_login:
+                last_login_eastern = user.last_login.strftime('%Y-%m-%d %H:%M ET')
+            
+            if user.suspended_at:
+                suspended_at_eastern = user.suspended_at.strftime('%Y-%m-%d %H:%M ET')
+            
+            user_data = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "plan": user.plan or "free",
+                "is_active": user.is_active,
+                "is_suspended": user.is_suspended,
+                "suspension_reason": user.suspension_reason,
+                "suspended_at": user.suspended_at.isoformat() if user.suspended_at else None,
+                "suspended_at_eastern": suspended_at_eastern,
+                "suspended_by": user.suspended_by,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "created_at_eastern": created_at_eastern,
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+                "last_login_eastern": last_login_eastern,
+                "total_tweets": total_tweets,
+                "last_known_ip": getattr(user, 'last_known_ip', None),
+                "registration_ip": getattr(user, 'registration_ip', None),
+                "is_ip_banned": getattr(user, 'is_ip_banned', False),
+                "failed_login_attempts": getattr(user, 'failed_login_attempts', 0),
+                "account_locked": bool(getattr(user, 'account_locked_until', None) and 
+                                     user.account_locked_until > datetime.utcnow())
+            }
+            users_data.append(user_data)
         
-        # Calculate pages
-        pages = (total_users + limit - 1) // limit
-        
-        # Return clean JSON response
-        response_data = {
+        return JSONResponse({
             "success": True,
             "users": users_data,
-            "total": total_users,
-            "page": page,
-            "limit": limit,
-            "pages": pages
-        }
-        
-        db.close()
-        return JSONResponse(response_data)
+            "total": len(users_data)
+        })
         
     except Exception as e:
-        # Make sure to close DB connection
-        if db:
-            try:
-                db.close()
-            except:
-                pass
-        
-        # Log the full error
-        print(f"Error in get_users_api: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return clean error JSON
-        error_response = {
+        print(f"Error fetching users: {e}")
+        return JSONResponse({
             "success": False,
-            "error": f"Server error: {str(e)}",
-            "users": [],
-            "total": 0,
-            "page": page,
-            "limit": limit,
-            "pages": 0
-        }
+            "error": str(e)
+        }, status_code=500)
+    
+@app.post("/admin/ban-ip")
+async def ban_ip_admin(
+    request: Request,
+    ip_address: str = Form(...),
+    reason: str = Form(...),
+    duration_hours: int = Form(default=None),  # None = permanent
+    db: Session = Depends(get_db),
+    admin_user = Depends(get_admin_user)
+):
+    """Ban an IP address"""
+    try:
+        success = ban_ip_address(
+            ip_address.strip(),
+            reason.strip(),
+            admin_user.email,
+            db,
+            duration_hours
+        )
         
-        return JSONResponse(error_response, status_code=500)
+        if success:
+            return JSONResponse({
+                "success": True,
+                "message": f"IP {ip_address} has been banned"
+            })
+        else:
+            return JSONResponse({
+                "success": False,
+                "message": "Failed to ban IP address"
+            }, status_code=400)
+            
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }, status_code=500)
+
+@app.post("/admin/unban-ip")
+async def unban_ip_admin(
+    request: Request,
+    ip_address: str = Form(...),
+    db: Session = Depends(get_db),
+    admin_user = Depends(get_admin_user)
+):
+    """Unban an IP address"""
+    try:
+        success = unban_ip_address(ip_address.strip(), db)
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"IP {ip_address} has been unbanned"
+        })
+        
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }, status_code=500)
        
 @app.post("/admin/suspend-user")
-async def admin_suspend_user(
+async def suspend_user_enhanced(
+    request: Request,
     user_id: int = Form(...),
     reason: str = Form(...),
-    current_user: User = Depends(get_current_user)
+    ban_ip: bool = Form(default=False),
+    db: Session = Depends(get_db),
+    admin_user = Depends(get_admin_user)
 ):
-    """Suspend user account - returns JSON for AJAX"""
-    
-    if current_user.email not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    db = SessionLocal()
+    """Suspend user with optional IP ban"""
     try:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
-            return JSONResponse({"success": False, "message": "User not found"})
+            return JSONResponse({
+                "success": False,
+                "message": "User not found"
+            }, status_code=404)
         
-        # Update user
+        # Suspend the user
         user.is_suspended = True
         user.suspension_reason = reason
         user.suspended_at = datetime.utcnow()
-        user.suspended_by = current_user.email
+        user.suspended_by = admin_user.email
+        
+        # Ban IP if requested
+        if ban_ip and hasattr(user, 'last_known_ip') and user.last_known_ip:
+            ban_ip_address(
+                user.last_known_ip,
+                f"User suspension: {reason}",
+                admin_user.email,
+                db
+            )
         
         db.commit()
         
@@ -2900,85 +3263,205 @@ async def admin_suspend_user(
         except Exception as e:
             print(f"Failed to send suspension email: {e}")
         
+        message = f"User {user.username} has been suspended"
+        if ban_ip:
+            message += f" and IP {user.last_known_ip} has been banned"
+        
         return JSONResponse({
             "success": True,
-            "message": f"User {user.username} suspended successfully"
+            "message": message
         })
         
-    finally:
-        db.close()
-
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }, status_code=500)
+    
 @app.post("/admin/unsuspend-user")
-async def unsuspend_user_endpoint(
+async def unsuspend_user_enhanced(
     request: Request,
     user_id: int = Form(...),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    unban_ip: bool = Form(default=False),
+    db: Session = Depends(get_db),
+    admin_user = Depends(get_admin_user)
 ):
-    """Unsuspend a user account"""
-    # Check if user is admin
-    if not current_user or current_user.email not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Clear suspension
-    old_reason = user.suspension_reason
-    user.is_suspended = False
-    user.suspension_reason = None
-    user.suspended_at = None
-    user.suspended_by = None
-    
-    db.commit()
-    
-    # Log the activity
-    log_user_activity(
-        user_id=user.id,
-        activity_type="unsuspended",
-        description=f"Account unsuspended by admin",
-        ip_address=request.client.host if request.client else None,
-        user_metadata={"admin": current_user.email, "previous_reason": old_reason},
-        db=db
-    )
-    
-    # Send account restored email
+    """Unsuspend user with optional IP unban"""
     try:
-        html_body = f"""
-        <html>
-          <body style="font-family: Arial, sans-serif; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h1 style="color: #28a745;">Account Restored! 🎉</h1>
-              <p>Hi {user.username}!</p>
-              <p>Good news! Your GiverAI account has been restored and is now active.</p>
-              <p>You can now log in and use all features normally.</p>
-              <p style="text-align: center;">
-                <a href="https://giverai.me/login"
-                   style="background: #28a745; color: white; padding: 12px 24px;
-                          text-decoration: none; border-radius: 4px;
-                          display: inline-block;">
-                  Log In to GiverAI
-                </a>
-              </p>
-              <p>If you have any questions, please contact our support team.</p>
-              <p>Welcome back!<br>The GiverAI Team</p>
-            </div>
-          </body>
-        </html>
-        """
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return JSONResponse({
+                "success": False,
+                "message": "User not found"
+            }, status_code=404)
         
-        email_service.send_simple_email(
-            user.email,
-            "Your GiverAI Account Has Been Restored! 🎉",
-            html_body
-        )
-        print(f"✅ Account restored email sent to {user.email}")
+        # Unsuspend the user
+        user.is_suspended = False
+        user.suspension_reason = None
+        user.suspended_at = None
+        user.suspended_by = None
+        
+        # Unban IP if requested
+        if unban_ip and hasattr(user, 'last_known_ip') and user.last_known_ip:
+            unban_ip_address(user.last_known_ip, db)
+            user.is_ip_banned = False
+        
+        db.commit()
+        
+        # Send restoration email
+        try:
+            await email_service.send_account_restored_email(user.email)
+        except Exception as e:
+            print(f"Failed to send restoration email: {e}")
+        
+        message = f"User {user.username} has been unsuspended"
+        if unban_ip:
+            message += f" and IP {user.last_known_ip} has been unbanned"
+        
+        return JSONResponse({
+            "success": True,
+            "message": message
+        })
+        
     except Exception as e:
-        print(f"❌ Failed to send restoration email: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }, status_code=500)
     
-    return {"message": "User unsuspended successfully"}
+ # View suspension appeals
+@app.get("/admin/appeals")
+def view_suspension_appeals(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin_user = Depends(get_admin_user)
+):
+    """View all suspension appeals"""
+    appeals = db.query(SuspensionAppeal).order_by(
+        SuspensionAppeal.created_at.desc()
+    ).all()
+    
+    return templates.TemplateResponse("admin/appeals.html", {
+        "request": request,
+        "user": admin_user,
+        "appeals": appeals
+    })
+
+# Process suspension appeal
+@app.post("/admin/process-appeal")
+async def process_suspension_appeal(
+    request: Request,
+    appeal_id: int = Form(...),
+    action: str = Form(...),  # "approve" or "deny"
+    admin_notes: str = Form(default=""),
+    db: Session = Depends(get_db),
+    admin_user = Depends(get_admin_user)
+):
+    """Process (approve/deny) a suspension appeal"""
+    try:
+        appeal = db.query(SuspensionAppeal).filter(
+            SuspensionAppeal.id == appeal_id
+        ).first()
         
+        if not appeal:
+            return JSONResponse({
+                "success": False,
+                "message": "Appeal not found"
+            }, status_code=404)
+        
+        appeal.status = "approved" if action == "approve" else "denied"
+        appeal.reviewed_at = datetime.utcnow()
+        appeal.reviewed_by = admin_user.email
+        appeal.admin_notes = admin_notes.strip()
+        
+        if action == "approve":
+            # Restore user account
+            user = appeal.user
+            user.is_suspended = False
+            user.suspension_reason = None
+            user.suspended_at = None
+            user.suspended_by = None
+            
+            # Send approval email
+            try:
+                await email_service.send_appeal_approved_email(
+                    user.email, user.username, admin_notes
+                )
+            except Exception as e:
+                print(f"Failed to send appeal approval email: {e}")
+        else:
+            # Send denial email
+            try:
+                await email_service.send_appeal_denied_email(
+                    appeal.email, appeal.name, admin_notes
+                )
+            except Exception as e:
+                print(f"Failed to send appeal denial email: {e}")
+        
+        db.commit()
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"Appeal has been {appeal.status}"
+        })
+        
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }, status_code=500)
+
+# Update the current user check to redirect suspended users
+def get_current_user_with_suspension_check(request: Request):
+    """Modified get_current_user that redirects suspended users"""
+    try:
+        user = get_current_user(request)
+        
+        # If user is suspended, redirect to suspended page
+        if user.is_suspended:
+            # Instead of raising exception, we'll handle this in routes
+            return user
+        
+        return user
+        
+    except HTTPException:
+        raise
+
+# Middleware to handle suspended users globally
+@app.middleware("http") 
+async def suspension_redirect_middleware(request: Request, call_next):
+    """Redirect suspended users to suspension page"""
+    
+    # Skip for certain routes
+    skip_routes = [
+        "/static", "/suspended", "/logout", "/favicon.ico", 
+        "/_health", "/admin", "/contact"
+    ]
+    
+    if any(request.url.path.startswith(route) for route in skip_routes):
+        return await call_next(request)
+    
+    # Check if user is logged in and suspended
+    try:
+        token = request.cookies.get("access_token")
+        if token:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username = payload.get("sub")
+            
+            if username:
+                db = SessionLocal()
+                try:
+                    user = db.query(User).filter(User.username == username).first()
+                    if user and user.is_suspended:
+                        # Redirect to suspended page
+                        return RedirectResponse("/suspended", status_code=302)
+                finally:
+                    db.close()
+    except:
+        pass
+    
+    return await call_next(request)
+       
 # Updated force password reset endpoint
 @app.post("/admin/force-password-reset")
 async def force_password_reset_endpoint(
@@ -3610,6 +4093,159 @@ def faq_page(request: Request):
         "user": user
     })
 
+@app.get("/suspended", response_class=HTMLResponse)
+def suspended_page(request: Request):
+    """Show suspended account page"""
+    # Try to get user if they have a valid token
+    user = None
+    try:
+        user = get_current_user(request)
+        # Only show this page if user is actually suspended
+        if not user.is_suspended:
+            return RedirectResponse("/dashboard", status_code=302)
+    except:
+        # If no valid token, show generic suspended page
+        pass
+    
+    return templates.TemplateResponse("suspended.html", {
+        "request": request,
+        "user": user,
+        "form_data": {},
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+    })
+
+# Handle suspension appeal form submission
+@app.post("/suspended", response_class=HTMLResponse)
+async def handle_suspension_appeal(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    appeal_type: str = Form(...),
+    appeal_message: str = Form(...),
+    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default=""),
+    db: Session = Depends(get_db)
+):
+    """Handle suspension appeal form submission"""
+    user = None
+    form_data = {
+        "name": name,
+        "email": email,
+        "appeal_type": appeal_type,
+        "appeal_message": appeal_message
+    }
+    
+    try:
+        user = get_current_user(request)
+    except:
+        pass
+    
+    try:
+        # Verify reCAPTCHA
+        if not verify_recaptcha(g_recaptcha_response):
+            return templates.TemplateResponse("suspended.html", {
+                "request": request,
+                "user": user,
+                "form_data": form_data,
+                "error": "Please complete the reCAPTCHA verification",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+        
+        # Validation
+        if not all([name.strip(), email.strip(), appeal_type, appeal_message.strip()]):
+            raise ValueError("All required fields must be filled out")
+        
+        if len(appeal_message.strip()) < 20:
+            raise ValueError("Please provide a more detailed explanation (minimum 20 characters)")
+        
+        # Find user by email if not logged in
+        if not user:
+            user = db.query(User).filter(User.email == email).first()
+            if not user:
+                return templates.TemplateResponse("suspended.html", {
+                    "request": request,
+                    "user": None,
+                    "form_data": form_data,
+                    "error": "No account found with that email address",
+                    "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                })
+        
+        # Check if user is actually suspended
+        if not user.is_suspended:
+            return templates.TemplateResponse("suspended.html", {
+                "request": request,
+                "user": user,
+                "form_data": form_data,
+                "error": "Account is not currently suspended",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+        
+        # Check if user already has a pending appeal
+        existing_appeal = db.query(SuspensionAppeal).filter(
+            SuspensionAppeal.user_id == user.id,
+            SuspensionAppeal.status == "pending"
+        ).first()
+        
+        if existing_appeal:
+            return templates.TemplateResponse("suspended.html", {
+                "request": request,
+                "user": user,
+                "form_data": form_data,
+                "error": "You already have a pending appeal. Please wait for our team to review it.",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+        
+        # Create appeal record
+        appeal = SuspensionAppeal(
+            user_id=user.id,
+            name=name.strip(),
+            email=email.strip(),
+            appeal_type=appeal_type,
+            appeal_message=appeal_message.strip()
+        )
+        db.add(appeal)
+        db.commit()
+        
+        # Send notification emails
+        try:
+            # Email to support team
+            email_service.send_suspension_appeal_notification(
+                user, appeal_type, appeal_message, name
+            )
+            
+            # Confirmation email to user
+            email_service.send_appeal_confirmation_email(
+                user, appeal_type
+            )
+        except Exception as e:
+            print(f"Failed to send appeal emails: {e}")
+        
+        return templates.TemplateResponse("suspended.html", {
+            "request": request,
+            "user": user,
+            "form_data": {},
+            "success": "Your appeal has been submitted successfully! Our team will review it within 24-48 hours and respond via email.",
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
+        
+    except ValueError as e:
+        return templates.TemplateResponse("suspended.html", {
+            "request": request,
+            "user": user,
+            "form_data": form_data,
+            "error": str(e),
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
+    except Exception as e:
+        print(f"Appeal submission error: {e}")
+        return templates.TemplateResponse("suspended.html", {
+            "request": request,
+            "user": user,
+            "form_data": form_data,
+            "error": "Failed to submit appeal. Please try again.",
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
+
+        
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
 def account(request: Request, user: User = Depends(get_current_user)):
