@@ -15,3 +15,4 @@ setuptools
 wheel
 httpx
 requests
+pytz

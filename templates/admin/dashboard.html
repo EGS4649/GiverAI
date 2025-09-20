@@ -1,1470 +1,736 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Admin Dashboard - GiverAI</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
-      color: #ffffff;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      min-height: 100vh;
-      line-height: 1.6;
-    }
-
-    .admin-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    .admin-header {
-      text-align: center;
-      margin-bottom: 3rem;
-    }
-
-    .admin-header h1 {
-      font-size: 3rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #00ffff, #ff00ff);
-      background-clip: text;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 0.5rem;
-    }
-
-    .admin-header p {
-      color: #a0a0a0;
-      font-size: 1.1rem;
-    }
-
-    /* Summary Cards */
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 3rem;
-    }
-
-    .summary-card {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(0, 255, 255, 0.2);
-      border-radius: 15px;
-      padding: 1.5rem;
-      text-align: center;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .summary-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, #00ffff, #ff00ff);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .summary-card:hover {
-      transform: translateY(-5px);
-      border-color: rgba(0, 255, 255, 0.5);
-    }
-
-    .summary-card:hover::before {
-      opacity: 1;
-    }
-
-    .summary-card .icon {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
-      color: #00ffff;
-    }
-
-    .summary-card h3 {
-      font-size: 0.9rem;
-      color: #a0a0a0;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 0.5rem;
-    }
-
-    .summary-card .value {
-      font-size: 2.5rem;
-      font-weight: 700;
-      color: #ffffff;
-    }
-
-    /* Filters Section */
-    .filters-section {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 15px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-    }
-
-    .filters-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-
-    .filters-header h2 {
-      color: #00ffff;
-      margin-right: 1rem;
-    }
-
-    .filters-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      align-items: end;
-    }
-
-    .filter-group {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .filter-group label {
-      color: #a0a0a0;
-      font-size: 0.9rem;
-      margin-bottom: 0.5rem;
-      font-weight: 500;
-    }
-
-    .filter-input, .filter-select {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      padding: 0.75rem;
-      color: #ffffff;
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
-    }
-
-    .filter-input:focus, .filter-select:focus {
-      outline: none;
-      border-color: #00ffff;
-      box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
-    }
-
-    .filter-input::placeholder {
-      color: #666;
-    }
-
-    .filter-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .btn {
-      padding: 0.75rem 1.5rem;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #00ffff, #0080ff);
-      color: #000;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0, 255, 255, 0.4);
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.1);
-      color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    /* Users Table */
-    .users-section {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 15px;
-      overflow: hidden;
-      margin-bottom: 2rem;
-    }
-
-    .section-header {
-      padding: 1.5rem 2rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .section-header h2 {
-      color: #00ffff;
-      font-size: 1.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .table-container {
-      overflow-x: auto;
-    }
-
-    .users-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .users-table th {
-      background: rgba(0, 255, 255, 0.1);
-      color: #00ffff;
-      padding: 1rem;
-      text-align: left;
-      font-weight: 600;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .users-table td {
-      padding: 1rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      vertical-align: middle;
-    }
-
-    .users-table tbody tr {
-      transition: all 0.3s ease;
-    }
-
-    .users-table tbody tr:hover {
-      background: rgba(0, 255, 255, 0.05);
-    }
-
-    .user-info {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .user-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #00ffff, #ff00ff);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: #000;
-    }
-
-    .user-details h4 {
-      color: #ffffff;
-      font-size: 0.95rem;
-      margin-bottom: 0.2rem;
-    }
-
-    .user-details p {
-      color: #a0a0a0;
-      font-size: 0.85rem;
-    }
-
-    .status-badge {
-      padding: 0.4rem 0.8rem;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .status-active {
-      background: rgba(34, 197, 94, 0.2);
-      color: #22c55e;
-      border: 1px solid rgba(34, 197, 94, 0.3);
-    }
-
-    .status-suspended {
-      background: rgba(239, 68, 68, 0.2);
-      color: #ef4444;
-      border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-
-    .plan-badge {
-      padding: 0.3rem 0.6rem;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .plan-free {
-      background: rgba(156, 163, 175, 0.2);
-      color: #9ca3af;
-      border: 1px solid rgba(156, 163, 175, 0.3);
-    }
-
-    .plan-creator {
-      background: rgba(168, 85, 247, 0.2);
-      color: #a855f7;
-      border: 1px solid rgba(168, 85, 247, 0.3);
-    }
-
-    .plan-small-team {
-      background: rgba(59, 130, 246, 0.2);
-      color: #3b82f6;
-      border: 1px solid rgba(59, 130, 246, 0.3);
-    }
-
-    .plan-agency {
-      background: rgba(16, 185, 129, 0.2);
-      color: #10b981;
-      border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-
-    .plan-enterprise {
-      background: rgba(245, 158, 11, 0.2);
-      color: #f59e0b;
-      border: 1px solid rgba(245, 158, 11, 0.3);
-    }
-
-    .action-buttons {
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-    }
-
-    .btn-small {
-      padding: 0.4rem 0.8rem;
-      font-size: 0.8rem;
-      min-width: auto;
-    }
-
-    .btn-danger {
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      color: #ffffff;
-    }
-
-    .btn-danger:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 3px 10px rgba(239, 68, 68, 0.4);
-    }
-
-    .btn-success {
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: #ffffff;
-    }
-
-    .btn-success:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 3px 10px rgba(34, 197, 94, 0.4);
-    }
-
-    .btn-info {
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      color: #ffffff;
-    }
-
-    .btn-info:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 3px 10px rgba(59, 130, 246, 0.4);
-    }
-
-    /* Suspend Form */
-    .suspend-form {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .reason-input {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      padding: 0.4rem 0.6rem;
-      color: #ffffff;
-      font-size: 0.8rem;
-      width: 120px;
-    }
-
-    .reason-input:focus {
-      outline: none;
-      border-color: #ef4444;
-    }
-
-    .reason-input::placeholder {
-      color: #666;
-    }
-
-    /* Pagination */
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 0.5rem;
-      margin-top: 2rem;
-    }
-
-    .pagination .btn {
-      min-width: 40px;
-      height: 40px;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .pagination .btn.active {
-      background: linear-gradient(135deg, #00ffff, #0080ff);
-      color: #000;
-    }
-
-    /* User Profile Modal Styles */
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(5px);
-      z-index: 1000;
-    }
-
-    .modal.show {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .modal-content {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      border: 1px solid rgba(0, 255, 255, 0.3);
-      border-radius: 20px;
-      width: 90%;
-      max-width: 600px;
-      max-height: 90vh;
-      overflow-y: auto;
-      position: relative;
-    }
-
-    .modal-header {
-      padding: 2rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .modal-header h2 {
-      color: #00ffff;
-      margin: 0;
-    }
-
-    .modal-close {
-      background: none;
-      border: none;
-      color: #a0a0a0;
-      font-size: 1.5rem;
-      cursor: pointer;
-      transition: color 0.3s ease;
-    }
-
-    .modal-close:hover {
-      color: #ffffff;
-    }
-
-    .modal-body {
-      padding: 2rem;
-    }
-
-    .profile-section {
-      margin-bottom: 2rem;
-    }
-
-    .profile-section h3 {
-      color: #00ffff;
-      margin-bottom: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .profile-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-    }
-
-    .profile-item {
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 10px;
-      padding: 1rem;
-    }
-
-    .profile-item label {
-      color: #a0a0a0;
-      font-size: 0.85rem;
-      display: block;
-      margin-bottom: 0.3rem;
-    }
-
-    .profile-item value {
-      color: #ffffff;
-      font-weight: 500;
-    }
-
-    /* Loading States */
-    .loading {
-      opacity: 0.6;
-      pointer-events: none;
-      position: relative;
-    }
-
-    .loading::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 20px;
-      height: 20px;
-      border: 2px solid #00ffff;
-      border-top: 2px solid transparent;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      transform: translate(-50%, -50%);
-    }
-
-    @keyframes spin {
-      0% { transform: translate(-50%, -50%) rotate(0deg); }
-      100% { transform: translate(-50%, -50%) rotate(360deg); }
-    }
-
-    /* Responsive Design */
-    @media (max-width: 768px) {
-      .admin-container {
-        padding: 1rem;
-      }
-
-      .admin-header h1 {
-        font-size: 2rem;
-      }
-
-      .filters-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .users-table {
-        font-size: 0.85rem;
-      }
-
-      .action-buttons {
-        flex-direction: column;
-        gap: 0.3rem;
-      }
-
-      .btn-small {
-        font-size: 0.7rem;
-        padding: 0.3rem 0.6rem;
-      }
-    }
-
-    /* Success/Error Messages */
-    .alert {
-      padding: 1rem 1.5rem;
-      border-radius: 10px;
-      margin-bottom: 2rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .alert-success {
-      background: rgba(34, 197, 94, 0.1);
-      border: 1px solid rgba(34, 197, 94, 0.3);
-      color: #22c55e;
-    }
-
-    .alert-error {
-      background: rgba(239, 68, 68, 0.1);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #ef4444;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Debug Solution</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            min-height: 100vh;
+        }
+        
+        .debug-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 30px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+        }
+        
+        .debug-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .debug-title {
+            color: #00ffff;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #6c757d;
+        }
+        
+        .status-success {
+            background: #28a745;
+        }
+        
+        .status-error {
+            background: #dc3545;
+        }
+        
+        .status-warning {
+            background: #ffc107;
+        }
+        
+        .debug-output {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #00ffff, #0080ff);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 10px 10px 10px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.4);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+        
+        .code-block {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        
+        .code-block pre {
+            margin: 0;
+            color: #ffffff;
+        }
+        
+        .highlight {
+            background: rgba(255, 255, 0, 0.2);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        .error-log {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .success-log {
+            color: #51cf66;
+            background: rgba(81, 207, 102, 0.1);
+            border: 1px solid rgba(81, 207, 102, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .warning-log {
+            color: #ffd43b;
+            background: rgba(255, 212, 59, 0.1);
+            border: 1px solid rgba(255, 212, 59, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .fix-instructions {
+            background: rgba(0, 255, 255, 0.1);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .fix-instructions h3 {
+            color: #00ffff;
+            margin-top: 0;
+        }
+        
+        .fix-step {
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            border-left: 4px solid #00ffff;
+        }
+        
+        .api-test-result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid;
+        }
+    </style>
 </head>
 <body>
-  <nav class="navbar">
-    <div class="brand">
-      <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
-    </div>
-    <ul class="nav-links">
-      <li><a href="/dashboard">Dashboard</a></li>
-      <li><a href="/account">Account</a></li>
-      <li><a href="/logout">Logout</a></li>
-    </ul>
-  </nav>
-
-  <div class="admin-container">
-    <!-- Header -->
-    <div class="admin-header">
-      <h1>Admin Dashboard</h1>
-      <p>Manage users, monitor activity, and maintain platform security</p>
-    </div>
-
-    <!-- Alert Messages -->
-    {% if success %}
-      <div class="alert alert-success">
-        <i class="fas fa-check-circle"></i>
-        {{ success }}
-      </div>
-    {% endif %}
-    {% if error %}
-      <div class="alert alert-error">
-        <i class="fas fa-exclamation-circle"></i>
-        {{ error }}
-      </div>
-    {% endif %}
-
-    <!-- Summary Cards -->
-    <div class="summary-grid">
-      <div class="summary-card">
-        <div class="icon">
-          <i class="fas fa-users"></i>
-        </div>
-        <h3>Total Users</h3>
-        <div class="value" id="totalUsers">{{ total_users or 0 }}</div>
-      </div>
-      <div class="summary-card">
-        <div class="icon">
-          <i class="fas fa-user-slash"></i>
-        </div>
-        <h3>Suspended</h3>
-        <div class="value" id="suspendedUsers">{{ suspended_count or 0 }}</div>
-      </div>
-      <div class="summary-card">
-        <div class="icon">
-          <i class="fas fa-user-plus"></i>
-        </div>
-        <h3>New (7 days)</h3>
-        <div class="value" id="newUsers">{{ recent_signups or 0 }}</div>
-      </div>
-      <div class="summary-card">
-        <div class="icon">
-          <i class="fas fa-chart-line"></i>
-        </div>
-        <h3>Active Today</h3>
-        <div class="value" id="activeUsers">{{ active_today or 0 }}</div>
-      </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="filters-section">
-      <div class="filters-header">
-        <h2><i class="fas fa-filter"></i> Filter Users</h2>
-      </div>
-      <div class="filters-grid">
-        <div class="filter-group">
-          <label for="searchFilter">Search</label>
-          <input type="text" id="searchFilter" class="filter-input" placeholder="Username or email...">
-        </div>
-        <div class="filter-group">
-          <label for="statusFilter">Status</label>
-          <select id="statusFilter" class="filter-select">
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label for="planFilter">Plan</label>
-          <select id="planFilter" class="filter-select">
-            <option value="">All Plans</option>
-            <option value="free">Free</option>
-            <option value="creator">Creator</option>
-            <option value="small_team">Small Team</option>
-            <option value="agency">Agency</option>
-            <option value="enterprise">Enterprise</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label for="dateFilter">Joined</label>
-          <select id="dateFilter" class="filter-select">
-            <option value="">All Time</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="3months">Last 3 Months</option>
-          </select>
-        </div>
-        <div class="filter-actions">
-          <button class="btn btn-primary" onclick="applyFilters()">
-            <i class="fas fa-search"></i> Apply
-          </button>
-          <button class="btn btn-secondary" onclick="clearFilters()">
-            <i class="fas fa-times"></i> Clear
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Users Table -->
-    <div class="users-section">
-      <div class="section-header">
-        <h2><i class="fas fa-users"></i> Users (<span id="userCount">0</span>)</h2>
-        <div class="filter-actions">
-          <button class="btn btn-secondary btn-small" onclick="exportUsers()">
-            <i class="fas fa-download"></i> Export
-          </button>
-        </div>
-      </div>
-      <div class="table-container">
-        <table class="users-table">
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Plan</th>
-              <th>Joined</th>
-              <th>Last Login</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="usersTableBody">
-            <!-- Users will be populated by JavaScript -->
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Pagination -->
-    <div class="pagination" id="pagination">
-      <!-- Pagination will be populated by JavaScript -->
-    </div>
-  </div>
-
-  <!-- User Profile Modal -->
-  <div class="modal" id="userModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>User Profile</h2>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
-      </div>
-      <div class="modal-body" id="modalBody">
-        <!-- Profile content will be loaded here -->
-      </div>
-    </div>
-  </div>
-
-  <footer>
-    <div class="footer-container">
-      <div class="footer-left">
-        <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
-      </div>
-      <div class="footer-links">
-        <a href="/tweetgiver">TweetGiver</a> |
-        <a href="/pricing">Pricing</a> |
-        <a href="/privacy">Privacy Policy</a> |
-        <a href="/terms">Terms of Service</a> |
-        <a href="/contact">Contact</a>
-      </div>
-      <div class="footer-right">
-        &copy; 2025 Giver.ai
-      </div>
-    </div>
-  </footer>
-
-  <script>
-// Complete Admin Dashboard JavaScript
-let allUsers = [];
-let filteredUsers = [];
-let currentPage = 1;
-const usersPerPage = 10;
-
-// Load real user data on page load
-document.addEventListener('DOMContentLoaded', function() {
-    loadUsers();
-});
-
-async function loadUsers() {
-    try {
-        console.log('Loading users...');
-        const response = await fetch('/admin/api/users?limit=100');
+    <div class="debug-container">
+        <h1 style="text-align: center; color: #00ffff; margin-bottom: 30px;">
+            🔧 Admin Dashboard Debug Tool
+        </h1>
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+        <!-- Connection Status -->
+        <div class="debug-section">
+            <div class="debug-title">
+                <span class="status-indicator" id="connectionStatus"></span>
+                🌐 Backend Connection Status
+            </div>
+            <button class="btn" onclick="testBackendConnection()">Test Connection</button>
+            <button class="btn" onclick="testAdminAPI()">Test Admin API</button>
+            <div class="debug-output" id="connectionOutput">Click "Test Connection" to check backend status...</div>
+        </div>
         
-        const data = await response.json();
-        console.log('Users loaded:', data);
+        <!-- API Endpoints -->
+        <div class="debug-section">
+            <div class="debug-title">
+                <span class="status-indicator" id="apiStatus"></span>
+                📡 API Endpoints Test
+            </div>
+            <button class="btn" onclick="testAllAPIs()">Test All APIs</button>
+            <button class="btn" onclick="testUserAPI()">Test /admin/api/users</button>
+            <div class="debug-output" id="apiOutput">Ready to test API endpoints...</div>
+        </div>
         
-        allUsers = data.users || [];
-        filteredUsers = [...allUsers];
+        <!-- Database Status -->
+        <div class="debug-section">
+            <div class="debug-title">
+                <span class="status-indicator" id="dbStatus"></span>
+                🗄️ Database Status
+            </div>
+            <button class="btn" onclick="testDatabase()">Test Database</button>
+            <button class="btn" onclick="checkUserTable()">Check Users Table</button>
+            <div class="debug-output" id="dbOutput">Database test not run yet...</div>
+        </div>
         
-        updateStats();
-        renderUsers();
-    } catch (error) {
-        console.error('Error loading users:', error);
-        showAlert(`Failed to load users: ${error.message}`, 'error');
+        <!-- JavaScript Console -->
+        <div class="debug-section">
+            <div class="debug-title">
+                <span class="status-indicator" id="jsStatus"></span>
+                🔍 Browser Console
+            </div>
+            <button class="btn" onclick="checkBrowserErrors()">Check Browser Errors</button>
+            <button class="btn" onclick="simulateUserLoad()">Simulate User Load</button>
+            <div class="debug-output" id="jsOutput">No JavaScript errors captured yet...</div>
+        </div>
         
-        // Show empty state
-        document.getElementById('usersTableBody').innerHTML = `
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 2rem; color: #ef4444;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i>
-                    <br>Failed to load users: ${error.message}
-                </td>
-            </tr>
-        `;
-    }
-}
-
-function updateStats() {
-    const total = allUsers.length;
-    const suspended = allUsers.filter(u => u.is_suspended).length;
-    
-    // Calculate new users in last 7 days
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recent = allUsers.filter(u => {
-        if (!u.created_at) return false;
-        return new Date(u.created_at) >= sevenDaysAgo;
-    }).length;
-    
-    // Calculate active users (logged in last 24 hours)
-    const oneDayAgo = new Date();
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-    const activeToday = allUsers.filter(u => {
-        if (!u.last_login) return false;
-        return new Date(u.last_login) >= oneDayAgo;
-    }).length;
-    
-    document.getElementById('totalUsers').textContent = total;
-    document.getElementById('suspendedUsers').textContent = suspended;
-    document.getElementById('newUsers').textContent = recent;
-    document.getElementById('activeUsers').textContent = activeToday;
-}
-
-function renderUsers() {
-    const tbody = document.getElementById('usersTableBody');
-    const startIndex = (currentPage - 1) * usersPerPage;
-    const endIndex = startIndex + usersPerPage;
-    const usersToShow = filteredUsers.slice(startIndex, endIndex);
-
-    if (usersToShow.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 2rem; color: #a0a0a0;">
-                    <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem;"></i>
-                    <br>No users found
-                </td>
-            </tr>
-        `;
-        document.getElementById('userCount').textContent = '0';
-        document.getElementById('pagination').innerHTML = '';
-        return;
-    }
-
-    tbody.innerHTML = usersToShow.map(user => {
-        const planClass = `plan-${user.plan.replace('_', '-')}`;
-        const statusClass = user.is_suspended ? 'status-suspended' : 'status-active';
-        const statusText = user.is_suspended ? 'Suspended' : 'Active';
-        const avatar = user.username.charAt(0).toUpperCase();
-        
-        const suspendButton = user.is_suspended 
-            ? `<button class="btn btn-success btn-small" onclick="unsuspendUser(${user.id}, '${user.username}')">
-                 <i class="fas fa-user-check"></i> Unsuspend
-               </button>`
-            : `<form class="suspend-form" onsubmit="suspendUser(event, ${user.id}, '${user.username}')">
-                 <input type="text" class="reason-input" placeholder="Reason..." required>
-                 <button type="submit" class="btn btn-danger btn-small">
-                   <i class="fas fa-user-slash"></i> Suspend
-                 </button>
-               </form>`;
-
-        const joinedDate = user.created_at ? formatDate(user.created_at) : 'Unknown';
-        const lastLogin = user.last_login ? formatDateTime(user.last_login) : 'Never';
-
-        return `
-            <tr>
-                <td>
-                    <div class="user-info">
-                        <div class="user-avatar">${avatar}</div>
-                        <div class="user-details">
-                            <h4>${user.username}</h4>
-                            <p>${user.email}</p>
-                        </div>
-                    </div>
-                </td>
-                <td>
-                    <span class="plan-badge ${planClass}">${user.plan.replace('_', ' ')}</span>
-                </td>
-                <td>${joinedDate}</td>
-                <td>${lastLogin}</td>
-                <td>
-                    <span class="status-badge ${statusClass}">${statusText}</span>
-                    ${user.is_suspended && user.suspension_reason ? 
-                        `<br><small style="color: #a0a0a0;">Reason: ${user.suspension_reason}</small>` : ''}
-                </td>
-                <td>
-                    <div class="action-buttons">
-                        ${suspendButton}
-                        <button class="btn btn-info btn-small" onclick="viewUser(${user.id})">
-                            <i class="fas fa-eye"></i> View
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
-    document.getElementById('userCount').textContent = filteredUsers.length;
-    renderPagination();
-}
-
-function renderPagination() {
-    const pagination = document.getElementById('pagination');
-    const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
-    
-    if (totalPages <= 1) {
-        pagination.innerHTML = '';
-        return;
-    }
-
-    let paginationHTML = '';
-    
-    // Previous button
-    if (currentPage > 1) {
-        paginationHTML += `<button class="btn btn-secondary" onclick="changePage(${currentPage - 1})">
-                             <i class="fas fa-chevron-left"></i>
-                           </button>`;
-    }
-
-    // Page numbers
-    for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
-        const activeClass = i === currentPage ? ' active' : '';
-        paginationHTML += `<button class="btn btn-secondary${activeClass}" onclick="changePage(${i})">${i}</button>`;
-    }
-
-    // Next button
-    if (currentPage < totalPages) {
-        paginationHTML += `<button class="btn btn-secondary" onclick="changePage(${currentPage + 1})">
-                             <i class="fas fa-chevron-right"></i>
-                           </button>`;
-    }
-
-    pagination.innerHTML = paginationHTML;
-}
-
-function changePage(page) {
-    currentPage = page;
-    renderUsers();
-}
-
-function applyFilters() {
-    const search = document.getElementById('searchFilter').value.toLowerCase();
-    const status = document.getElementById('statusFilter').value;
-    const plan = document.getElementById('planFilter').value;
-    const dateFilter = document.getElementById('dateFilter').value;
-
-    filteredUsers = allUsers.filter(user => {
-        // Search filter
-        if (search && !user.username.toLowerCase().includes(search) && !user.email.toLowerCase().includes(search)) {
-            return false;
-        }
-
-        // Status filter
-        if (status) {
-            if (status === 'active' && user.is_suspended) return false;
-            if (status === 'suspended' && !user.is_suspended) return false;
-        }
-
-        // Plan filter
-        if (plan && user.plan !== plan) return false;
-
-        // Date filter
-        if (dateFilter && user.created_at) {
-            const userDate = new Date(user.created_at);
-            const now = new Date();
-            const daysDiff = Math.floor((now - userDate) / (1000 * 60 * 60 * 24));
-
-            switch (dateFilter) {
-                case 'today':
-                    if (daysDiff > 0) return false;
-                    break;
-                case 'week':
-                    if (daysDiff > 7) return false;
-                    break;
-                case 'month':
-                    if (daysDiff > 30) return false;
-                    break;
-                case '3months':
-                    if (daysDiff > 90) return false;
-                    break;
-            }
-        }
-
-        return true;
-    });
-
-    currentPage = 1;
-    renderUsers();
-}
-
-function clearFilters() {
-    document.getElementById('searchFilter').value = '';
-    document.getElementById('statusFilter').value = '';
-    document.getElementById('planFilter').value = '';
-    document.getElementById('dateFilter').value = '';
-    filteredUsers = [...allUsers];
-    currentPage = 1;
-    renderUsers();
-}
-
-async function suspendUser(event, userId, username) {
-    event.preventDefault();
-    const form = event.target;
-    const reason = form.querySelector('.reason-input').value;
-
-    if (!confirm(`Suspend ${username}?`)) return;
-
-    try {
-        const response = await fetch('/admin/suspend-user', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `user_id=${userId}&reason=${encodeURIComponent(reason)}`
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-            // Update local data
-            const user = allUsers.find(u => u.id === userId);
-            if (user) {
-                user.is_suspended = true;
-                user.suspension_reason = reason;
-            }
+        <!-- Fix Instructions -->
+        <div class="fix-instructions">
+            <h3>🛠️ Common Issues & Solutions</h3>
             
-            applyFilters();
-            showAlert(result.message, 'success');
-            updateStats();
-        } else {
-            showAlert(result.message || 'Failed to suspend user', 'error');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showAlert('Failed to suspend user', 'error');
-    }
-}
+            <div class="fix-step">
+                <strong>Issue 1: Missing API Route</strong>
+                <p>If your main.py doesn't have <code>/admin/api/users</code> endpoint, add this code:</p>
+                <div class="code-block">
+<pre># Add this to your main.py
+from sqlalchemy.orm import Session
 
-async function unsuspendUser(userId, username) {
-    if (!confirm(`Unsuspend ${username}?`)) return;
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-    try {
-        const response = await fetch('/admin/unsuspend-user', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `user_id=${userId}`
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-            // Update local data
-            const user = allUsers.find(u => u.id === userId);
-            if (user) {
-                user.is_suspended = false;
-                user.suspension_reason = null;
-            }
-            
-            applyFilters();
-            showAlert(result.message, 'success');
-            updateStats();
-        } else {
-            showAlert(result.message || 'Failed to unsuspend user', 'error');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showAlert('Failed to unsuspend user', 'error');
-    }
-}
-
-async function viewUser(userId) {
-    const modal = document.getElementById('userModal');
-    const modalBody = document.getElementById('modalBody');
-    
-    // Show loading state
-    modalBody.innerHTML = '<div class="loading" style="height: 200px;"></div>';
-    modal.classList.add('show');
-
-    try {
-        // Fetch user details from server
-        const response = await fetch(`/admin/user/${userId}`);
-        if (!response.ok) throw new Error('Failed to fetch user data');
+@app.get("/admin/api/users")
+async def get_users_api(
+    request: Request,
+    limit: int = Query(100),
+    page: int = Query(1),
+    search: str = Query(""),
+    status: str = Query(""),
+    plan: str = Query(""),
+    db: Session = Depends(get_db)
+):
+    """API endpoint to get users for admin dashboard"""
+    try:
+        # Check admin authorization
+        user = get_optional_user(request)
+        if not user or user.email not in ["support@giverai.me"]:
+            raise HTTPException(status_code=403, detail="Admin access required")
         
-        const userData = await response.json();
-        renderUserProfile(userData);
-    } catch (error) {
-        console.error('Error:', error);
-        modalBody.innerHTML = `
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i>
-                Failed to load user profile: ${error.message}
+        query = db.query(User)
+        
+        # Apply filters
+        if search:
+            query = query.filter(
+                (User.username.ilike(f"%{search}%")) |
+                (User.email.ilike(f"%{search}%"))
+            )
+        
+        if status == "suspended":
+            query = query.filter(User.is_suspended == True)
+        elif status == "active":
+            query = query.filter(User.is_suspended == False)
+            
+        if plan:
+            query = query.filter(User.plan == plan)
+        
+        total_users = query.count()
+        
+        # Pagination
+        offset = (page - 1) * limit
+        users = query.offset(offset).limit(limit).all()
+        
+        # Format users data
+        users_data = []
+        for user in users:
+            users_data.append({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "plan": user.plan,
+                "is_suspended": user.is_suspended,
+                "suspension_reason": user.suspension_reason,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+                "is_active": user.is_active
+            })
+        
+        return JSONResponse({
+            "success": True,
+            "users": users_data,
+            "total": total_users,
+            "page": page,
+            "limit": limit
+        })
+        
+    except Exception as e:
+        print(f"Error in get_users_api: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e),
+            "users": [],
+            "total": 0
+        }, status_code=500)</pre>
+                </div>
             </div>
-        `;
-    }
-}
-
-// Updated JavaScript for Admin Dashboard with Eastern Time support
-function renderUserProfile(user) {
-    const modalBody = document.getElementById('modalBody');
-    
-    // Use Eastern Time formatted dates if available
-    const joinDate = user.created_at_eastern || (user.created_at ? formatDate(user.created_at) : 'Unknown');
-    const lastLogin = user.last_login_eastern || (user.last_login ? formatDateTime(user.last_login) : 'Never');
-    const suspendedAt = user.suspended_at_eastern || (user.suspended_at ? formatDateTime(user.suspended_at) : 'Unknown');
-    
-    modalBody.innerHTML = `
-        <div class="profile-section">
-            <h3><i class="fas fa-user"></i> Basic Information</h3>
-            <div class="profile-grid">
-                <div class="profile-item">
-                    <label>Username</label>
-                    <value>${user.username}</value>
+            
+            <div class="fix-step">
+                <strong>Issue 2: Missing Admin Dashboard Route</strong>
+                <p>Ensure you have the admin dashboard route:</p>
+                <div class="code-block">
+<pre>@app.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard(
+    request: Request,
+    success: str = Query(None),
+    error: str = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Admin dashboard page"""
+    try:
+        # Check if user is admin
+        user = get_optional_user(request)
+        if not user or user.email not in ["support@giverai.me"]:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Get statistics
+        total_users = db.query(User).count()
+        suspended_count = db.query(User).filter(User.is_suspended == True).count()
+        
+        # Recent signups (last 7 days)
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        recent_signups = db.query(User).filter(User.created_at >= seven_days_ago).count()
+        
+        # Active today (logged in last 24 hours)
+        one_day_ago = datetime.utcnow() - timedelta(days=1)
+        active_today = db.query(User).filter(User.last_login >= one_day_ago).count()
+        
+        return templates.TemplateResponse("admin/dashboard.html", {
+            "request": request,
+            "user": user,
+            "total_users": total_users,
+            "suspended_count": suspended_count,
+            "recent_signups": recent_signups,
+            "active_today": active_today,
+            "success": success,
+            "error": error
+        })
+        
+    except Exception as e:
+        print(f"Admin dashboard error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Admin dashboard error")</pre>
                 </div>
-                <div class="profile-item">
-                    <label>Email</label>
-                    <value>${user.email}</value>
+            </div>
+            
+            <div class="fix-step">
+                <strong>Issue 3: CORS or Authorization</strong>
+                <p>If you get 403/401 errors, check your authentication:</p>
+                <div class="code-block">
+<pre># Make sure your get_optional_user function works
+def get_optional_user(request: Request):
+    try:
+        token = request.cookies.get("access_token")
+        if not token:
+            return None
+        
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if not username:
+            return None
+        
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.username == username).first()
+            return user
+        finally:
+            db.close()
+            
+    except Exception as e:
+        print(f"Auth error: {e}")
+        return None</pre>
                 </div>
-                <div class="profile-item">
-                    <label>User ID</label>
-                    <value>${user.id}</value>
-                </div>
-                <div class="profile-item">
-                    <label>Plan</label>
-                    <value><span class="plan-badge plan-${user.plan.replace('_', '-')}">${user.plan.replace('_', ' ')}</span></value>
+            </div>
+            
+            <div class="fix-step">
+                <strong>Issue 4: Database Connection</strong>
+                <p>Verify your database connection and User model:</p>
+                <div class="code-block">
+<pre># Add this test route temporarily to check DB
+@app.get("/test-db")
+async def test_database_connection(db: Session = Depends(get_db)):
+    try:
+        # Simple query to test connection
+        user_count = db.query(User).count()
+        sample_user = db.query(User).first()
+        
+        return {
+            "database_connected": True,
+            "total_users": user_count,
+            "sample_user": {
+                "id": sample_user.id if sample_user else None,
+                "username": sample_user.username if sample_user else None,
+                "email": sample_user.email if sample_user else None
+            } if sample_user else None
+        }
+    except Exception as e:
+        return {
+            "database_connected": False,
+            "error": str(e)
+        }</pre>
                 </div>
             </div>
         </div>
-
-        <div class="profile-section">
-            <h3><i class="fas fa-calendar"></i> Account Timeline <small style="color: #a0a0a0; font-size: 0.8em;">(Eastern Time)</small></h3>
-            <div class="profile-grid">
-                <div class="profile-item">
-                    <label>Join Date</label>
-                    <value>${joinDate}</value>
-                </div>
-                <div class="profile-item">
-                    <label>Last Login</label>
-                    <value>${lastLogin}</value>
-                </div>
-                <div class="profile-item">
-                    <label>Account Age</label>
-                    <value>${user.created_at ? getAccountAge(user.created_at) : 'Unknown'}</value>
-                </div>
-                <div class="profile-item">
-                    <label>Status</label>
-                    <value><span class="status-badge ${user.is_suspended ? 'status-suspended' : 'status-active'}">${user.is_suspended ? 'Suspended' : 'Active'}</span></value>
-                </div>
+        
+        <!-- Manual Debug -->
+        <div class="debug-section">
+            <div class="debug-title">
+                <span class="status-indicator" id="manualStatus"></span>
+                🔧 Manual Debug
             </div>
+            <button class="btn" onclick="checkNetworkTab()">Check Network Tab</button>
+            <button class="btn" onclick="inspectElement()">Inspect Element</button>
+            <button class="btn btn-danger" onclick="clearAllData()">Clear Browser Data</button>
+            <div class="debug-output" id="manualOutput">Manual debugging instructions...</div>
         </div>
+    </div>
 
-        ${user.is_suspended ? `
-        <div class="profile-section">
-            <h3><i class="fas fa-exclamation-triangle"></i> Suspension Details</h3>
-            <div class="profile-grid">
-                <div class="profile-item">
-                    <label>Reason</label>
-                    <value>${user.suspension_reason || 'No reason provided'}</value>
-                </div>
-                <div class="profile-item">
-                    <label>Suspended At</label>
-                    <value>${suspendedAt}</value>
-                </div>
-                <div class="profile-item">
-                    <label>Suspended By</label>
-                    <value>${user.suspended_by || 'Unknown'}</value>
-                </div>
-            </div>
-        </div>
-        ` : ''}
-
-        <div class="profile-section">
-            <h3><i class="fas fa-chart-bar"></i> Usage Statistics</h3>
-            <div class="profile-grid">
-                <div class="profile-item">
-                    <label>Total Tweets Generated</label>
-                    <value>${user.total_tweets || 0}</value>
-                </div>
-                <div class="profile-item">
-                    <label>This Month</label>
-                    <value>${user.monthly_tweets || 0}</value>
-                </div>
-                <div class="profile-item">
-                    <label>Last 7 Days</label>
-                    <value>${user.weekly_tweets || 0}</value>
-                </div>
-                <div class="profile-item">
-                    <label>API Key Status</label>
-                    <value>${user.api_key ? 'Generated' : 'Not Generated'}</value>
-                </div>
-            </div>
-        </div>
-
-        ${user.stripe_customer_id ? `
-        <div class="profile-section">
-            <h3><i class="fas fa-credit-card"></i> Billing Information</h3>
-            <div class="profile-grid">
-                <div class="profile-item">
-                    <label>Stripe Customer ID</label>
-                    <value>${user.stripe_customer_id}</value>
-                </div>
-                <div class="profile-item">
-                    <label>Original Plan</label>
-                    <value>${user.original_plan || 'N/A'}</value>
-                </div>
-            </div>
-        </div>
-        ` : ''}
-
-        <div class="profile-section">
-            <h3><i class="fas fa-cog"></i> Admin Actions</h3>
-            <div class="action-buttons">
-                ${user.is_suspended ? 
-                  `<button class="btn btn-success" onclick="unsuspendUser(${user.id}, '${user.username}'); closeModal();">
-                     <i class="fas fa-user-check"></i> Unsuspend User
-                   </button>` :
-                  `<button class="btn btn-danger" onclick="showSuspendForm(${user.id}, '${user.username}')">
-                     <i class="fas fa-user-slash"></i> Suspend User
-                   </button>`
+    <script>
+        // Capture console errors
+        const originalConsoleError = console.error;
+        const consoleErrors = [];
+        
+        console.error = function(...args) {
+            consoleErrors.push(`[${new Date().toISOString()}] ${args.join(' ')}`);
+            originalConsoleError.apply(console, args);
+        };
+        
+        // Test backend connection
+        async function testBackendConnection() {
+            const output = document.getElementById('connectionOutput');
+            const status = document.getElementById('connectionStatus');
+            
+            output.textContent = 'Testing backend connection...';
+            
+            try {
+                const response = await fetch('/');
+                if (response.ok) {
+                    output.textContent = `✅ Backend connected successfully!\nStatus: ${response.status}\nResponse headers: ${JSON.stringify([...response.headers], null, 2)}`;
+                    status.className = 'status-indicator status-success';
+                } else {
+                    output.textContent = `⚠️ Backend responded with status: ${response.status}`;
+                    status.className = 'status-indicator status-warning';
                 }
-                <button class="btn btn-secondary" onclick="sendPasswordReset(${user.id})">
-                  <i class="fas fa-key"></i> Force Password Reset
-                </button>
-                <button class="btn btn-info" onclick="viewUserActivity(${user.id})">
-                  <i class="fas fa-history"></i> View Activity
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-function renderUsers() {
-    const tbody = document.getElementById('usersTableBody');
-    const startIndex = (currentPage - 1) * usersPerPage;
-    const endIndex = startIndex + usersPerPage;
-    const usersToShow = filteredUsers.slice(startIndex, endIndex);
-
-    if (usersToShow.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 2rem; color: #a0a0a0;">
-                    <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem;"></i>
-                    <br>No users found
-                </td>
-            </tr>
-        `;
-        document.getElementById('userCount').textContent = '0';
-        document.getElementById('pagination').innerHTML = '';
-        return;
-    }
-
-    tbody.innerHTML = usersToShow.map(user => {
-        const planClass = `plan-${user.plan.replace('_', '-')}`;
-        const statusClass = user.is_suspended ? 'status-suspended' : 'status-active';
-        const statusText = user.is_suspended ? 'Suspended' : 'Active';
-        const avatar = user.username.charAt(0).toUpperCase();
-        
-        const suspendButton = user.is_suspended 
-            ? `<button class="btn btn-success btn-small" onclick="unsuspendUser(${user.id}, '${user.username}')">
-                 <i class="fas fa-user-check"></i> Unsuspend
-               </button>`
-            : `<form class="suspend-form" onsubmit="suspendUser(event, ${user.id}, '${user.username}')">
-                 <input type="text" class="reason-input" placeholder="Reason..." required>
-                 <button type="submit" class="btn btn-danger btn-small">
-                   <i class="fas fa-user-slash"></i> Suspend
-                 </button>
-               </form>`;
-
-        // Use Eastern Time formatted dates if available, otherwise fall back to UTC formatting
-        const joinedDate = user.created_at_eastern ? 
-            user.created_at_eastern.split(' ')[0] : // Just the date part
-            (user.created_at ? formatDate(user.created_at) : 'Unknown');
-            
-        const lastLogin = user.last_login_eastern ? 
-            user.last_login_eastern : 
-            (user.last_login ? formatDateTime(user.last_login) : 'Never');
-
-        return `
-            <tr>
-                <td>
-                    <div class="user-info">
-                        <div class="user-avatar">${avatar}</div>
-                        <div class="user-details">
-                            <h4>${user.username}</h4>
-                            <p>${user.email}</p>
-                        </div>
-                    </div>
-                </td>
-                <td>
-                    <span class="plan-badge ${planClass}">${user.plan.replace('_', ' ')}</span>
-                </td>
-                <td>${joinedDate}</td>
-                <td>${lastLogin}</td>
-                <td>
-                    <span class="status-badge ${statusClass}">${statusText}</span>
-                    ${user.is_suspended && user.suspension_reason ? 
-                        `<br><small style="color: #a0a0a0;">Reason: ${user.suspension_reason}</small>` : ''}
-                </td>
-                <td>
-                    <div class="action-buttons">
-                        ${suspendButton}
-                        <button class="btn btn-info btn-small" onclick="viewUser(${user.id})">
-                            <i class="fas fa-eye"></i> View
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
-    document.getElementById('userCount').textContent = filteredUsers.length;
-    renderPagination();
-}
-
-// Update the renderActivities function for activity page
-function renderActivities(activities) {
-    const container = document.getElementById('activityContainer');
-    
-    if (!activities || activities.length === 0) {
-        container.innerHTML = `
-            <div class="no-activity">
-                <i class="fas fa-clock" style="font-size: 3rem; color: #a0a0a0; margin-bottom: 1rem;"></i>
-                <h3>No Activity Found</h3>
-                <p>This user has no recorded activity yet.</p>
-            </div>
-        `;
-        return;
-    }
-
-    const activitiesHTML = activities.map(activity => {
-        // Use Eastern Time formatted timestamp if available
-        const timestamp = activity.timestamp_eastern || new Date(activity.timestamp).toLocaleString();
-        const typeIcon = getActivityIcon(activity.type);
-        
-        let metadataHTML = '';
-        if (activity.metadata && Object.keys(activity.metadata).length > 0) {
-            metadataHTML = `
-                <div class="activity-metadata">
-                    <strong>Additional Details:</strong><br>
-                    ${JSON.stringify(activity.metadata, null, 2)}
-                </div>
-            `;
+            } catch (error) {
+                output.textContent = `❌ Backend connection failed: ${error.message}`;
+                status.className = 'status-indicator status-error';
+            }
         }
         
-        return `
-            <div class="activity-item">
-                <div class="activity-type">
-                    <i class="fas ${typeIcon}"></i> ${formatActivityType(activity.type)}
-                </div>
-                <div class="activity-description">
-                    ${activity.description || 'No description available'}
-                </div>
-                <div class="activity-meta">
-                    <span><i class="fas fa-clock"></i> ${timestamp} ET</span>
-                    ${activity.ip_address ? `<span><i class="fas fa-map-marker-alt"></i> ${activity.ip_address}</span>` : ''}
-                </div>
-                ${metadataHTML}
-            </div>
-        `;
-    }).join('');
+        // Test admin API specifically
+        async function testAdminAPI() {
+            const output = document.getElementById('connectionOutput');
+            
+            try {
+                const response = await fetch('/admin/api/users?limit=5');
+                const data = await response.json();
+                
+                output.textContent = `Admin API Response (${response.status}):\n${JSON.stringify(data, null, 2)}`;
+                
+                if (response.ok && data.success) {
+                    document.getElementById('connectionStatus').className = 'status-indicator status-success';
+                } else {
+                    document.getElementById('connectionStatus').className = 'status-indicator status-warning';
+                }
+            } catch (error) {
+                output.textContent = `❌ Admin API test failed: ${error.message}`;
+                document.getElementById('connectionStatus').className = 'status-indicator status-error';
+            }
+        }
+        
+        // Test all APIs
+        async function testAllAPIs() {
+            const output = document.getElementById('apiOutput');
+            const status = document.getElementById('apiStatus');
+            
+            output.textContent = 'Testing all API endpoints...\n';
+            
+            const endpoints = [
+                '/admin/api/users',
+                '/admin/dashboard',
+                '/test-db'
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint);
+                    output.textContent += `\n${endpoint}: ${response.status} - ${response.ok ? '✅' : '❌'}`;
+                    
+                    if (endpoint === '/admin/api/users' && response.ok) {
+                        const data = await response.json();
+                        output.textContent += `\n  Users returned: ${data.users ? data.users.length : 0}`;
+                        output.textContent += `\n  Total users: ${data.total || 0}`;
+                    }
+                } catch (error) {
+                    output.textContent += `\n${endpoint}: ERROR - ${error.message}`;
+                }
+            }
+            
+            status.className = 'status-indicator status-success';
+        }
+        
+        // Test specific user API
+        async function testUserAPI() {
+            const output = document.getElementById('apiOutput');
+            
+            try {
+                output.textContent = 'Testing /admin/api/users endpoint...';
+                
+                const response = await fetch('/admin/api/users?limit=10');
+                const text = await response.text();
+                
+                output.textContent = `Response Status: ${response.status}\n`;
+                output.textContent += `Response Headers: ${JSON.stringify([...response.headers], null, 2)}\n\n`;
+                
+                try {
+                    const data = JSON.parse(text);
+                    output.textContent += `Parsed JSON Response:\n${JSON.stringify(data, null, 2)}`;
+                } catch {
+                    output.textContent += `Raw Response (not JSON):\n${text}`;
+                }
+                
+            } catch (error) {
+                output.textContent = `❌ User API test failed: ${error.message}\nStack: ${error.stack}`;
+            }
+        }
+        
+        // Test database
+        async function testDatabase() {
+            const output = document.getElementById('dbOutput');
+            const status = document.getElementById('dbStatus');
+            
+            try {
+                const response = await fetch('/test-db');
+                const data = await response.json();
+                
+                output.textContent = `Database Test Results:\n${JSON.stringify(data, null, 2)}`;
+                
+                if (data.database_connected) {
+                    status.className = 'status-indicator status-success';
+                } else {
+                    status.className = 'status-indicator status-error';
+                }
+            } catch (error) {
+                output.textContent = `❌ Database test failed: ${error.message}`;
+                status.className = 'status-indicator status-error';
+            }
+        }
+        
+        // Check user table specifically
+        async function checkUserTable() {
+            const output = document.getElementById('dbOutput');
+            
+            try {
+                // This would need a specific endpoint
+                const response = await fetch('/admin/api/users?limit=1');
+                const data = await response.json();
+                
+                if (data.users && data.users.length > 0) {
+                    output.textContent = `Users table structure:\n${JSON.stringify(data.users[0], null, 2)}`;
+                } else {
+                    output.textContent = 'No users found in database or table access error';
+                }
+            } catch (error) {
+                output.textContent = `❌ User table check failed: ${error.message}`;
+            }
+        }
+        
+        // Check browser errors
+        function checkBrowserErrors() {
+            const output = document.getElementById('jsOutput');
+            const status = document.getElementById('jsStatus');
+            
+            if (consoleErrors.length > 0) {
+                output.textContent = `Found ${consoleErrors.length} console errors:\n\n${consoleErrors.join('\n\n')}`;
+                status.className = 'status-indicator status-error';
+            } else {
+                output.textContent = '✅ No console errors detected';
+                status.className = 'status-indicator status-success';
+            }
+            
+            // Also show any network errors from failed requests
+            output.textContent += '\n\nChecking for failed network requests...';
+            
+            // Check performance entries for failed requests
+            const entries = performance.getEntriesByType('navigation');
+            if (entries.length > 0) {
+                output.textContent += `\nNavigation timing: ${JSON.stringify(entries[0], null, 2)}`;
+            }
+        }
+        
+        // Simulate the user loading process
+        async function simulateUserLoad() {
+            const output = document.getElementById('jsOutput');
+            
+            output.textContent = 'Simulating user load process...\n';
+            
+            // Step 1: Check if loadUsers function exists
+            if (typeof loadUsers === 'function') {
+                output.textContent += '✅ loadUsers function exists\n';
+                
+                try {
+                    // Try to call loadUsers
+                    await loadUsers();
+                    output.textContent += '✅ loadUsers executed successfully\n';
+                } catch (error) {
+                    output.textContent += `❌ loadUsers failed: ${error.message}\n`;
+                }
+            } else {
+                output.textContent += '❌ loadUsers function not found\n';
+                output.textContent += 'This means the admin dashboard JavaScript is not loaded correctly\n';
+            }
+            
+            // Step 2: Check DOM elements
+            const elements = ['usersTableBody', 'totalUsers', 'userCount'];
+            elements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    output.textContent += `✅ Element ${id} found\n`;
+                } else {
+                    output.textContent += `❌ Element ${id} not found\n`;
+                }
+            });
+            
+            // Step 3: Try direct fetch
+            try {
+                output.textContent += '\nTrying direct API call...\n';
+                const response = await fetch('/admin/api/users?limit=5');
+                const data = await response.json();
+                output.textContent += `API Response: ${JSON.stringify(data, null, 2)}\n`;
+            } catch (error) {
+                output.textContent += `API Error: ${error.message}\n`;
+            }
+        }
+        
+        // Manual debug instructions
+        function checkNetworkTab() {
+            const output = document.getElementById('manualOutput');
+            
+            output.textContent = `🔍 MANUAL DEBUG STEPS:
 
-    container.innerHTML = activitiesHTML;
-}
+1. Open Browser Developer Tools (F12)
+2. Go to the Network tab
+3. Refresh your admin dashboard page
+4. Look for these requests:
+   - GET /admin/dashboard (should be 200)
+   - GET /admin/api/users (should be 200)
 
-// Add timezone indicator to the dashboard
-function addTimezoneIndicator() {
-    const timezoneInfo = document.createElement('div');
-    timezoneInfo.id = 'timezoneInfo';
-    timezoneInfo.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background: rgba(0, 255, 255, 0.1);
-        border: 1px solid rgba(0, 255, 255, 0.3);
-        padding: 8px 12px;
-        border-radius: 6px;
-        font-size: 0.8rem;
-        color: #00ffff;
-        z-index: 1000;
-    `;
-    timezoneInfo.innerHTML = '<i class="fas fa-clock"></i> Times shown in Eastern Time';
-    document.body.appendChild(timezoneInfo);
-}
+5. If you see 404 errors:
+   - The API endpoints don't exist in your backend
+   - Add the missing routes to main.py
 
-// Call this when the page loads
-document.addEventListener('DOMContentLoaded', function() {
-    // Get user ID from URL
-    const pathParts = window.location.pathname.split('/');
-    const userIdIndex = pathParts.indexOf('user') + 1;
-    if (userIdIndex > 0 && userIdIndex < pathParts.length) {
-        currentUserId = parseInt(pathParts[userIdIndex]);
-        loadUserActivity(currentUserId, currentPage);
-    } else {
-        // On main admin dashboard, load users and add timezone indicator
-        loadUsers();
-        addTimezoneIndicator();
-    }
-});
+6. If you see 403/401 errors:
+   - Authentication issue
+   - Make sure you're logged in as admin
 
-// Update the export function to include timezone info
-function exportUsers() {
-    const csvContent = "data:text/csv;charset=utf-8," 
-        + "ID,Username,Email,Plan,Status,Join Date (ET),Last Login (ET),Suspension Reason\n"
-        + filteredUsers.map(user => {
-            const status = user.is_suspended ? 'Suspended' : 'Active';
-            const lastLogin = user.last_login_eastern || 'Never';
-            const joinDate = user.created_at_eastern ? user.created_at_eastern.split(' ')[0] : 'Unknown';
-            const suspensionReason = user.suspension_reason || '';
-            return `${user.id},"${user.username}","${user.email}","${user.plan}","${status}","${joinDate}","${lastLogin}","${suspensionReason}"`;
-        }).join("\n");
+7. If you see 500 errors:
+   - Server error, check your terminal/logs
+   - Database connection issues
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `users_export_eastern_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  </script>
-}
+8. If requests are successful but no users show:
+   - Check the JSON response structure
+   - Look for JavaScript errors in Console tab`;
+        }
+        
+        function inspectElement() {
+            const output = document.getElementById('manualOutput');
+            
+            output.textContent = `🔍 ELEMENT INSPECTION:
+
+1. Right-click on the empty users table
+2. Select "Inspect Element"
+3. Look for the table body with ID "usersTableBody"
+4. Check if it contains any <tr> elements
+5. If empty, the JavaScript isn't populating it
+6. If has error message, there's an API issue
+
+Common issues:
+- Table shows "Failed to load users" = API error
+- Table completely empty = JavaScript not running
+- Table shows loading state = API call hanging
+
+Check browser Console tab for error messages.`;
+        }
+        
+        function clearAllData() {
+            const output = document.getElementById('manualOutput');
+            
+            if (confirm('This will clear all browser data for this site. Continue?')) {
+                // Clear localStorage
+                localStorage.clear();
+                
+                // Clear sessionStorage
+                sessionStorage.clear();
+                
+                // Clear cookies (limited by same-origin policy)
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                output.textContent = '✅ Browser data cleared. Please refresh the page and try again.';
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            }
+        }
+        
+        // Auto-run initial tests
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                testBackendConnection();
+            }, 500);
+        });
+        
+        // Listen for unhandled promise rejections
+        window.addEventListener('unhandledrejection', event => {
+            consoleErrors.push(`[${new Date().toISOString()}] Unhandled Promise Rejection: ${event.reason}`);
+        });
+    </script>
+</body>
+</html>
