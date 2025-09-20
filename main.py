@@ -82,7 +82,7 @@ class GeneratedTweet(Base):
     generated_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User")
 
-class IPBan(Base):
+class IPban(Base):
     __tablename__ = "ip_bans"
     id = Column(Integer, primary_key=True, index=True)
     ip_address = Column(String, index=True)
@@ -1666,9 +1666,9 @@ def is_ip_banned(ip_address: str, db: Session) -> bool:
         return False
     
     # Check for exact IP match
-    ban = db.query(IPBan).filter(
-        IPBan.ip_address == ip_address,
-        IPBan.is_active == True
+    ban = db.query(IPban).filter(
+        IPban.ip_address == ip_address,
+        IPban.is_active == True
     ).first()
     
     if ban:
@@ -1688,9 +1688,9 @@ def ban_ip_address(ip_address: str, reason: str, banned_by: str, db: Session, ex
         return False
     
     # Check if IP is already banned
-    existing_ban = db.query(IPBan).filter(
-        IPBan.ip_address == ip_address,
-        IPBan.is_active == True
+    existing_ban = db.query(IPban).filter(
+        IPban.ip_address == ip_address,
+        IPban.is_active == True
     ).first()
     
     if existing_ban:
@@ -1708,7 +1708,7 @@ def ban_ip_address(ip_address: str, reason: str, banned_by: str, db: Session, ex
         if expires_hours:
             expires_at = datetime.utcnow() + timedelta(hours=expires_hours)
         
-        ban = IPBan(
+        ban = IPban(
             ip_address=ip_address,
             reason=reason,
             banned_by=banned_by,
@@ -1731,9 +1731,9 @@ def ban_ip_address(ip_address: str, reason: str, banned_by: str, db: Session, ex
 
 def unban_ip_address(ip_address: str, db: Session):
     """Unban an IP address"""
-    bans = db.query(IPBan).filter(
-        IPBan.ip_address == ip_address,
-        IPBan.is_active == True
+    bans = db.query(IPban).filter(
+        IPban.ip_address == ip_address,
+        IPban.is_active == True
     ).all()
     
     for ban in bans:
@@ -1763,9 +1763,9 @@ async def check_ip_ban(request: Request, db: Session):
     
 def check_ip_ban(ip_address: str, db) -> bool:
     """Check if an IP address is banned"""
-    ban = db.query(IPBan).filter(  # Make sure this matches your model name
-        IPBan.ip_address == ip_address,
-        IPBan.is_active == True
+    ban = db.query(IPban).filter(  # Make sure this matches your model name
+        IPban.ip_address == ip_address,
+        IPban.is_active == True
     ).first()
     
     if ban:
@@ -3129,7 +3129,7 @@ def admin_dashboard_updated(
     ).count()
     
     # Get active IP bans
-    active_ip_bans = db.query(IPBan).filter(IPBan.is_active == True).count()
+    active_ip_bans = db.query(IPban).filter(IPban.is_active == True).count()
     
     return templates.TemplateResponse("admin/dashboard.html", {
         "request": request,
@@ -3224,7 +3224,7 @@ async def admin_ban_ip_page(
     db = SessionLocal()
     try:
         # Get current active bans
-        active_bans = db.query(IPBan).filter(IPBan.is_active == True).all()
+        active_bans = db.query(IPban).filter(IPban.is_active == True).all()
         
         return templates.TemplateResponse("admin/ban_ip.html", {
             "request": request,
