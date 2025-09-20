@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Suspended - Giver.ai</title>
+    <meta name="description" content="Your Giver.ai account has been suspended. Learn about our appeal process and contact support.">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <style>
+        .suspension-container {
+            max-width: 900px;
+            margin: 20px auto 40px auto;
+            padding: 0 15px;
+        }
+        
+        .suspension-header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: rgba(220, 53, 69, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            border-radius: 15px;
+            padding: 30px 20px;
+        }
+        
+        .suspension-header h1 {
+            background: linear-gradient(45deg, #dc3545, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(220, 53, 69, 0.5);
+            margin-bottom: 15px;
+            font-size: 2.5rem;
+        }
+        
+        .suspension-header .icon {
+            font-size: 4rem;
+            color: #dc3545;
+            margin-bottom: 20px;
+        }
+        
+        .suspension-info {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(220, 53, 69, 0.1);
+        }
+        
+        .suspension-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .detail-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .detail-card .label {
+            color: #a0a0a0;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+        
+        .detail-card .value {
+            color: #ffffff;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .detail-card .value.reason {
+            color: #dc3545;
+            font-weight: 700;
+        }
+        
+        .appeal-section {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 255, 255, 0.1);
+        }
+        
+        .appeal-section h2 {
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #00ffff;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9em;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            color: #00ffff;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+        
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+            background: rgba(0, 0, 0, 0.7);
+        }
+        
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: rgba(0, 255, 255, 0.5);
+        }
+        
+        .what-next {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+        
+        .what-next h2 {
+            color: #ffc107;
+            text-shadow: 0 0 10px #ffc107;
+            margin-bottom: 20px;
+        }
+        
+        .what-next ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .what-next li {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: rgba(255, 193, 7, 0.1);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .what-next li:hover {
+            background: rgba(255, 193, 7, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .what-next .step-icon {
+            font-size: 1.5em;
+            margin-right: 15px;
+            color: #ffc107;
+        }
+        
+        .what-next .step-text {
+            color: #fff;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .success-message {
+            background: rgba(40, 167, 69, 0.2);
+            border: 1px solid #28a745;
+            color: #28a745;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .error-message {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+            color: #dc3545;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .warning-box {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .warning-box .icon {
+            color: #ffc107;
+            font-size: 1.5rem;
+            margin-right: 10px;
+        }
+        
+        .warning-box p {
+            color: #fff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .suspension-details {
+                grid-template-columns: 1fr;
+            }
+            
+            .suspension-header h1 {
+                font-size: 2rem;
+            }
+            
+            .suspension-container {
+                margin: 10px;
+                padding: 0 10px;
+            }
+            
+            .suspension-info,
+            .appeal-section,
+            .what-next {
+                padding: 20px 15px;
+            }
+        }
+        
+        @media (max-width: 320px) {
+            .suspension-container {
+                margin: 10px;
+                padding: 0 10px;
+            }
+            
+            .suspension-header,
+            .suspension-info,
+            .appeal-section,
+            .what-next {
+                padding: 20px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar (simplified for suspended users) -->
+    <nav class="navbar">
+        <div class="brand">
+            <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/contact">Contact Support</a></li>
+        </ul>
+    </nav>
+
+    <main class="suspension-container">
+        <!-- Suspension Header -->
+        <div class="suspension-header">
+            <div class="icon">🚫</div>
+            <h1>Account Suspended</h1>
+            <p>Your Giver.ai account has been temporarily suspended. We understand this may be frustrating, but we're here to help resolve this matter.</p>
+        </div>
+
+        <!-- Suspension Details -->
+        <div class="suspension-info">
+            <h2 style="color: #dc3545; margin-bottom: 25px; text-align: center;">Suspension Information</h2>
+            
+            <div class="suspension-details">
+                <div class="detail-card">
+                    <div class="label">Account</div>
+                    <div class="value">{{ user.username if user else 'Unknown' }}</div>
+                </div>
+                <div class="detail-card">
+                    <div class="label">Suspended Date</div>
+                    <div class="value">
+                        {{ user.suspended_at.strftime('%B %d, %Y') if user and user.suspended_at else 'Unknown' }}
+                    </div>
+                </div>
+                <div class="detail-card">
+                    <div class="label">Reason</div>
+                    <div class="value reason">
+                        {{ user.suspension_reason if user and user.suspension_reason else 'Policy Violation' }}
+                    </div>
+                </div>
+                <div class="detail-card">
+                    <div class="label">Status</div>
+                    <div class="value">Under Review</div>
+                </div>
+            </div>
+
+            {% if user and user.suspension_reason %}
+            <div class="warning-box">
+                <p>
+                    <i class="fas fa-exclamation-triangle icon"></i>
+                    <strong>Reason for Suspension:</strong> {{ user.suspension_reason }}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Appeal Form -->
+        <div class="appeal-section">
+            <h2>Submit an Appeal</h2>
+            <p style="color: #adc2ff; margin-bottom: 25px; text-align: center;">
+                If you believe your account was suspended in error, please submit an appeal below. Our team will review your case within 24-48 hours.
+            </p>
+            
+            {% if success %}
+                <div class="success-message">
+                    {{ success }}
+                </div>
+            {% endif %}
+            
+            {% if error %}
+                <div class="error-message">
+                    {{ error }}
+                </div>
+            {% endif %}
+            
+            <form method="post" action="/suspended">
+                <div class="form-group">
+                    <label for="name">Your Full Name *</label>
+                    <input type="text" id="name" name="name" required 
+                           placeholder="Enter your full name" 
+                           value="{{ form_data.get('name', user.username if user else '') if form_data else '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required 
+                           placeholder="your@email.com" 
+                           value="{{ form_data.get('email', user.email if user else '') if form_data else '' }}"
+                           {% if user %}readonly style="background: rgba(0, 0, 0, 0.3); color: #adc2ff;"{% endif %}>
+                </div>
+                
+                <div class="form-group">
+                    <label for="appeal_type">Type of Appeal *</label>
+                    <select id="appeal_type" name="appeal_type" required>
+                        <option value="">Select appeal type</option>
+                        <option value="wrongful_suspension" {{ 'selected' if form_data.get('appeal_type') == 'wrongful_suspension' else '' }}>Account Wrongfully Suspended</option>
+                        <option value="policy_misunderstanding" {{ 'selected' if form_data.get('appeal_type') == 'policy_misunderstanding' else '' }}>Policy Misunderstanding</option>
+                        <option value="technical_error" {{ 'selected' if form_data.get('appeal_type') == 'technical_error' else '' }}>Technical Error</option>
+                        <option value="account_compromise" {{ 'selected' if form_data.get('appeal_type') == 'account_compromise' else '' }}>Account Was Compromised</option>
+                        <option value="content_misidentified" {{ 'selected' if form_data.get('appeal_type') == 'content_misidentified' else '' }}>Content Misidentified</option>
+                        <option value="first_time_offense" {{ 'selected' if form_data.get('appeal_type') == 'first_time_offense' else '' }}>First Time Offense - Request Leniency</option>
+                        <option value="other" {{ 'selected' if form_data.get('appeal_type') == 'other' else '' }}>Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="appeal_message">Detailed Explanation *</label>
+                    <textarea id="appeal_message" name="appeal_message" required 
+                              placeholder="Please provide a detailed explanation of why you believe your account suspension should be reversed. Include any relevant context, evidence, or circumstances that support your appeal...">{{ form_data.get('appeal_message', '') if form_data else '' }}</textarea>
+                </div>
+                
+                {% if user %}
+                    <div class="form-group">
+                        <label for="account_info">Account Information</label>
+                        <input type="text" id="account_info" name="account_info" readonly 
+                               value="Username: {{ user.username }} | Plan: {{ user.plan|replace('_', ' ')|title }} | Suspended: {{ user.suspended_at.strftime('%Y-%m-%d') if user.suspended_at else 'Unknown' }}"
+                               style="background: rgba(0, 0, 0, 0.3); color: #adc2ff;">
+                    </div>
+                {% endif %}
+                
+                <div class="g-recaptcha" 
+                     data-sitekey="{{ recaptcha_site_key }}"
+                     style="margin: 20px 0;">
+                </div>
+                
+                <button type="submit">Submit Appeal</button>
+            </form>
+        </div>
+
+        <!-- What Happens Next -->
+        <div class="what-next">
+            <h2>What Happens Next?</h2>
+            <ul>
+                <li>
+                    <div class="step-icon">📋</div>
+                    <div class="step-text">
+                        <strong>Appeal Review:</strong> Our team will carefully review your appeal and the circumstances surrounding your suspension.
+                    </div>
+                </li>
+                <li>
+                    <div class="step-icon">🔍</div>
+                    <div class="step-text">
+                        <strong>Investigation:</strong> We'll investigate the reported violation and examine any evidence you've provided.
+                    </div>
+                </li>
+                <li>
+                    <div class="step-icon">📧</div>
+                    <div class="step-text">
+                        <strong>Response:</strong> You'll receive an email response within 24-48 hours with our decision and any next steps.
+                    </div>
+                </li>
+                <li>
+                    <div class="step-icon">✅</div>
+                    <div class="step-text">
+                        <strong>Resolution:</strong> If your appeal is approved, your account will be restored immediately. If denied, we'll explain the reasoning.
+                    </div>
+                </li>
+            </ul>
+            
+            <div class="warning-box" style="margin-top: 25px;">
+                <p>
+                    <i class="fas fa-info-circle icon"></i>
+                    <strong>Important:</strong> Creating additional accounts while suspended is against our terms and may result in permanent bans on all accounts.
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-left">
+                <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+            </div>
+            <div class="footer-links">
+                <a href="/privacy">Privacy Policy</a> |
+                <a href="/terms">Terms of Service</a> |
+                <a href="/contact">Contact Support</a>
+            </div>
+            <div class="footer-right">
+                &copy; Copyright Giver.ai
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
