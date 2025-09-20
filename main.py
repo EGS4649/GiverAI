@@ -2732,6 +2732,93 @@ async def debug_response_format():
             "details": str(e),
             "type": type(e).__name__
         }
+
+@app.get("/debug-test-db-raw")
+async def debug_test_db_raw():
+    """See the raw response from test-db logic"""
+    try:
+        db = SessionLocal()
+        user_count = db.query(User).count()
+        sample_user = db.query(User).first()
+        
+        # Build response step by step and test each part
+        response_parts = {}
+        
+        # Part 1: Basic info
+        response_parts["part1"] = {
+            "database_connected": True,
+            "total_users": user_count
+        }
+        
+        # Test serialization of part 1
+        json.dumps(response_parts["part1"])
+        
+        # Part 2: Sample user basic info
+        if sample_user:
+            response_parts["part2"] = {
+                "user_id": sample_user.id,
+                "username": sample_user.username,
+                "email": sample_user.email
+            }
+            # Test serialization of part 2
+            json.dumps(response_parts["part2"])
+            
+            # Part 3: Sample user advanced info
+            response_parts["part3"] = {}
+            
+            # Test each field individually
+            fields_to_test = ['plan', 'is_suspended', 'is_active', 'created_at']
+            for field in fields_to_test:
+                try:
+                    if hasattr(sample_user, field):
+                        value = getattr(sample_user, field)
+                        if field == 'created_at' and value:
+                            value = value.isoformat()
+                        response_parts["part3"][field] = value
+                        # Test serialization after each field
+                        json.dumps(response_parts["part3"])
+                    else:
+                        response_parts["part3"][field] = f"Field {field} not found"
+                except Exception as field_error:
+                    response_parts["part3"][field] = f"Error: {str(field_error)}"
+        else:
+            response_parts["part2"] = {"message": "No users found"}
+            response_parts["part3"] = {}
+        
+        # Part 4: Table columns
+        try:
+            from sqlalchemy import inspect
+            inspector = inspect(db.bind)
+            columns = [col['name'] for col in inspector.get_columns('users')]
+            response_parts["part4"] = {"columns": columns}
+            json.dumps(response_parts["part4"])
+        except Exception as col_error:
+            response_parts["part4"] = {"columns_error": str(col_error)}
+        
+        db.close()
+        
+        # Final test: serialize everything together
+        json.dumps(response_parts)
+        
+        return {
+            "success": True,
+            "message": "All parts serialized successfully",
+            "parts": response_parts
+        }
+        
+    except json.JSONEncodeError as json_err:
+        return {
+            "success": False,
+            "error": "JSON serialization failed",
+            "details": str(json_err),
+            "parts_completed": list(response_parts.keys()) if 'response_parts' in locals() else []
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
   
 # API endpoint to get users data
 @app.get("/admin/api/users")
