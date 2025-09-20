@@ -27,6 +27,7 @@ import stripe
 import json
 import asyncio
 import smtplib
+import pytz
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
@@ -1380,6 +1381,19 @@ class EmailVerification(Base):
     verified = Column(Boolean, default=False)
     verified_at = Column(DateTime, nullable=True)  # Add this line
     user = relationship("User")
+
+def check_admin_access(user):
+    """Check if user has admin access"""
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Define your admin emails here
+    admin_emails = {"support@giverai.me", "admin@giverai.me"}  # Add your admin emails
+    
+    if user.email not in admin_emails:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return user
 
 # Helper functions
 def generate_verification_token():
