@@ -20,6 +20,7 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError, ProgrammingError 
 from sqlalchemy.orm import defer
 from sqlalchemy import Text
+from sqlalchemy.orm import Session
 from openai import OpenAI
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -2572,35 +2573,43 @@ def get_admin_user(current_user: User = Depends(get_current_user)):
 @app.get("/admin")
 async def admin_dashboard(
     request: Request,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_admin_user)
+    success: str = Query(None),
+    error: str = Query(None),
+    db: Session = Depends(get_db)
 ):
-    """Enhanced admin dashboard"""
-    db = SessionLocal()
+    """Admin dashboard page"""
     try:
+        # Check if user is admin
+        user = get_optional_user(request)
+        if not user or user.email not in ["support@giverai.me"]:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
         # Get statistics
         total_users = db.query(User).count()
         suspended_count = db.query(User).filter(User.is_suspended == True).count()
         
         # Recent signups (last 7 days)
-        week_ago = datetime.utcnow() - timedelta(days=7)
-        recent_signups = db.query(User).filter(User.created_at > week_ago).count()
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        recent_signups = db.query(User).filter(User.created_at >= seven_days_ago).count()
         
-        # Active today (users who logged in today)
-        today = datetime.utcnow().date()
-        active_today = db.query(User).filter(
-            func.date(User.last_login) == today
-        ).count() if hasattr(User, 'last_login') else 0
+        # Active today (logged in last 24 hours)
+        one_day_ago = datetime.utcnow() - timedelta(days=1)
+        active_today = db.query(User).filter(User.last_login >= one_day_ago).count()
         
         return templates.TemplateResponse("admin/dashboard.html", {
             "request": request,
+            "user": user,
             "total_users": total_users,
             "suspended_count": suspended_count,
             "recent_signups": recent_signups,
-            "active_today": active_today
+            "active_today": active_today,
+            "success": success,
+            "error": error
         })
-    finally:
-        db.close()
+        
+    except Exception as e:
+        print(f"Admin dashboard error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Admin dashboard error")
         
 @app.get("/admin/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(
@@ -2654,75 +2663,49 @@ async def admin_dashboard(
   
 # API endpoint to get users data
 @app.get("/admin/api/users")
-async def admin_api_users(
+async def get_users_api(
     request: Request,
-    limit: int = Query(default=50, le=200),
-    page: int = Query(default=1, ge=1),
-    search: str = Query(default=""),
-    status: str = Query(default=""),
-    plan: str = Query(default=""),
-    date_filter: str = Query(default=""),
-    current_user: User = Depends(get_current_user)
+    limit: int = Query(100),
+    page: int = Query(1),
+    search: str = Query(""),
+    status: str = Query(""),
+    plan: str = Query(""),
+    db: Session = Depends(get_db)
 ):
-    """API endpoint for admin dashboard to fetch users with timezone conversion"""
-    
-    # Check if user is admin
-    if current_user.email not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    db = SessionLocal()
+    """API endpoint to get users for admin dashboard"""
     try:
-        # Build the base query
+        # Check admin authorization
+        user = get_optional_user(request)
+        if not user or user.email not in ["support@giverai.me"]:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
         query = db.query(User)
         
-        # Apply search filter
+        # Apply filters
         if search:
             query = query.filter(
-                (User.username.ilike(f"%{search}%")) | 
+                (User.username.ilike(f"%{search}%")) |
                 (User.email.ilike(f"%{search}%"))
             )
         
-        # Apply status filter
-        if status == "active":
-            query = query.filter(User.is_suspended == False)
-        elif status == "suspended":
+        if status == "suspended":
             query = query.filter(User.is_suspended == True)
-        
-        # Apply plan filter
+        elif status == "active":
+            query = query.filter(User.is_suspended == False)
+            
         if plan:
             query = query.filter(User.plan == plan)
         
-        # Apply date filter
-        if date_filter:
-            now_eastern = convert_to_eastern(datetime.utcnow())
-            today_start = now_eastern.replace(hour=0, minute=0, second=0, microsecond=0)
-            
-            if date_filter == "today":
-                query = query.filter(User.created_at >= today_start.astimezone(datetime.timezone.utc))
-            elif date_filter == "week":
-                week_start = today_start - timedelta(days=7)
-                query = query.filter(User.created_at >= week_start.astimezone(datetime.timezone.utc))
-            elif date_filter == "month":
-                month_start = today_start - timedelta(days=30)
-                query = query.filter(User.created_at >= month_start.astimezone(datetime.timezone.utc))
-            elif date_filter == "3months":
-                three_months_start = today_start - timedelta(days=90)
-                query = query.filter(User.created_at >= three_months_start.astimezone(datetime.timezone.utc))
-        
-        # Get total count for pagination
         total_users = query.count()
         
-        # Apply pagination
+        # Pagination
         offset = (page - 1) * limit
         users = query.offset(offset).limit(limit).all()
         
-        # Convert users to dict with timezone-converted timestamps
+        # Format users data
         users_data = []
         for user in users:
-            # Get tweet count for this user
-            tweet_count = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).count()
-            
-            user_dict = {
+            users_data.append({
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
@@ -2730,31 +2713,26 @@ async def admin_api_users(
                 "is_suspended": user.is_suspended,
                 "suspension_reason": user.suspension_reason,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
-                "created_at_eastern": format_eastern_datetime(user.created_at),
                 "last_login": user.last_login.isoformat() if user.last_login else None,
-                "last_login_eastern": format_eastern_datetime(user.last_login),
-                "suspended_at": user.suspended_at.isoformat() if user.suspended_at else None,
-                "suspended_at_eastern": format_eastern_datetime(user.suspended_at),
-                "suspended_by": user.suspended_by,
-                "total_tweets": tweet_count,
-                "stripe_customer_id": user.stripe_customer_id,
-                "original_plan": user.original_plan
-            }
-            users_data.append(user_dict)
+                "is_active": user.is_active
+            })
         
-        return {
+        return JSONResponse({
+            "success": True,
             "users": users_data,
-            "pagination": {
-                "page": page,
-                "limit": limit,
-                "total": total_users,
-                "pages": (total_users + limit - 1) // limit
-            },
-            "timezone": "America/New_York" if TIMEZONE_AVAILABLE else "UTC"
-        }
+            "total": total_users,
+            "page": page,
+            "limit": limit
+        })
         
-    finally:
-        db.close()
+    except Exception as e:
+        print(f"Error in get_users_api: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e),
+            "users": [],
+            "total": 0
+        }, status_code=500)
        
 @app.post("/admin/suspend-user")
 async def admin_suspend_user(
