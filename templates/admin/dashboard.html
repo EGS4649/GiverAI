@@ -339,6 +339,209 @@
             padding: 2rem;
             color: #ef4444;
         }
+
+        /* User Profile Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 20px 0;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            margin: 20px;
+        }
+
+        .modal-header {
+            padding: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 255, 255, 0.1);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .modal-header h2 {
+            color: #00ffff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .modal-close {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .modal-body {
+            padding: 2rem;
+        }
+
+        .profile-section {
+            margin-bottom: 2rem;
+        }
+
+        .profile-section h3 {
+            color: #00ffff;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.2rem;
+            border-bottom: 2px solid rgba(0, 255, 255, 0.3);
+            padding-bottom: 0.5rem;
+        }
+
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .profile-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .profile-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(0, 255, 255, 0.3);
+        }
+
+        .profile-item label {
+            color: #a0a0a0;
+            font-size: 0.85rem;
+            display: block;
+            margin-bottom: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .profile-item .value {
+            color: #ffffff;
+            font-weight: 500;
+            font-size: 1rem;
+            word-break: break-all;
+        }
+
+        .profile-item .value.highlight {
+            color: #00ffff;
+            font-weight: 600;
+        }
+
+        .profile-item .value.danger {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .profile-item .value.success {
+            color: #22c55e;
+            font-weight: 600;
+        }
+
+        .modal-actions {
+            padding: 1.5rem 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0 0 20px 20px;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .modal-actions .btn {
+            flex: 1;
+            min-width: 150px;
+            justify-content: center;
+        }
+
+        .loading-modal {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            color: #00ffff;
+        }
+
+        .timezone-note {
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+            color: #00ffff;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95%;
+                margin: 10px;
+            }
+            
+            .modal-header {
+                padding: 1.5rem;
+            }
+            
+            .modal-body {
+                padding: 1.5rem;
+            }
+            
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .modal-actions {
+                padding: 1rem;
+            }
+            
+            .modal-actions .btn {
+                min-width: auto;
+            }
+        }
     </style>
 </head>
 <body>
@@ -431,6 +634,22 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Profile Modal -->
+    <div class="modal" id="userModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-circle"></i> User Profile</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="loading-modal">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-right: 1rem;"></i>
+                    Loading user profile...
+                </div>
             </div>
         </div>
     </div>
@@ -678,9 +897,381 @@
             }
         }
 
-        // View user function (placeholder)
-        function viewUser(userId) {
-            alert(`View user ${userId} - Feature coming soon!`);
+        // View user function - now actually implemented
+        async function viewUser(userId) {
+            console.log(`Opening user profile for user ID: ${userId}`);
+            
+            const modal = document.getElementById('userModal');
+            const modalBody = document.getElementById('modalBody');
+            
+            // Show loading state
+            modalBody.innerHTML = `
+                <div class="loading-modal">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-right: 1rem;"></i>
+                    Loading user profile...
+                </div>
+            `;
+            
+            // Show modal
+            modal.classList.add('show');
+            
+            try {
+                const response = await fetch(`/admin/user/${userId}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.user) {
+                    renderUserProfile(data.user);
+                } else {
+                    throw new Error(data.error || 'Failed to load user profile');
+                }
+                
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+                modalBody.innerHTML = `
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Failed to load user profile: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Render user profile in modal
+        function renderUserProfile(user) {
+            const modalBody = document.getElementById('modalBody');
+            
+            // Calculate account age
+            let accountAge = 'Unknown';
+            if (user.created_at) {
+                const created = new Date(user.created_at);
+                const now = new Date();
+                const diffTime = Math.abs(now - created);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays < 30) {
+                    accountAge = `${diffDays} days`;
+                } else if (diffDays < 365) {
+                    accountAge = `${Math.floor(diffDays / 30)} months`;
+                } else {
+                    accountAge = `${Math.floor(diffDays / 365)} years`;
+                }
+            }
+            
+            modalBody.innerHTML = `
+                <div class="timezone-note">
+                    <i class="fas fa-clock"></i> All timestamps displayed in Eastern Time (ET)
+                </div>
+                
+                <div class="profile-section">
+                    <h3><i class="fas fa-user"></i> Basic Information</h3>
+                    <div class="profile-grid">
+                        <div class="profile-item">
+                            <label>Username</label>
+                            <div class="value highlight">${user.username}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>Email</label>
+                            <div class="value">${user.email}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>User ID</label>
+                            <div class="value">${user.id}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>Current Plan</label>
+                            <div class="value">
+                                <span class="plan-badge plan-${user.plan.replace('_', '-')}">${user.plan.replace('_', ' ')}</span>
+                            </div>
+                        </div>
+                        ${user.original_plan ? `
+                        <div class="profile-item">
+                            <label>Original Plan</label>
+                            <div class="value">${user.original_plan.replace('_', ' ')}</div>
+                        </div>` : ''}
+                        <div class="profile-item">
+                            <label>Account Status</label>
+                            <div class="value ${user.is_active ? 'success' : 'danger'}">
+                                ${user.is_active ? '✅ Active' : '❌ Inactive'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <h3><i class="fas fa-calendar-alt"></i> Account Timeline</h3>
+                    <div class="profile-grid">
+                        <div class="profile-item">
+                            <label>Join Date</label>
+                            <div class="value">${user.created_at_eastern || 'Unknown'}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>Last Login</label>
+                            <div class="value">${user.last_login_eastern || 'Never'}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>Account Age</label>
+                            <div class="value">${accountAge}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>Last Password Change</label>
+                            <div class="value">${user.last_password_change_eastern || 'Never'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                ${user.is_suspended ? `
+                <div class="profile-section">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Suspension Details</h3>
+                    <div class="profile-grid">
+                        <div class="profile-item">
+                            <label>Suspension Status</label>
+                            <div class="value danger">🚫 Account Suspended</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>Reason</label>
+                            <div class="value">${user.suspension_reason || 'No reason provided'}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>Suspended At</label>
+                            <div class="value">${user.suspended_at_eastern || 'Unknown'}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>Suspended By</label>
+                            <div class="value">${user.suspended_by || 'Unknown'}</div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="profile-section">
+                    <h3><i class="fas fa-chart-bar"></i> Usage Statistics</h3>
+                    <div class="profile-grid">
+                        <div class="profile-item">
+                            <label>Total Tweets Generated</label>
+                            <div class="value highlight">${user.total_tweets || 0}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>This Month</label>
+                            <div class="value">${user.monthly_tweets || 0}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>Last 7 Days</label>
+                            <div class="value">${user.weekly_tweets || 0}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>API Key Status</label>
+                            <div class="value ${user.api_key ? 'success' : ''}">${user.api_key ? '✅ Generated' : '❌ Not Generated'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <h3><i class="fas fa-shield-alt"></i> Security Information</h3>
+                    <div class="profile-grid">
+                        <div class="profile-item">
+                            <label>Failed Login Attempts</label>
+                            <div class="value ${user.failed_login_attempts > 0 ? 'danger' : ''}">${user.failed_login_attempts || 0}</div>
+                        </div>
+                        <div class="profile-item">
+                            <label>Account Locked</label>
+                            <div class="value ${user.account_locked ? 'danger' : 'success'}">
+                                ${user.account_locked ? '🔒 Yes' : '✅ No'}
+                            </div>
+                        </div>
+                        ${user.account_locked_until_eastern ? `
+                        <div class="profile-item">
+                            <label>Locked Until</label>
+                            <div class="value danger">${user.account_locked_until_eastern}</div>
+                        </div>` : ''}
+                    </div>
+                </div>
+
+                ${user.stripe_customer_id ? `
+                <div class="profile-section">
+                    <h3><i class="fas fa-credit-card"></i> Billing Information</h3>
+                    <div class="profile-grid">
+                        <div class="profile-item">
+                            <label>Stripe Customer ID</label>
+                            <div class="value">${user.stripe_customer_id}</div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${(user.role || user.industry || user.goals || user.posting_frequency) ? `
+                <div class="profile-section">
+                    <h3><i class="fas fa-user-tag"></i> Profile Details</h3>
+                    <div class="profile-grid">
+                        ${user.role ? `
+                        <div class="profile-item">
+                            <label>Role</label>
+                            <div class="value">${user.role}</div>
+                        </div>` : ''}
+                        ${user.industry ? `
+                        <div class="profile-item">
+                            <label>Industry</label>
+                            <div class="value">${user.industry}</div>
+                        </div>` : ''}
+                        ${user.goals ? `
+                        <div class="profile-item">
+                            <label>Goals</label>
+                            <div class="value">${user.goals}</div>
+                        </div>` : ''}
+                        ${user.posting_frequency ? `
+                        <div class="profile-item">
+                            <label>Posting Frequency</label>
+                            <div class="value">${user.posting_frequency}</div>
+                        </div>` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="modal-actions">
+                    ${user.is_suspended ? 
+                      `<button class="btn btn-success" onclick="unsuspendUserFromModal(${user.id}, '${user.username}')">
+                         <i class="fas fa-user-check"></i> Unsuspend User
+                       </button>` :
+                      `<button class="btn btn-danger" onclick="suspendUserFromModal(${user.id}, '${user.username}')">
+                         <i class="fas fa-user-slash"></i> Suspend User
+                       </button>`
+                    }
+                    <button class="btn btn-secondary" onclick="forcePasswordReset(${user.id}, '${user.username}')">
+                        <i class="fas fa-key"></i> Force Password Reset
+                    </button>
+                    <button class="btn btn-info" onclick="viewUserActivity(${user.id})">
+                        <i class="fas fa-history"></i> View Activity
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeModal()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            `;
+        }
+
+        // Close modal function
+        function closeModal() {
+            const modal = document.getElementById('userModal');
+            modal.classList.remove('show');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('userModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Suspend user from modal
+        async function suspendUserFromModal(userId, username) {
+            const reason = prompt(`Enter suspension reason for ${username}:`);
+            if (!reason) return;
+
+            if (!confirm(`Suspend ${username}?`)) return;
+
+            try {
+                const formData = new FormData();
+                formData.append('user_id', userId);
+                formData.append('reason', reason);
+
+                const response = await fetch('/admin/suspend-user', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // Update local data
+                    const user = allUsers.find(u => u.id === userId);
+                    if (user) {
+                        user.is_suspended = true;
+                        user.suspension_reason = reason;
+                    }
+                    
+                    renderUsers();
+                    updateStats();
+                    closeModal();
+                    showSuccess(result.message);
+                } else {
+                    showError(result.message || 'Failed to suspend user');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Failed to suspend user');
+            }
+        }
+
+        // Unsuspend user from modal
+        async function unsuspendUserFromModal(userId, username) {
+            if (!confirm(`Unsuspend ${username}?`)) return;
+
+            try {
+                const formData = new FormData();
+                formData.append('user_id', userId);
+
+                const response = await fetch('/admin/unsuspend-user', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // Update local data
+                    const user = allUsers.find(u => u.id === userId);
+                    if (user) {
+                        user.is_suspended = false;
+                        user.suspension_reason = null;
+                    }
+                    
+                    renderUsers();
+                    updateStats();
+                    closeModal();
+                    showSuccess(result.message);
+                } else {
+                    showError(result.message || 'Failed to unsuspend user');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Failed to unsuspend user');
+            }
+        }
+
+        // Force password reset
+        async function forcePasswordReset(userId, username) {
+            if (!confirm(`Force password reset for ${username}? They will receive a reset email.`)) return;
+
+            try {
+                const formData = new FormData();
+                formData.append('user_id', userId);
+
+                const response = await fetch('/admin/force-password-reset', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    showSuccess(result.message);
+                } else {
+                    showError(result.message || 'Failed to force password reset');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Failed to force password reset');
+            }
+        }
+
+        // View user activity (placeholder for now)
+        function viewUserActivity(userId) {
+            // This could open another modal or redirect to activity page
+            window.open(`/admin/user/${userId}/activity`, '_blank');
         }
 
         // Utility functions
