@@ -19,6 +19,7 @@ from sqlalchemy import LargeBinary
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError, ProgrammingError 
 from sqlalchemy.orm import defer
+from sqlalchemy import func, Text
 from sqlalchemy import Text
 from sqlalchemy.orm import Session
 from openai import OpenAI
@@ -1370,7 +1371,27 @@ def get_db():
         yield db
     finally:
         db.close()
-
+        
+# Add this helper function for timezone conversion
+def convert_to_eastern(utc_datetime):
+    """Convert UTC datetime to Eastern Time"""
+    if not utc_datetime:
+        return None
+    
+    try:
+        # Ensure it's timezone-aware UTC
+        if utc_datetime.tzinfo is None:
+            utc_datetime = pytz.utc.localize(utc_datetime)
+        
+        # Convert to Eastern Time
+        eastern = pytz.timezone('US/Eastern')
+        eastern_dt = utc_datetime.astimezone(eastern)
+        
+        return eastern_dt.strftime('%Y-%m-%d %H:%M:%S %Z')
+    except Exception as e:
+        print(f"Timezone conversion error: {e}")
+        return utc_datetime.strftime('%Y-%m-%d %H:%M:%S UTC') if utc_datetime else None
+    
 # Database models for email verification
 class EmailVerification(Base):
     __tablename__ = "email_verifications"
@@ -2615,27 +2636,46 @@ async def admin_dashboard(
 async def admin_dashboard(
     request: Request,
     success: str = Query(None),
-    error: str = Query(None),
-    db: Session = Depends(get_db)
+    error: str = Query(None)
 ):
-    """Admin dashboard page"""
+    """Admin dashboard page with proper timezone handling"""
     try:
+        db = SessionLocal()
+        
         # Check if user is admin
         user = get_optional_user(request)
-        if not user or user.email not in ["support@giverai.me"]:
+        if not user or user.email not in {"support@giverai.me", "admin@giverai.me"}:
+            db.close()
             raise HTTPException(status_code=403, detail="Admin access required")
         
-        # Get statistics
-        total_users = db.query(User).count()
-        suspended_count = db.query(User).filter(User.is_suspended == True).count()
+        # Get basic statistics safely
+        try:
+            total_users = db.query(User).count()
+        except Exception:
+            total_users = 0
+            
+        try:
+            suspended_count = db.query(User).filter(User.is_suspended == True).count()
+        except Exception:
+            suspended_count = 0
         
-        # Recent signups (last 7 days)
-        seven_days_ago = datetime.utcnow() - timedelta(days=7)
-        recent_signups = db.query(User).filter(User.created_at >= seven_days_ago).count()
+        try:
+            seven_days_ago = datetime.utcnow() - timedelta(days=7)
+            recent_signups = db.query(User).filter(User.created_at >= seven_days_ago).count()
+        except Exception:
+            recent_signups = 0
         
-        # Active today (logged in last 24 hours)
-        one_day_ago = datetime.utcnow() - timedelta(days=1)
-        active_today = db.query(User).filter(User.last_login >= one_day_ago).count()
+        try:
+            one_day_ago = datetime.utcnow() - timedelta(days=1)
+            # Check if last_login column exists
+            if hasattr(User, 'last_login'):
+                active_today = db.query(User).filter(User.last_login >= one_day_ago).count()
+            else:
+                active_today = 0
+        except Exception:
+            active_today = 0
+        
+        db.close()
         
         return templates.TemplateResponse("admin/dashboard.html", {
             "request": request,
@@ -2648,250 +2688,186 @@ async def admin_dashboard(
             "error": error
         })
         
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Admin dashboard error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Admin dashboard error")
-    
-@app.get("/debug-response")
-async def debug_response_format():
-    """Debug what the actual response looks like"""
-    try:
-        db = SessionLocal()
+        import traceback
+        traceback.print_exc()
         
-        # Test 1: Simple response
-        simple_test = {"test": "simple", "number": 123, "boolean": True}
-        
-        # Test 2: Database connection
-        try:
-            user_count = db.query(User).count()
-            db_test = {"db_connected": True, "user_count": user_count}
-        except Exception as db_error:
-            db_test = {"db_connected": False, "error": str(db_error)}
-        
-        # Test 3: User data (the likely culprit)
-        user_test = {"users": []}
-        try:
-            first_user = db.query(User).first()
-            if first_user:
-                # Try to serialize user step by step
-                user_data = {}
-                
-                # Basic fields
-                user_data["id"] = first_user.id
-                user_data["username"] = first_user.username
-                user_data["email"] = first_user.email
-                
-                # Check if this works so far
-                test_serialize = json.dumps(user_data)
-                
-                # Try datetime field
-                if hasattr(first_user, 'created_at') and first_user.created_at:
-                    user_data["created_at"] = first_user.created_at.isoformat()
-                
-                # Try boolean fields
-                user_data["is_active"] = getattr(first_user, 'is_active', True)
-                user_data["is_suspended"] = getattr(first_user, 'is_suspended', False)
-                
-                # Try plan field
-                user_data["plan"] = getattr(first_user, 'plan', 'free')
-                
-                user_test["users"] = [user_data]
-                user_test["serialization_success"] = True
-                
-        except Exception as user_error:
-            user_test["users"] = []
-            user_test["serialization_success"] = False
-            user_test["error"] = str(user_error)
-            user_test["error_type"] = type(user_error).__name__
-        
-        finally:
-            db.close()
-        
-        # Combine all tests
-        result = {
-            "simple_test": simple_test,
-            "database_test": db_test,
-            "user_serialization_test": user_test,
-            "overall_status": "debug_complete"
-        }
-        
-        # Try to serialize the entire result
-        json.dumps(result)  # This will throw an error if there's a serialization issue
-        
-        return result
-        
-    except json.JSONEncodeError as json_error:
-        return {
-            "error": "JSON serialization failed",
-            "details": str(json_error),
-            "type": "JSONEncodeError"
-        }
-    except Exception as e:
-        return {
-            "error": "General error",
-            "details": str(e),
-            "type": type(e).__name__
-        }
-
-@app.get("/debug-test-db-raw")
-async def debug_test_db_raw():
-    """See the raw response from test-db logic"""
-    try:
-        db = SessionLocal()
-        user_count = db.query(User).count()
-        sample_user = db.query(User).first()
-        
-        # Build response step by step and test each part
-        response_parts = {}
-        
-        # Part 1: Basic info
-        response_parts["part1"] = {
-            "database_connected": True,
-            "total_users": user_count
-        }
-        
-        # Test serialization of part 1
-        json.dumps(response_parts["part1"])
-        
-        # Part 2: Sample user basic info
-        if sample_user:
-            response_parts["part2"] = {
-                "user_id": sample_user.id,
-                "username": sample_user.username,
-                "email": sample_user.email
-            }
-            # Test serialization of part 2
-            json.dumps(response_parts["part2"])
-            
-            # Part 3: Sample user advanced info
-            response_parts["part3"] = {}
-            
-            # Test each field individually
-            fields_to_test = ['plan', 'is_suspended', 'is_active', 'created_at']
-            for field in fields_to_test:
-                try:
-                    if hasattr(sample_user, field):
-                        value = getattr(sample_user, field)
-                        if field == 'created_at' and value:
-                            value = value.isoformat()
-                        response_parts["part3"][field] = value
-                        # Test serialization after each field
-                        json.dumps(response_parts["part3"])
-                    else:
-                        response_parts["part3"][field] = f"Field {field} not found"
-                except Exception as field_error:
-                    response_parts["part3"][field] = f"Error: {str(field_error)}"
-        else:
-            response_parts["part2"] = {"message": "No users found"}
-            response_parts["part3"] = {}
-        
-        # Part 4: Table columns
-        try:
-            from sqlalchemy import inspect
-            inspector = inspect(db.bind)
-            columns = [col['name'] for col in inspector.get_columns('users')]
-            response_parts["part4"] = {"columns": columns}
-            json.dumps(response_parts["part4"])
-        except Exception as col_error:
-            response_parts["part4"] = {"columns_error": str(col_error)}
-        
-        db.close()
-        
-        # Final test: serialize everything together
-        json.dumps(response_parts)
-        
-        return {
-            "success": True,
-            "message": "All parts serialized successfully",
-            "parts": response_parts
-        }
-        
-    except json.JSONEncodeError as json_err:
-        return {
-            "success": False,
-            "error": "JSON serialization failed",
-            "details": str(json_err),
-            "parts_completed": list(response_parts.keys()) if 'response_parts' in locals() else []
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "error_type": type(e).__name__
-        }
+        # Return a basic error page instead of letting it crash
+        return templates.TemplateResponse("500.html", {
+            "request": request,
+            "error": "Admin dashboard temporarily unavailable"
+        }, status_code=500)
   
 # API endpoint to get users data
 @app.get("/admin/api/users")
 async def get_users_api(
     request: Request,
-    limit: int = Query(100),
-    page: int = Query(1),
+    limit: int = Query(100, ge=1, le=1000),
+    page: int = Query(1, ge=1),
     search: str = Query(""),
     status: str = Query(""),
     plan: str = Query(""),
-    db: Session = Depends(get_db)
 ):
-    """API endpoint to get users for admin dashboard"""
+    """API endpoint to get users for admin dashboard with Eastern Time"""
+    db = None
     try:
-        # Check admin authorization
-        user = get_optional_user(request)
-        if not user or user.email not in ["support@giverai.me"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
+        # Get database session
+        db = SessionLocal()
         
+        # Check admin authorization first
+        user = get_optional_user(request)
+        if not user:
+            return JSONResponse({
+                "success": False,
+                "error": "Authentication required",
+                "users": [],
+                "total": 0
+            }, status_code=401)
+        
+        # Check if user is admin
+        admin_emails = {"support@giverai.me"}
+        if user.email not in admin_emails:
+            return JSONResponse({
+                "success": False,
+                "error": "Admin access required",
+                "users": [],
+                "total": 0
+            }, status_code=403)
+        
+        # Build query
         query = db.query(User)
         
-        # Apply filters
-        if search:
+        # Apply search filter
+        if search.strip():
+            search_term = f"%{search.lower().strip()}%"
             query = query.filter(
-                (User.username.ilike(f"%{search}%")) |
-                (User.email.ilike(f"%{search}%"))
+                (User.username.ilike(search_term)) |
+                (User.email.ilike(search_term))
             )
         
+        # Apply status filter
         if status == "suspended":
             query = query.filter(User.is_suspended == True)
         elif status == "active":
             query = query.filter(User.is_suspended == False)
             
+        # Apply plan filter
         if plan:
             query = query.filter(User.plan == plan)
         
+        # Get total count before pagination
         total_users = query.count()
         
-        # Pagination
+        # Apply pagination
         offset = (page - 1) * limit
-        users = query.offset(offset).limit(limit).all()
+        users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
         
-        # Format users data
+        # Format users data safely with Eastern Time conversion
         users_data = []
-        for user in users:
-            users_data.append({
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "plan": user.plan,
-                "is_suspended": user.is_suspended,
-                "suspension_reason": user.suspension_reason,
-                "created_at": user.created_at.isoformat() if user.created_at else None,
-                "last_login": user.last_login.isoformat() if user.last_login else None,
-                "is_active": user.is_active
-            })
+        for user_obj in users:
+            try:
+                # Safely extract all user attributes
+                user_data = {
+                    "id": user_obj.id,
+                    "username": user_obj.username or "Unknown",
+                    "email": user_obj.email or "No email",
+                    "plan": getattr(user_obj, 'plan', 'free'),
+                    "is_suspended": bool(getattr(user_obj, 'is_suspended', False)),
+                    "suspension_reason": getattr(user_obj, 'suspension_reason', None),
+                    "is_active": bool(getattr(user_obj, 'is_active', True)),
+                    "stripe_customer_id": getattr(user_obj, 'stripe_customer_id', None),
+                    "original_plan": getattr(user_obj, 'original_plan', None),
+                    "api_key": bool(getattr(user_obj, 'api_key', None))
+                }
+                
+                # Handle datetime fields with Eastern Time conversion
+                if hasattr(user_obj, 'created_at') and user_obj.created_at:
+                    user_data["created_at"] = user_obj.created_at.isoformat()
+                    user_data["created_at_eastern"] = convert_to_eastern(user_obj.created_at)
+                else:
+                    user_data["created_at"] = None
+                    user_data["created_at_eastern"] = "Unknown"
+                
+                if hasattr(user_obj, 'last_login') and user_obj.last_login:
+                    user_data["last_login"] = user_obj.last_login.isoformat()
+                    user_data["last_login_eastern"] = convert_to_eastern(user_obj.last_login)
+                else:
+                    user_data["last_login"] = None
+                    user_data["last_login_eastern"] = "Never"
+                
+                if hasattr(user_obj, 'suspended_at') and user_obj.suspended_at:
+                    user_data["suspended_at"] = user_obj.suspended_at.isoformat()
+                    user_data["suspended_at_eastern"] = convert_to_eastern(user_obj.suspended_at)
+                else:
+                    user_data["suspended_at"] = None
+                    user_data["suspended_at_eastern"] = None
+                
+                user_data["suspended_by"] = getattr(user_obj, 'suspended_by', None)
+                
+                users_data.append(user_data)
+                
+            except Exception as user_error:
+                print(f"Error processing user {user_obj.id}: {str(user_error)}")
+                # Add a minimal safe version
+                users_data.append({
+                    "id": user_obj.id,
+                    "username": f"User_{user_obj.id}",
+                    "email": "Error loading",
+                    "plan": "unknown",
+                    "is_suspended": False,
+                    "suspension_reason": None,
+                    "created_at": None,
+                    "created_at_eastern": "Error",
+                    "last_login": None,
+                    "last_login_eastern": "Error",
+                    "is_active": True,
+                    "error": "Data loading error"
+                })
         
-        return JSONResponse({
+        # Calculate pages
+        pages = (total_users + limit - 1) // limit
+        
+        # Return clean JSON response
+        response_data = {
             "success": True,
             "users": users_data,
             "total": total_users,
             "page": page,
-            "limit": limit
-        })
+            "limit": limit,
+            "pages": pages
+        }
+        
+        db.close()
+        return JSONResponse(response_data)
         
     except Exception as e:
+        # Make sure to close DB connection
+        if db:
+            try:
+                db.close()
+            except:
+                pass
+        
+        # Log the full error
         print(f"Error in get_users_api: {str(e)}")
-        return JSONResponse({
+        import traceback
+        traceback.print_exc()
+        
+        # Return clean error JSON
+        error_response = {
             "success": False,
-            "error": str(e),
+            "error": f"Server error: {str(e)}",
             "users": [],
-            "total": 0
-        }, status_code=500)
+            "total": 0,
+            "page": page,
+            "limit": limit,
+            "pages": 0
+        }
+        
+        return JSONResponse(error_response, status_code=500)
        
 @app.post("/admin/suspend-user")
 async def admin_suspend_user(
@@ -3047,59 +3023,141 @@ async def force_password_reset_endpoint(
         raise HTTPException(status_code=500, detail="Failed to send password reset email")
     
 @app.get("/admin/user/{user_id}")
-async def get_admin_user_detail(
+async def get_user_details_api(
     user_id: int,
-    current_user: User = Depends(get_current_user)
+    request: Request
 ):
-    """Get detailed user information for admin"""
-    # Check admin permissions
-    if current_user.email not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    db = SessionLocal()
+    """Get detailed user information for admin modal with Eastern Time"""
+    db = None
     try:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+        db = SessionLocal()
         
-        # Get user's tweet count
-        total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user_id).count()
+        # Check admin authorization
+        user = get_optional_user(request)
+        if not user or user.email not in {"support@giverai.me", "admin@giverai.me"}:
+            return JSONResponse({
+                "success": False,
+                "error": "Admin access required"
+            }, status_code=403)
         
-        # Get monthly tweets (last 30 days)
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        monthly_tweets = db.query(GeneratedTweet).filter(
-            GeneratedTweet.user_id == user_id,
-            GeneratedTweet.generated_at >= thirty_days_ago
-        ).count()
+        # Get user
+        target_user = db.query(User).filter(User.id == user_id).first()
+        if not target_user:
+            return JSONResponse({
+                "success": False,
+                "error": "User not found"
+            }, status_code=404)
         
-        # Get weekly tweets (last 7 days)  
-        seven_days_ago = datetime.utcnow() - timedelta(days=7)
-        weekly_tweets = db.query(GeneratedTweet).filter(
-            GeneratedTweet.user_id == user_id,
-            GeneratedTweet.generated_at >= seven_days_ago
-        ).count()
+        # Get user statistics
+        total_tweets = 0
+        monthly_tweets = 0
+        weekly_tweets = 0
         
-        return {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'plan': user.plan,
-            'original_plan': user.original_plan,
-            'created_at': user.created_at.isoformat() if user.created_at else None,
-            'last_login': user.last_login.isoformat() if user.last_login else None,
-            'is_suspended': user.is_suspended,
-            'suspension_reason': user.suspension_reason,
-            'suspended_at': user.suspended_at.isoformat() if user.suspended_at else None,
-            'suspended_by': user.suspended_by,
-            'stripe_customer_id': user.stripe_customer_id,
-            'is_active': user.is_active,
-            'api_key': bool(user.api_key),
-            'total_tweets': total_tweets,
-            'monthly_tweets': monthly_tweets,
-            'weekly_tweets': weekly_tweets
+        # Check if GeneratedTweet table exists and get stats
+        try:
+            total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user_id).count()
+            
+            # Monthly tweets (last 30 days)
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            monthly_tweets = db.query(GeneratedTweet).filter(
+                GeneratedTweet.user_id == user_id,
+                GeneratedTweet.generated_at >= thirty_days_ago
+            ).count()
+            
+            # Weekly tweets (last 7 days)
+            seven_days_ago = datetime.utcnow() - timedelta(days=7)
+            weekly_tweets = db.query(GeneratedTweet).filter(
+                GeneratedTweet.user_id == user_id,
+                GeneratedTweet.generated_at >= seven_days_ago
+            ).count()
+        except Exception as tweet_error:
+            print(f"Error getting tweet stats: {tweet_error}")
+            # Keep defaults at 0
+        
+        # Build user data with Eastern Time conversion
+        user_data = {
+            "id": target_user.id,
+            "username": target_user.username,
+            "email": target_user.email,
+            "plan": target_user.plan,
+            "is_suspended": getattr(target_user, 'is_suspended', False),
+            "suspension_reason": getattr(target_user, 'suspension_reason', None),
+            "suspended_by": getattr(target_user, 'suspended_by', None),
+            "is_active": target_user.is_active,
+            "stripe_customer_id": getattr(target_user, 'stripe_customer_id', None),
+            "original_plan": getattr(target_user, 'original_plan', None),
+            "api_key": bool(getattr(target_user, 'api_key', None)),
+            "total_tweets": total_tweets,
+            "monthly_tweets": monthly_tweets,
+            "weekly_tweets": weekly_tweets,
+            "role": getattr(target_user, 'role', None),
+            "industry": getattr(target_user, 'industry', None),
+            "goals": getattr(target_user, 'goals', None),
+            "posting_frequency": getattr(target_user, 'posting_frequency', None)
         }
-    finally:
+        
+        # Handle datetime fields with Eastern Time conversion
+        if target_user.created_at:
+            user_data["created_at"] = target_user.created_at.isoformat()
+            user_data["created_at_eastern"] = convert_to_eastern(target_user.created_at)
+        else:
+            user_data["created_at"] = None
+            user_data["created_at_eastern"] = "Unknown"
+        
+        if hasattr(target_user, 'last_login') and target_user.last_login:
+            user_data["last_login"] = target_user.last_login.isoformat()
+            user_data["last_login_eastern"] = convert_to_eastern(target_user.last_login)
+        else:
+            user_data["last_login"] = None
+            user_data["last_login_eastern"] = "Never"
+        
+        if hasattr(target_user, 'suspended_at') and target_user.suspended_at:
+            user_data["suspended_at"] = target_user.suspended_at.isoformat()
+            user_data["suspended_at_eastern"] = convert_to_eastern(target_user.suspended_at)
+        else:
+            user_data["suspended_at"] = None
+            user_data["suspended_at_eastern"] = None
+        
+        # Add last password change if available
+        if hasattr(target_user, 'last_password_change') and target_user.last_password_change:
+            user_data["last_password_change"] = target_user.last_password_change.isoformat()
+            user_data["last_password_change_eastern"] = convert_to_eastern(target_user.last_password_change)
+        else:
+            user_data["last_password_change"] = None
+            user_data["last_password_change_eastern"] = "Never"
+        
+        # Add security info
+        user_data["failed_login_attempts"] = getattr(target_user, 'failed_login_attempts', 0)
+        
+        if hasattr(target_user, 'account_locked_until') and target_user.account_locked_until:
+            user_data["account_locked"] = target_user.account_locked_until > datetime.utcnow()
+            user_data["account_locked_until_eastern"] = convert_to_eastern(target_user.account_locked_until)
+        else:
+            user_data["account_locked"] = False
+            user_data["account_locked_until_eastern"] = None
+        
         db.close()
+        
+        return JSONResponse({
+            "success": True,
+            "user": user_data
+        })
+        
+    except Exception as e:
+        if db:
+            try:
+                db.close()
+            except:
+                pass
+        
+        print(f"Error getting user details: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
       
 # User activity endpoint
 @app.get("/admin/user/{user_id}/activity")
@@ -3144,7 +3202,7 @@ async def admin_user_activity(
         
         # Convert timestamps to Eastern Time
         for activity in sample_activities:
-            activity["timestamp_eastern"] = format_eastern_datetime(activity["timestamp"])
+            activity["timestamp_eastern"] = convert_to_eastern(activity["timestamp"])
             activity["timestamp"] = activity["timestamp"].isoformat()
         
         return {
@@ -3153,7 +3211,7 @@ async def admin_user_activity(
                 "username": user.username,
                 "email": user.email,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
-                "created_at_eastern": format_eastern_datetime(user.created_at)
+                "created_at_eastern": convert_to_eastern(user.created_at)
             },
             "activities": sample_activities,
             "pagination": {
