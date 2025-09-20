@@ -2652,6 +2652,86 @@ async def admin_dashboard(
         print(f"Admin dashboard error: {str(e)}")
         raise HTTPException(status_code=500, detail="Admin dashboard error")
     
+@app.get("/debug-response")
+async def debug_response_format():
+    """Debug what the actual response looks like"""
+    try:
+        db = SessionLocal()
+        
+        # Test 1: Simple response
+        simple_test = {"test": "simple", "number": 123, "boolean": True}
+        
+        # Test 2: Database connection
+        try:
+            user_count = db.query(User).count()
+            db_test = {"db_connected": True, "user_count": user_count}
+        except Exception as db_error:
+            db_test = {"db_connected": False, "error": str(db_error)}
+        
+        # Test 3: User data (the likely culprit)
+        user_test = {"users": []}
+        try:
+            first_user = db.query(User).first()
+            if first_user:
+                # Try to serialize user step by step
+                user_data = {}
+                
+                # Basic fields
+                user_data["id"] = first_user.id
+                user_data["username"] = first_user.username
+                user_data["email"] = first_user.email
+                
+                # Check if this works so far
+                test_serialize = json.dumps(user_data)
+                
+                # Try datetime field
+                if hasattr(first_user, 'created_at') and first_user.created_at:
+                    user_data["created_at"] = first_user.created_at.isoformat()
+                
+                # Try boolean fields
+                user_data["is_active"] = getattr(first_user, 'is_active', True)
+                user_data["is_suspended"] = getattr(first_user, 'is_suspended', False)
+                
+                # Try plan field
+                user_data["plan"] = getattr(first_user, 'plan', 'free')
+                
+                user_test["users"] = [user_data]
+                user_test["serialization_success"] = True
+                
+        except Exception as user_error:
+            user_test["users"] = []
+            user_test["serialization_success"] = False
+            user_test["error"] = str(user_error)
+            user_test["error_type"] = type(user_error).__name__
+        
+        finally:
+            db.close()
+        
+        # Combine all tests
+        result = {
+            "simple_test": simple_test,
+            "database_test": db_test,
+            "user_serialization_test": user_test,
+            "overall_status": "debug_complete"
+        }
+        
+        # Try to serialize the entire result
+        json.dumps(result)  # This will throw an error if there's a serialization issue
+        
+        return result
+        
+    except json.JSONEncodeError as json_error:
+        return {
+            "error": "JSON serialization failed",
+            "details": str(json_error),
+            "type": "JSONEncodeError"
+        }
+    except Exception as e:
+        return {
+            "error": "General error",
+            "details": str(e),
+            "type": type(e).__name__
+        }
   
 # API endpoint to get users data
 @app.get("/admin/api/users")
