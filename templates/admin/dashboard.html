@@ -837,8 +837,6 @@
             const startIndex = (currentPage - 1) * usersPerPage;
             const endIndex = startIndex + usersPerPage;
             const usersToShow = filteredUsers.slice(startIndex, endIndex);
-            const joinedDate = user.created_at_eastern || formatEDTDate(user.created_at) || 'Unknown';
-            const lastLogin = user.last_login_eastern || formatEDTDateTime(user.last_login) || 'Never';
 
             if (usersToShow.length === 0) {
                 tbody.innerHTML = `
