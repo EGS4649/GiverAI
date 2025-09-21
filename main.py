@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from sqlalchemy import LargeBinary
 from sqlalchemy import inspect
+from sqlalchemy import Text 
 from sqlalchemy.exc import IntegrityError, ProgrammingError 
 from sqlalchemy.orm import defer
 from sqlalchemy import func, Text
@@ -4225,13 +4226,19 @@ async def test_email_config():
         "email_from": os.getenv("EMAIL_FROM", "noreply@giverai.me")
     } 
 
-@app.get("/test-lock-email")
+@app.get("/test-lock-email/{email}")
 async def test_lock_email(email: str):
+    """Test endpoint to send account locked email"""
     try:
         result = await email_service.send_account_locked_email(email, 24)
-        return {"success": result, "message": "Check email logs"}
+        return {"success": result, "email_sent_to": email, "message": "Email sent successfully"}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        import traceback
+        return {
+            "success": False, 
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
     
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
@@ -4243,7 +4250,7 @@ def login(request: Request):
     })
     
 @app.post("/login")
-async def login_post(
+async def login_post(  # Made async
     request: Request, 
     username: str = Form(...), 
     password: str = Form(...),
@@ -4251,19 +4258,6 @@ async def login_post(
 ):
     db = SessionLocal()
     try:
-        # Get client IP
-        client_ip = request.client.host if request.client else "Unknown"
-        print(f"🔑 LOGIN ATTEMPT for: {username}")
-
-        # Check if IP is banned first
-        if client_ip != "Unknown" and is_ip_banned(client_ip, db):
-            return templates.TemplateResponse("login.html", {
-                "request": request, 
-                "user": None,
-                "error": "Access denied from your IP address",
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
-            })
-        
         # Verify reCAPTCHA first
         if not verify_recaptcha(g_recaptcha_response):
             print("❌ reCAPTCHA verification failed for login")
@@ -4281,19 +4275,9 @@ async def login_post(
             (User.username == username) | (User.email == username)
         ).first()
         
-        print(f"🔍 User record found: {user_record is not None}")
-        if user_record:
-            print(f"   Username: {user_record.username}")
-            print(f"   Email: {user_record.email}")
-            print(f"   Is active: {user_record.is_active}")
-            print(f"   Is suspended: {user_record.is_suspended}")
-            print(f"   Failed attempts: {user_record.failed_login_attempts}")
-            print(f"   Account locked until: {user_record.account_locked_until}")
-        
         # Check if account is temporarily locked
         if user_record and user_record.account_locked_until:
             if user_record.account_locked_until > datetime.utcnow():
-                print(f"❌ Account is locked until: {user_record.account_locked_until}")
                 time_remaining = user_record.account_locked_until - datetime.utcnow()
                 hours_remaining = int(time_remaining.total_seconds() / 3600) + 1
                 return templates.TemplateResponse("login.html", {
@@ -4303,30 +4287,33 @@ async def login_post(
                     "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
                 })
             else:
-                print("✅ Lock period has expired, clearing it")
                 # Lock period has expired, clear it
                 user_record.account_locked_until = None
                 user_record.failed_login_attempts = 0
                 db.commit()
         
         # Authenticate user
-        print("🔐 Calling authenticate_user...")
         user = authenticate_user(db, username, password)
-        print(f"🔐 authenticate_user returned: {user is not None}")
         
         if not user:
-            print("❌ Authentication failed - user is None")
             # Track failed login attempts
             if user_record:
-                print(f"📊 Tracking failed attempt. Current attempts: {user_record.failed_login_attempts}")
                 user_record.failed_login_attempts = (user_record.failed_login_attempts or 0) + 1
                 user_record.last_failed_login = datetime.utcnow()
                 
-                # Lock account after 5 failed attempts
-                if user_record.failed_login_attempts >= 5:
-                    print("🔒 Locking account due to 5 failed attempts")
+                # Lock account after 4 failed attempts (you mentioned 4+)
+                if user_record.failed_login_attempts >= 4:
                     user_record.account_locked_until = datetime.utcnow() + timedelta(hours=24)
                     db.commit()
+                    
+                    # FIXED: Send email notification about locked account
+                    try:
+                        await email_service.send_account_locked_email(user_record.email, 24)
+                        print(f"✅ Account locked email sent to {user_record.email}")
+                    except Exception as e:
+                        print(f"❌ Failed to send account locked email: {e}")
+                        import traceback
+                        traceback.print_exc()
                     
                     return templates.TemplateResponse("login.html", {
                         "request": request,
@@ -4335,8 +4322,7 @@ async def login_post(
                         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
                     })
                 else:
-                    attempts_left = 5 - user_record.failed_login_attempts
-                    print(f"📊 {attempts_left} attempts remaining")
+                    attempts_left = 4 - user_record.failed_login_attempts
                     db.commit()
                     return templates.TemplateResponse("login.html", {
                         "request": request,
@@ -4345,7 +4331,7 @@ async def login_post(
                         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
                     })
             else:
-                print("❌ No user_record found for failed attempt tracking")
+                # Username/email doesn't exist - don't reveal this info
                 return templates.TemplateResponse("login.html", {
                     "request": request,
                     "user": None,
@@ -4353,12 +4339,8 @@ async def login_post(
                     "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
                 })
         
-        # ✅ SUCCESSFUL AUTHENTICATION - This is where the logic should continue
-        print("✅ Authentication successful - checking account status...")
-        
         # Check if account is suspended
         if user.is_suspended:
-            print(f"❌ Account is suspended: {user.suspension_reason}")
             return templates.TemplateResponse("login.html", {
                 "request": request,
                 "user": None,
@@ -4368,7 +4350,6 @@ async def login_post(
         
         # Check if email is verified
         if not user.is_active:
-            print(f"❌ Account is not active (email not verified)")
             return templates.TemplateResponse("login.html", {
                 "request": request, 
                 "user": None,
@@ -4376,14 +4357,10 @@ async def login_post(
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
-        print("✅ All checks passed - creating access token...")
-        
-        # Successful login - reset failed attempts and track login
-        log_login_attempt(user.id, client_ip, True, db)
+        # Successful login - reset failed attempts
         user.failed_login_attempts = 0
         user.last_failed_login = None
         user.account_locked_until = None
-        user.last_login = datetime.utcnow()  # ✅ Use utcnow instead of timezone
         db.commit()
         
         # Create access token
@@ -4392,7 +4369,8 @@ async def login_post(
             expires_delta=timedelta(days=2)
         )
         
-        print(f"✅ Access token created for user: {user.username}")
+        # Log successful login
+        print(f"✅ Successful login for user: {user.username} at {datetime.utcnow()}")
         
         response = RedirectResponse("/dashboard", status_code=302)
         response.set_cookie(
@@ -4402,12 +4380,10 @@ async def login_post(
             secure=True,  # Enable in production
             samesite='lax'
         )
-
-        print("✅ Login successful - redirecting to dashboard")
         return response
         
     except Exception as e:
-        print(f"❌ Login error: {str(e)}")
+        print(f"Login error: {str(e)}")
         import traceback
         traceback.print_exc()
         return templates.TemplateResponse("login.html", {
