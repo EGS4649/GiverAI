@@ -3293,10 +3293,10 @@ def admin_dashboard_updated(
     total_users = db.query(User).count()
     suspended_count = db.query(User).filter(User.is_suspended == True).count()
     recent_signups = db.query(User).filter(
-        User.created_at > convert_to_eastern(datetime.utcnow()) - timedelta(days=7)
+        User.created_at > datetime.utcnow() - timedelta(days=7)
     ).count()
     active_today = db.query(User).filter(
-        User.last_login > convert_to_eastern(datetime.utcnow()) - timedelta(hours=24)
+        User.last_login > datetime.utcnow() - timedelta(hours=24)
     ).count()
     
     # Get pending appeals
@@ -3340,9 +3340,9 @@ def get_users_admin_api(
             ).count()
             
             # Format dates in Eastern Time
-            created_at_eastern = None
-            last_login_eastern = None
-            suspended_at_eastern = None
+            created_at_eastern = convert_to_eastern(user.created_at) if user.created_at else None
+            last_login_eastern = convert_to_eastern(user.last_login) if user.last_login else None
+            suspended_at_eastern = convert_to_eastern(user.suspended_at) if hasattr(user, 'suspended_at') and user.suspended_at else None
             
             if user.created_at:
                 created_at_eastern = user.created_at.strftime('%Y-%m-%d %H:%M ET')
