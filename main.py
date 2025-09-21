@@ -92,6 +92,8 @@ class IPban(Base):
     banned_by = Column(String, nullable=True)  # admin who banned the IP
     expires_at = Column(DateTime, nullable=True)  # null = permanent ban
     is_active = Column(Boolean, default=True)
+    unbanned_at = Column(DateTime, nullable=True)
+    unbanned_by = Column(String, nullable=True)
 
 class SuspensionAppeal(Base):
     __tablename__ = "suspension_appeals"
@@ -3386,100 +3388,220 @@ def get_users_admin_api(
             "error": str(e)
         }, status_code=500)
     
-@app.get("/admin/ban-ip", response_class=HTMLResponse)
-async def admin_ban_ip_page(
-    request: Request,
-    admin: User = Depends(get_admin_user)
-):
-    """Admin page to ban IP addresses"""
+@app.get("/admin/api/ip-bans")
+def get_ip_bans(admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    """Get all active IP bans (API endpoint)"""
+    try:
+        active_bans = db.query(IPban).filter(
+            IPban.is_active == True,
+            (IPban.expires_at.is_(None)) | (IPban.expires_at > datetime.utcnow())
+        ).order_by(IPban.banned_at.desc()).all()
+        
+        bans_data = []
+        for ban in active_bans:
+            bans_data.append({
+                "id": ban.id,
+                "ip_address": ban.ip_address,
+                "reason": ban.reason,
+                "banned_by": ban.banned_by,
+                "banned_at": ban.banned_at.isoformat(),
+                "expires_at": ban.expires_at.isoformat() if ban.expires_at else None,
+                "is_permanent": ban.expires_at is None
+            })
+        
+        return {
+            "success": True,
+            "bans": bans_data,
+            "total": len(bans_data)
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+def validate_ip_address(ip_str: str) -> bool:
+    """Validate if string is a valid IP address (IPv4 or IPv6)"""
+    try:
+        ipaddress.ip_address(ip_str.strip())
+        return True
+    except ValueError:
+        return False
+
+def is_ip_banned(ip_address: str, db: Session) -> bool:
+    """Check if an IP address is currently banned"""
+    active_ban = db.query(IPban).filter(
+        IPban.ip_address == ip_address,
+        IPban.is_active == True,
+        (IPban.expires_at.is_(None)) | (IPban.expires_at > datetime.utcnow())
+    ).first()
+    
+    return active_ban is not None
+
+def get_db():
     db = SessionLocal()
     try:
-        # Get current active bans
-        active_bans = db.query(IPban).filter(IPban.is_active == True).all()
-        success: str = Query(None),
-        error: str = Query(None)
+        yield db
+    finally:
+        db.close()
+
+@app.get("/admin/ban-ip", response_class=HTMLResponse)
+def ban_ip_page(request: Request, admin: User = Depends(get_admin_user)):
+    """Display IP ban management page"""
+    db = SessionLocal()
+    try:
+        # Get all active bans
+        active_bans = db.query(IPban).filter(
+            IPban.is_active == True,
+            (IPban.expires_at.is_(None)) | (IPban.expires_at > datetime.utcnow())
+        ).order_by(IPban.banned_at.desc()).all()
         
         return templates.TemplateResponse("admin/ban-ip.html", {
             "request": request,
-            "user": admin,
             "active_bans": active_bans,
-            "success": success, 
-            "error": error
+            "admin": admin
         })
-    
-    except Exception as e:
-        print(f"Error in ban IP page: {e}")
-        # Return a simple response for now
-        return HTMLResponse(content=f"""
-        <html>
-        <body>
-            <h1>IP Ban Management</h1>
-            <p>Error loading page: {str(e)}</p>
-            <p><a href="/admin">Back to Admin</a></p>
-        </body>
-        </html>
-        """)
     finally:
         db.close()
 
 @app.post("/admin/ban-ip")
-async def ban_ip_admin(
+async def ban_ip_address(
     request: Request,
     ip_address: str = Form(...),
     reason: str = Form(...),
-    duration_hours: int = Form(default=None),  # None = permanent
-    db: Session = Depends(get_db),
-    admin_user = Depends(get_admin_user)
+    duration_hours: int = Form(None),
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
 ):
     """Ban an IP address"""
     try:
-        success = ban_ip_address(
-            ip_address.strip(),
-            reason.strip(),
-            admin_user.email,
-            db,
-            duration_hours
+        # Validate IP address
+        if not validate_ip_address(ip_address):
+            return templates.TemplateResponse("admin/ban-ip.html", {
+                "request": request,
+                "error": "Invalid IP address format",
+                "active_bans": db.query(IPban).filter(IPban.is_active == True).all(),
+                "admin": admin
+            })
+        
+        # Clean IP address
+        clean_ip = ip_address.strip()
+        
+        # Check if IP is already banned
+        existing_ban = db.query(IPban).filter(
+            IPban.ip_address == clean_ip,
+            IPban.is_active == True,
+            (IPban.expires_at.is_(None)) | (IPban.expires_at > datetime.utcnow())
+        ).first()
+        
+        if existing_ban:
+            return templates.TemplateResponse("admin/ban-ip.html", {
+                "request": request,
+                "error": f"IP {clean_ip} is already banned",
+                "active_bans": db.query(IPban).filter(IPban.is_active == True).all(),
+                "admin": admin
+            })
+        
+        # Calculate expiry time
+        expires_at = None
+        if duration_hours and duration_hours > 0:
+            expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
+        
+        # Create ban record
+        ip_ban = IPban(
+            ip_address=clean_ip,
+            reason=reason.strip(),
+            banned_by=admin.email,
+            expires_at=expires_at
         )
         
-        if success:
-            return JSONResponse({
-                "success": True,
-                "message": f"IP {ip_address} has been banned"
-            })
-        else:
-            return JSONResponse({
-                "success": False,
-                "message": "Failed to ban IP address"
-            }, status_code=400)
-            
+        db.add(ip_ban)
+        db.commit()
+        
+        # Log the ban
+        ban_type = f"for {duration_hours} hours" if duration_hours else "permanently"
+        print(f"🚫 IP {clean_ip} banned {ban_type} by {admin.email}: {reason}")
+        
+        return RedirectResponse("/admin/ban-ip?success=banned", status_code=302)
+        
     except Exception as e:
-        return JSONResponse({
-            "success": False,
-            "message": f"Error: {str(e)}"
-        }, status_code=500)
+        print(f"Error banning IP: {str(e)}")
+        db.rollback()
+        return templates.TemplateResponse("admin/ban-ip.html", {
+            "request": request,
+            "error": f"Failed to ban IP: {str(e)}",
+            "active_bans": db.query(IPban).filter(IPban.is_active == True).all(),
+            "admin": admin
+        })
 
 @app.post("/admin/unban-ip")
-async def unban_ip_admin(
+async def unban_ip_address(
     request: Request,
-    ip_address: str = Form(...),
-    db: Session = Depends(get_db),
-    admin_user = Depends(get_admin_user)
+    ban_id: int = Form(...),
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
 ):
     """Unban an IP address"""
     try:
-        success = unban_ip_address(ip_address.strip(), db)
+        # Find the ban record
+        ip_ban = db.query(IPban).filter(IPban.id == ban_id).first()
         
-        return JSONResponse({
-            "success": True,
-            "message": f"IP {ip_address} has been unbanned"
-        })
+        if not ip_ban:
+            return templates.TemplateResponse("admin/ban-ip.html", {
+                "request": request,
+                "error": "Ban record not found",
+                "active_bans": db.query(IPban).filter(IPban.is_active == True).all(),
+                "admin": admin
+            })
+        
+        # Mark as inactive
+        ip_ban.is_active = False
+        ip_ban.unbanned_at = datetime.utcnow()
+        ip_ban.unbanned_by = admin.email
+        
+        db.commit()
+        
+        # Log the unban
+        print(f"✅ IP {ip_ban.ip_address} unbanned by {admin.email}")
+        
+        return RedirectResponse("/admin/ban-ip?success=unbanned", status_code=302)
         
     except Exception as e:
-        return JSONResponse({
-            "success": False,
-            "message": f"Error: {str(e)}"
-        }, status_code=500)
-       
+        print(f"Error unbanning IP: {str(e)}")
+        db.rollback()
+        return templates.TemplateResponse("admin/ban-ip.html", {
+            "request": request,
+            "error": f"Failed to unban IP: {str(e)}",
+            "active_bans": db.query(IPban).filter(IPban.is_active == True).all(),
+            "admin": admin
+        })
+    
+def cleanup_expired_bans():
+    """Mark expired bans as inactive"""
+    db = SessionLocal()
+    try:
+        expired_bans = db.query(IPban).filter(
+            IPban.is_active == True,
+            IPban.expires_at.is_not(None),
+            IPban.expires_at <= datetime.utcnow()
+        ).all()
+        
+        for ban in expired_bans:
+            ban.is_active = False
+            ban.unbanned_at = datetime.utcnow()
+            ban.unbanned_by = "system_auto_expire"
+        
+        if expired_bans:
+            db.commit()
+            print(f"🧹 Cleaned up {len(expired_bans)} expired IP bans")
+            
+    except Exception as e:
+        print(f"Error cleaning up expired bans: {str(e)}")
+        db.rollback()
+    finally:
+        db.close()
+
 @app.post("/admin/suspend-user")
 async def suspend_user_enhanced(
     request: Request,
@@ -3985,7 +4107,15 @@ async def unsuspend_user_account(user_id: int, db: Session):
         db.rollback()
         print(f"❌ Error unsuspending user: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to unsuspend user")
-          
+    
+def log_login_attempt(user_id: int, ip_address: str, success: bool, db: Session):
+    """Log login attempts with IP addresses"""
+    try:
+        # You could create a LoginAttempt model for this
+        print(f"Login attempt: User {user_id} from {ip_address} - {'Success' if success else 'Failed'}")
+    except Exception as e:
+        print(f"Error logging login attempt: {str(e)}")
+
 # User activity endpoint
 @app.get("/admin/user/{user_id}/activity")
 async def admin_user_activity(
@@ -4070,7 +4200,18 @@ def login_post(
 ):
     db = SessionLocal()
     try:
+        # Get client IP
+        client_ip = request.client.host if request.client else "Unknown"
         print(f"🔑 LOGIN ATTEMPT for: {username}")
+
+        # Check if IP is banned first
+        if client_ip != "Unknown" and is_ip_banned(client_ip, db):
+            return templates.TemplateResponse("login.html", {
+                "request": request, 
+                "user": None,
+                "error": "Access denied from your IP address",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
         
         # Verify reCAPTCHA first
         if not verify_recaptcha(g_recaptcha_response):
@@ -4161,6 +4302,7 @@ def login_post(
                     "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
                 })
         
+        # ✅ SUCCESSFUL AUTHENTICATION - This is where the logic should continue
         print("✅ Authentication successful - checking account status...")
         
         # Check if account is suspended
@@ -4185,13 +4327,13 @@ def login_post(
         
         print("✅ All checks passed - creating access token...")
         
-        if user:  # successful authentication
-            # Successful login - reset failed attempts and track login
-            user.failed_login_attempts = 0
-            user.last_failed_login = None
-            user.account_locked_until = None
-            user.last_login = datetime.now(timezone.utc)  # ✅ Track last login
-            db.commit()
+        # Successful login - reset failed attempts and track login
+        log_login_attempt(user.id, client_ip, True, db)
+        user.failed_login_attempts = 0
+        user.last_failed_login = None
+        user.account_locked_until = None
+        user.last_login = datetime.now(timezone.utc)  # ✅ Track last login
+        db.commit()
         
         # Create access token
         access_token = create_access_token(
@@ -4209,7 +4351,7 @@ def login_post(
             secure=True,  # Enable in production
             samesite='lax'
         )
-        
+
         print("✅ Login successful - redirecting to dashboard")
         return response
         
@@ -4225,7 +4367,6 @@ def login_post(
         })
     finally:
         db.close()
-
 
 # Add this helper function for sending account locked emails
 def send_account_locked_email(email: str):
