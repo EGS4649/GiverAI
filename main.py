@@ -3218,10 +3218,12 @@ def get_users_admin_api(
 @app.get("/admin/ban-ip", response_class=HTMLResponse)
 async def admin_ban_ip_page(
     request: Request,
-    admin: User = Depends(get_admin_user)
+    success: str = Query(None),
+    error: str = Query(None),
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
 ):
     """Admin page to ban IP addresses"""
-    db = SessionLocal()
     try:
         # Get current active bans
         active_bans = db.query(IPban).filter(IPban.is_active == True).all()
@@ -3229,22 +3231,13 @@ async def admin_ban_ip_page(
         return templates.TemplateResponse("admin/ban-ip.html", {
             "request": request,
             "user": admin,
-            "active_bans": active_bans
+            "active_bans": active_bans,
+            "success": success,  # Pass query params explicitly
+            "error": error
         })
     except Exception as e:
         print(f"Error in ban IP page: {e}")
-        # Return a simple response for now
-        return HTMLResponse(content=f"""
-        <html>
-        <body>
-            <h1>IP Ban Management</h1>
-            <p>Error loading page: {str(e)}</p>
-            <p><a href="/admin">Back to Admin</a></p>
-        </body>
-        </html>
-        """)
-    finally:
-        db.close()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/admin/ban-ip")
 async def ban_ip_admin(
