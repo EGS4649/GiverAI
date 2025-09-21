@@ -3344,15 +3344,6 @@ def get_users_admin_api(
             last_login_eastern = convert_to_eastern(user.last_login) if user.last_login else None
             suspended_at_eastern = convert_to_eastern(user.suspended_at) if hasattr(user, 'suspended_at') and user.suspended_at else None
             
-            if user.created_at:
-                created_at_eastern = user.created_at.strftime('%Y-%m-%d %H:%M ET')
-            
-            if user.last_login:
-                last_login_eastern = user.last_login.strftime('%Y-%m-%d %H:%M ET')
-            
-            if user.suspended_at:
-                suspended_at_eastern = user.suspended_at.strftime('%Y-%m-%d %H:%M ET')
-            
             user_data = {
                 "id": user.id,
                 "username": user.username,
@@ -3373,8 +3364,8 @@ def get_users_admin_api(
                 "registration_ip": getattr(user, 'registration_ip', None),
                 "is_ip_banned": getattr(user, 'is_ip_banned', False),
                 "failed_login_attempts": getattr(user, 'failed_login_attempts', 0),
-                "account_locked": bool(getattr(user, 'account_locked_until', None) and 
-                                     user.account_locked_until > datetime.utcnow())
+                "account_locked": bool(getattr(user, 'account_locked_until', None) and user.account_locked_until > datetime.utcnow())
+
             }
             users_data.append(user_data)
         
