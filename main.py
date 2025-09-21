@@ -4399,39 +4399,6 @@ def login_post(
     finally:
         db.close()
 
-# Add this helper function for sending account locked emails
-def send_account_locked_email(email: str):
-    """Send email notification when account is locked"""
-    subject = "Account Temporarily Locked - GiverAI Security"
-    body = f"""
-    Hello,
-    
-    Your GiverAI account has been temporarily locked due to multiple failed login attempts.
-    
-    Security Details:
-    - Your account will automatically unlock in 24 hours
-    - If this wasn't you, your account may be under attack
-    
-    What you can do:
-    1. Wait 24 hours and try logging in again
-    2. Use the "Forgot Password" link to reset your password immediately
-    3. Contact support if you suspect unauthorized access: support@giverai.me
-    
-    If you believe this is an error, please contact our support team.
-    
-    Stay secure,
-    The GiverAI Team
-    """
-    
-    # Use your existing email sending function
-    try:
-        # Replace with your email sending logic
-        print(f"Would send account locked email to: {email}")
-        # await your_email_function(email, subject, body)
-    except Exception as e:
-        print(f"Failed to send account locked email: {e}")
-
-
 # Optional: Add a route to unlock accounts manually
 @app.get("/unlock-account")
 async def unlock_account_page(request: Request):
