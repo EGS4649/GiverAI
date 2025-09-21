@@ -1,0 +1,32 @@
+<!-- templates/423.html - For locked accounts -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Locked - Giver.ai</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">
+            <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
+        </div>
+    </nav>
+
+    <main class="error-container">
+        <div class="error-code">🔒</div>
+        <div class="error-message">Account Temporarily Locked</div>
+        <div class="error-details">
+            {{ error_message }}
+        </div>
+        <div class="error-description">
+            Please wait and try again later, or contact support if you need immediate assistance.
+        </div>
+        <div class="error-actions">
+            <a href="/forgot-password" class="error-button">Reset Password</a>
+            <a href="/contact" class="error-button secondary">Contact Support</a>
+        </div>
+    </main>
+</body>
+</html>
