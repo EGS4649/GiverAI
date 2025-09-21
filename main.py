@@ -4994,11 +4994,6 @@ async def change_email(
     finally:
         db.close()
 
-
-@app.get("/api-docs", response_class=HTMLResponse)
-def api_docs(request: Request, user: User = Depends(get_optional_user)):
-    return templates.TemplateResponse("api_docs.html", {"request": request, "user": user})
-
 @app.post("/account/delete")
 async def delete_account(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
