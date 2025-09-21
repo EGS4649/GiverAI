@@ -1814,7 +1814,29 @@ def check_ip_ban(ip_address: str, db) -> bool:
             return False
         return True
     return False
+# Add this helper function to safely handle user data in templates
+def safe_user_data(user):
+    """Safely return user data for templates, handling None values"""
+    if not user:
+        return {
+            'username': 'Unknown',
+            'email': 'Unknown',
+            'plan': 'free',
+            'suspended_at': None,
+            'suspension_reason': None,
+            'is_suspended': False
+        }
+    
+    return {
+        'username': getattr(user, 'username', 'Unknown'),
+        'email': getattr(user, 'email', 'Unknown'),
+        'plan': getattr(user, 'plan', 'free'),
+        'suspended_at': getattr(user, 'suspended_at', None),
+        'suspension_reason': getattr(user, 'suspension_reason', None),
+        'is_suspended': getattr(user, 'is_suspended', False)
+    }
 
+    
 def generate_email_change_token():
     """Generate secure email change token"""
     return secrets.token_urlsafe(32)
@@ -2036,7 +2058,7 @@ def get_plan_features(plan_name):
     return features.get(plan_name, features["free"])
 
 # Updated get_current_user function with security checks
-def get_current_user(request: Request,allow_suspended: bool = False):
+def get_current_user(request: Request, allow_suspended: bool = False):
     """Get current user from token, optionally allowing suspended users"""
     token = request.cookies.get("access_token")
     credentials_exception = HTTPException(
@@ -2083,7 +2105,6 @@ def get_current_user(request: Request,allow_suspended: bool = False):
     finally:
         db.close()
 
-
 def get_optional_user(request: Request, allow_suspended: bool = False):
     """Get optional user (returns None if not authenticated), optionally allowing suspended users"""
     try:
@@ -2098,7 +2119,14 @@ def get_suspended_user(request: Request):
 def get_optional_suspended_user(request: Request):
     """Special function to get optional user for suspended routes - allows suspended users"""
     return get_optional_user(request, allow_suspended=True)
-        
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 def apply_plan_features(user):
     if not hasattr(user, 'features'):
         user.features = get_plan_features(user.plan)
@@ -4386,7 +4414,75 @@ def suspended_page_get(request: Request):
         "form_data": None,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
+def safe_user_data(user):
+    """Safely return user data for templates, handling None values"""
+    if not user:
+        return {
+            'username': 'Unknown',
+            'email': 'Unknown',
+            'plan': 'free',
+            'suspended_at': None,
+            'suspension_reason': None,
+            'is_suspended': False
+        }
+    
+    return {
+        'username': getattr(user, 'username', 'Unknown'),
+        'email': getattr(user, 'email', 'Unknown'),
+        'plan': getattr(user, 'plan', 'free'),
+        'suspended_at': getattr(user, 'suspended_at', None),
+        'suspension_reason': getattr(user, 'suspension_reason', None),
+        'is_suspended': getattr(user, 'is_suspended', False)
+    }
 
+def safe_user_data(user):
+    """Safely return user data for templates, handling None values"""
+    if not user:
+        return {
+            'username': 'Unknown',
+            'email': 'Unknown',
+            'plan': 'free',
+            'suspended_at': None,
+            'suspension_reason': None,
+            'is_suspended': False
+        }
+    
+    return {
+        'username': getattr(user, 'username', 'Unknown'),
+        'email': getattr(user, 'email', 'Unknown'),
+        'plan': getattr(user, 'plan', 'free'),
+        'suspended_at': getattr(user, 'suspended_at', None),
+        'suspension_reason': getattr(user, 'suspension_reason', None),
+        'is_suspended': getattr(user, 'is_suspended', False)
+    }
+
+# Also, update your suspended route to use this helper:
+@app.get("/suspended", response_class=HTMLResponse)
+def suspended_page_get(request: Request):
+    """Display suspended account page"""
+    # Use the special function that allows suspended users
+    user = get_optional_suspended_user(request)
+    
+    # If no user or user is not suspended, redirect to dashboard/login
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    
+    if not user.is_suspended:
+        return RedirectResponse("/dashboard", status_code=302)
+    
+    # Use safe user data to prevent None attribute errors
+    user_data = safe_user_data(user)
+    
+    return templates.TemplateResponse("suspended.html", {
+        "request": request,
+        "user": user,  # Keep the original user object
+        "user_data": user_data,  # Add safe user data
+        "success": None,
+        "error": None,
+        "form_data": None,
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+    })
+    
 # Handle suspension appeal form submission
 @app.post("/suspended", response_class=HTMLResponse)
 async def suspended_page_post(request: Request):
@@ -4554,7 +4650,31 @@ async def check_suspension_middleware(request: Request, call_next):
     
     response = await call_next(request)
     return response
+
+def update_database_for_suspension_appeals():
+    """Create suspension appeals table and update user suspension_reason to TEXT"""
+    engine = create_engine(DATABASE_URL)
+    
+    try:
+        # Create the suspension appeals table
+        Base.metadata.create_all(bind=engine)
+        print("✅ Suspension appeals table created/verified")
         
+        # Update suspension_reason column to TEXT if needed
+        with engine.begin() as conn:
+            try:
+                conn.execute(text("ALTER TABLE users ALTER COLUMN suspension_reason TYPE TEXT"))
+                print("✅ Updated suspension_reason to TEXT type")
+            except Exception as e:
+                # This might fail if it's already TEXT, which is fine
+                print(f"Note: Could not update suspension_reason type: {e}")
+                
+    except Exception as e:
+        print(f"❌ Error updating database for suspension appeals: {e}")
+
+# Call this after your existing migrate_database() call
+update_database_for_suspension_appeals()
+
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
 def account(request: Request, user: User = Depends(get_current_user)):
