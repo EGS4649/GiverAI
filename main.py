@@ -5704,42 +5704,40 @@ def complete_onboarding_get(request: Request, user: User = Depends(get_current_u
     return templates.TemplateResponse("onboarding.html", {"request": request, "user": user})
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, user: User = Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        # Check if user needs to complete onboarding
-        needs_onboarding = not all([user.role, user.industry, user.goals, user.posting_frequency])
-        
-        if needs_onboarding:
-            # Redirect to onboarding completion
-            return RedirectResponse("/complete-onboarding", status_code=302)
-        
-        # Your existing dashboard logic
-        today = str(date.today())
-        usage = db.query(Usage).filter(
-            Usage.user_id == user.id,
-            Usage.date == today
-        ).first()
-        
-        tweets_used = usage.count if usage else 0
-        if user.plan != 'free':
-            tweets_left = 'Unlimited'
-        else:
-            tweets_left = max(0, 15 - tweets_used)
-        
-        tweets = []
-        
-        return templates.TemplateResponse("dashboard.html", {
-            "request": request,
-            "user": user,
-            "tweets": tweets,
-            "tweets_left": tweets_left,
-            "tweets_used": tweets_used,
-            "features": user.features,
-            "error": None
-        })
-    finally:
-        db.close()
+async def admin_dashboard(
+    request: Request,
+    success: str = None,
+    error: str = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Admin dashboard - Updated with EDT support"""
+    # Check if user is admin
+    if not current_user or current_user.email not in ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get statistics
+    total_users = db.query(User).count()
+    suspended_count = db.query(User).filter(User.is_suspended == True).count()
+    
+    # Recent signups (last 7 days)
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    recent_signups = db.query(User).filter(User.created_at >= seven_days_ago).count()
+    
+    # Active today (last 24 hours)
+    one_day_ago = datetime.utcnow() - timedelta(days=1)
+    active_today = db.query(User).filter(User.last_login >= one_day_ago).count()
+    
+    return templates.TemplateResponse("admin/dashboard.html", {
+        "request": request,
+        "user": current_user,
+        "total_users": total_users,
+        "suspended_count": suspended_count,
+        "recent_signups": recent_signups,
+        "active_today": active_today,
+        "success": success,
+        "error": error
+    })
 
 @app.post("/dashboard", response_class=HTMLResponse)
 async def generate(request: Request):
