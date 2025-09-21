@@ -833,77 +833,78 @@
 
         // Render users table
         function renderUsers() {
-            const tbody = document.getElementById('usersTableBody');
-            const startIndex = (currentPage - 1) * usersPerPage;
-            const endIndex = startIndex + usersPerPage;
-            const usersToShow = filteredUsers.slice(startIndex, endIndex);
-
-            if (usersToShow.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6" style="text-align: center; padding: 2rem; color: #a0a0a0;">
-                            <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem;"></i>
-                            <br>No users found
-                        </td>
-                    </tr>
-                `;
-                document.getElementById('userCount').textContent = '0';
-                return;
-            }
-
-            tbody.innerHTML = usersToShow.map(user => {
-                const planClass = `plan-${user.plan.replace('_', '-')}`;
-                const statusClass = user.is_suspended ? 'status-suspended' : 'status-active';
-                const statusText = user.is_suspended ? 'Suspended' : 'Active';
-                const avatar = user.username.charAt(0).toUpperCase();
-                
-                const suspendButton = user.is_suspended 
-                    ? `<button class="btn btn-success btn-small" onclick="unsuspendUser(${user.id}, '${user.username}')">
-                         <i class="fas fa-user-check"></i> Unsuspend
-                       </button>`
-                    : `<button class="btn btn-danger btn-small" onclick="suspendUser(${user.id}, '${user.username}')">
-                         <i class="fas fa-user-slash"></i> Suspend
-                       </button>`;
-
-                // Use backend-provided EDT timestamps if available, otherwise convert
-                const joinedDate = user.created_at_eastern || formatEDTDate(user.created_at);
-                const lastLogin = user.last_login_eastern || formatEDTDateTime(user.last_login);
-
-                return `
-                    <tr>
-                        <td>
-                            <div class="user-info">
-                                                <div class="user-avatar">${avatar}</div>
-                                <div class="user-details">
-                                    <h4>${user.username}</h4>
-                                    <p>${user.email}</p>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            <span class="plan-badge ${planClass}">${user.plan.replace('_', ' ')}</span>
-                        </td>
-                        <td>${joinedDate}</td>
-                        <td>${lastLogin}</td>
-                        <td>
-                            <span class="status-badge ${statusClass}">${statusText}</span>
-                            ${user.is_suspended && user.suspension_reason ? 
-                                `<br><small style="color: #a0a0a0;">Reason: ${user.suspension_reason}</small>` : ''}
-                        </td>
-                        <td>
-                            <div class="action-buttons">
-                                ${suspendButton}
-                                <button class="btn btn-info btn-small" onclick="viewUser(${user.id})">
-                                    <i class="fas fa-eye"></i> View
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-            document.getElementById('userCount').textContent = filteredUsers.length;
+        const tbody = document.getElementById('usersTableBody');
+        const startIndex = (currentPage - 1) * usersPerPage;
+        const endIndex = startIndex + usersPerPage;
+        const usersToShow = filteredUsers.slice(startIndex, endIndex);
+    
+        if (usersToShow.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem; color: #a0a0a0;">
+                        <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                        <br>No users found
+                    </td>
+                </tr>
+            `;
+            document.getElementById('userCount').textContent = '0';
+            return;
         }
+    
+        tbody.innerHTML = usersToShow.map(user => {
+            const planClass = `plan-${user.plan.replace('_', '-')}`;
+            const statusClass = user.is_suspended ? 'status-suspended' : 'status-active';
+            const statusText = user.is_suspended ? 'Suspended' : 'Active';
+            const avatar = user.username.charAt(0).toUpperCase();
+            
+            const suspendButton = user.is_suspended 
+                ? `<button class="btn btn-success btn-small" onclick="unsuspendUser(${user.id}, '${user.username}')">
+                     <i class="fas fa-user-check"></i> Unsuspend
+                   </button>`
+                : `<button class="btn btn-danger btn-small" onclick="suspendUser(${user.id}, '${user.username}')">
+                     <i class="fas fa-user-slash"></i> Suspend
+                   </button>`;
+    
+            // FIXED: Move these variables inside the map function
+            const joinedDate = user.created_at_eastern || formatEDTDate(user.created_at) || 'Unknown';
+            const lastLogin = user.last_login_eastern || formatEDTDateTime(user.last_login) || 'Never';
+    
+            return `
+                <tr>
+                    <td>
+                        <div class="user-info">
+                            <div class="user-avatar">${avatar}</div>
+                            <div class="user-details">
+                                <h4>${user.username}</h4>
+                                <p>${user.email}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="plan-badge ${planClass}">${user.plan.replace('_', ' ')}</span>
+                    </td>
+                    <td>${joinedDate}</td>
+                    <td>${lastLogin}</td>
+                    <td>
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                        ${user.is_suspended && user.suspension_reason ? 
+                            `<br><small style="color: #a0a0a0;">Reason: ${user.suspension_reason}</small>` : ''}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            ${suspendButton}
+                            <button class="btn btn-info btn-small" onclick="viewUser(${user.id})">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    
+        document.getElementById('userCount').textContent = filteredUsers.length;
+    }
+
 
         // Suspend user function
         async function suspendUser(userId, username) {
