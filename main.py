@@ -2035,8 +2035,9 @@ def get_plan_features(plan_name):
     }
     return features.get(plan_name, features["free"])
 
-# Updated get_current_user function  
-def get_current_user(request: Request):
+# Updated get_current_user function with security checks
+def get_current_user(request: Request,allow_suspended: bool = False):
+    """Get current user from token, optionally allowing suspended users"""
     token = request.cookies.get("access_token")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -2056,10 +2057,25 @@ def get_current_user(request: Request):
     
     db = SessionLocal()
     try:
-        # Use the existing get_user function instead of get_user_safe
         user = get_user(db, username)
         if user is None:
             raise credentials_exception
+        
+        # Only apply security checks if not allowing suspended users
+        if not allow_suspended:
+            # Check if account is suspended
+            if user.is_suspended:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Account suspended: {user.suspension_reason or 'Contact support'}"
+                )
+            
+            # Check if account is temporarily locked
+            if user.account_locked_until and user.account_locked_until > datetime.utcnow():
+                raise HTTPException(
+                    status_code=423,  # HTTP 423 Locked
+                    detail="Account temporarily locked"
+                )
         
         # Attach features to the user object
         user.features = get_plan_features(user.plan)
@@ -2067,15 +2083,21 @@ def get_current_user(request: Request):
     finally:
         db.close()
 
-def get_optional_user(request: Request):
+
+def get_optional_user(request: Request, allow_suspended: bool = False):
+    """Get optional user (returns None if not authenticated), optionally allowing suspended users"""
     try:
-        user = get_current_user(request)
-        # Ensure features exist even for optional users
-        if not hasattr(user, 'features'):
-            user.features = get_plan_features(user.plan)
-        return user
+        return get_current_user(request, allow_suspended=allow_suspended)
     except Exception:
         return None
+   
+def get_suspended_user(request: Request):
+    """Special function to get user for suspended routes - allows suspended users"""
+    return get_current_user(request, allow_suspended=True)
+
+def get_optional_suspended_user(request: Request):
+    """Special function to get optional user for suspended routes - allows suspended users"""
+    return get_optional_user(request, allow_suspended=True)
         
 def apply_plan_features(user):
     if not hasattr(user, 'features'):
@@ -4176,50 +4198,6 @@ def login_post(
     finally:
         db.close()
 
-# Updated get_current_user function with security checks
-def get_current_user(request: Request):
-    token = request.cookies.get("access_token")
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-    )
-    
-    if not token:
-        raise credentials_exception
-    
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-    
-    db = SessionLocal()
-    try:
-        user = get_user(db, username)
-        if user is None:
-            raise credentials_exception
-        
-        # Security checks
-        if user.is_suspended:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Account suspended: {user.suspension_reason or 'Contact support'}"
-            )
-        
-        if user.account_locked_until and user.account_locked_until > datetime.utcnow():
-            raise HTTPException(
-                status_code=423,  # HTTP 423 Locked
-                detail="Account temporarily locked"
-            )
-        
-        # Attach features to the user object
-        user.features = get_plan_features(user.plan)
-        return user
-    finally:
-        db.close()
-
 
 # Add this helper function for sending account locked emails
 def send_account_locked_email(email: str):
@@ -4390,10 +4368,14 @@ def faq_page(request: Request):
 @app.get("/suspended", response_class=HTMLResponse)
 def suspended_page_get(request: Request):
     """Display suspended account page"""
-    user = get_optional_user(request)
+    # Use the special function that allows suspended users
+    user = get_optional_suspended_user(request)
     
-    # Check if user is actually suspended, if not redirect
-    if not user or not user.is_suspended:
+    # If no user or user is not suspended, redirect to dashboard/login
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    
+    if not user.is_suspended:
         return RedirectResponse("/dashboard", status_code=302)
     
     return templates.TemplateResponse("suspended.html", {
@@ -4409,11 +4391,15 @@ def suspended_page_get(request: Request):
 @app.post("/suspended", response_class=HTMLResponse)
 async def suspended_page_post(request: Request):
     """Handle suspension appeal form submission"""
-    user = get_optional_user(request)
+    # Use the special function that allows suspended users
+    user = get_optional_suspended_user(request)
     form_data = {}
     
-    # Check if user is actually suspended
-    if not user or not user.is_suspended:
+    # Check if user exists and is actually suspended
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    
+    if not user.is_suspended:
         return RedirectResponse("/dashboard", status_code=302)
     
     db = SessionLocal()
@@ -4525,6 +4511,49 @@ async def suspended_page_post(request: Request):
     finally:
         db.close()
 
+@app.middleware("http")
+async def check_suspension_middleware(request: Request, call_next):
+    """Middleware to check for suspended users and redirect them"""
+    
+    # Routes that suspended users should be able to access
+    allowed_paths = [
+        "/suspended",
+        "/logout", 
+        "/static/",
+        "/contact",
+        "/",
+        "/login",
+        "/register",
+        "/forgot-password",
+        "/reset-password",
+        "/verify-email"
+    ]
+    
+    # Skip middleware for these paths
+    path = request.url.path
+    if any(path.startswith(allowed_path) for allowed_path in allowed_paths):
+        response = await call_next(request)
+        return response
+    
+    # Skip for non-authenticated requests (no token)
+    token = request.cookies.get("access_token")
+    if not token:
+        response = await call_next(request)
+        return response
+    
+    # Check if user is suspended - use the allow_suspended version
+    try:
+        user = get_optional_suspended_user(request)
+        if user and user.is_suspended:
+            # Redirect suspended users to suspension page
+            return RedirectResponse("/suspended", status_code=302)
+    except Exception:
+        # If we can't get the user, let the request proceed normally
+        # The original route will handle the authentication error
+        pass
+    
+    response = await call_next(request)
+    return response
         
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
