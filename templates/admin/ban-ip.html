@@ -1,81 +1,657 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IP Ban Management - GiverAI Admin</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; }
-        input, textarea, select { width: 300px; padding: 8px; }
-        button { padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 4px; }
-        .unban-btn { background: #28a745; }
-        .success { color: green; padding: 10px; background: #d4edda; margin: 10px 0; }
-        .error { color: red; padding: 10px; background: #f8d7da; margin: 10px 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .admin-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .admin-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .admin-header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff4444, #ff8800);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .admin-header p {
+            color: #a0a0a0;
+            font-size: 1.1rem;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #00ffff;
+            text-decoration: none;
+            margin-bottom: 2rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .back-link:hover {
+            background: rgba(0, 255, 255, 0.2);
+            transform: translateX(-5px);
+        }
+
+        /* Alert Messages */
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        /* Ban Form Section */
+        .ban-form-section {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 3rem;
+        }
+
+        .section-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .section-header h2 {
+            color: #ef4444;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .form-container {
+            padding: 2rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            color: #00ffff;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            color: #ffffff;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #00ffff;
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: #666;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #ffffff;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #ffffff;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(34, 197, 94, 0.4);
+        }
+
+        .btn-small {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+
+        /* Bans Table */
+        .bans-section {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .bans-section .section-header {
+            background: rgba(255, 69, 0, 0.1);
+        }
+
+        .bans-section .section-header h2 {
+            color: #ff4500;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .bans-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .bans-table th {
+            background: rgba(255, 69, 0, 0.1);
+            color: #ff4500;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .bans-table td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            vertical-align: middle;
+        }
+
+        .bans-table tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        .bans-table tbody tr:hover {
+            background: rgba(255, 69, 0, 0.05);
+        }
+
+        .ip-address {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #00ffff;
+            background: rgba(0, 255, 255, 0.1);
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .ban-reason {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ban-reason:hover {
+            white-space: normal;
+            max-width: none;
+        }
+
+        .status-badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-permanent {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-temporary {
+            background: rgba(255, 165, 0, 0.2);
+            color: #ffa500;
+            border: 1px solid rgba(255, 165, 0, 0.3);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #a0a0a0;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #666;
+        }
+
+        .form-warning {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .admin-container {
+                padding: 1rem;
+            }
+
+            .admin-header h1 {
+                font-size: 2rem;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .bans-table {
+                font-size: 0.85rem;
+            }
+
+            .bans-table th,
+            .bans-table td {
+                padding: 0.5rem;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>IP Ban Management</h1>
-    
-    {% if request.query_params.get('success') == 'banned' %}
-        <div class="success">IP address banned successfully!</div>
-    {% endif %}
-    {% if request.query_params.get('success') == 'unbanned' %}
-        <div class="success">IP address unbanned successfully!</div>
-    {% endif %}
-    {% if error %}
-        <div class="error">{{ error }}</div>
-    {% endif %}
-    
-    <form method="post" action="/admin/ban-ip">
-        <div class="form-group">
-            <label>IP Address:</label>
-            <input type="text" name="ip_address" required placeholder="192.168.1.1">
+    <nav class="navbar">
+        <div class="brand">
+            <a href="/" style="color: white; text-decoration: none;">Giver.ai</a>
         </div>
-        <div class="form-group">
-            <label>Reason:</label>
-            <textarea name="reason" required placeholder="Reason for ban..."></textarea>
+        <ul class="nav-links">
+            <li><a href="/dashboard">Dashboard</a></li>
+            <li><a href="/account">Account</a></li>
+            <li><a href="/logout">Logout</a></li>
+        </ul>
+    </nav>
+
+    <div class="admin-container">
+        <!-- Back to Admin -->
+        <a href="/admin" class="back-link">
+            <i class="fas fa-arrow-left"></i>
+            Back to Admin Dashboard
+        </a>
+
+        <!-- Header -->
+        <div class="admin-header">
+            <h1><i class="fas fa-ban"></i> IP Ban Management</h1>
+            <p>Monitor and manage IP address bans for security and abuse prevention</p>
         </div>
-        <div class="form-group">
-            <label>Duration (hours) - leave empty for permanent:</label>
-            <input type="number" name="duration_hours" placeholder="24">
+
+        <!-- Alert Messages -->
+        {% if request.query_params.get('success') == 'banned' %}
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i>
+                IP address banned successfully!
+            </div>
+        {% endif %}
+        {% if request.query_params.get('success') == 'unbanned' %}
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i>
+                IP address unbanned successfully!
+            </div>
+        {% endif %}
+        {% if error %}
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                {{ error }}
+            </div>
+        {% endif %}
+
+        <!-- Ban Form -->
+        <div class="ban-form-section">
+            <div class="section-header">
+                <h2><i class="fas fa-hammer"></i> Ban IP Address</h2>
+            </div>
+            <div class="form-container">
+                <div class="form-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <strong>Warning:</strong> IP bans are immediate and will prevent all access from the specified address. 
+                        Use with caution and ensure you have the correct IP address.
+                    </div>
+                </div>
+
+                <form method="post" action="/admin/ban-ip">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="ip_address">
+                                <i class="fas fa-network-wired"></i> IP Address *
+                            </label>
+                            <input 
+                                type="text" 
+                                id="ip_address" 
+                                name="ip_address" 
+                                required 
+                                placeholder="192.168.1.1 or 2001:db8::1"
+                                pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$"
+                                title="Please enter a valid IPv4 or IPv6 address"
+                            >
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="duration_hours">
+                                <i class="fas fa-clock"></i> Duration (Hours)
+                            </label>
+                            <input 
+                                type="number" 
+                                id="duration_hours" 
+                                name="duration_hours" 
+                                placeholder="24 (leave empty for permanent)"
+                                min="1"
+                                max="8760"
+                            >
+                            <small style="color: #a0a0a0; margin-top: 0.25rem;">
+                                Leave empty for permanent ban. Max: 8760 hours (1 year)
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reason">
+                            <i class="fas fa-comment-alt"></i> Reason for Ban *
+                        </label>
+                        <textarea 
+                            id="reason" 
+                            name="reason" 
+                            required 
+                            placeholder="Detailed reason for the IP ban (e.g., spam, abuse, security threat)..."
+                            maxlength="500"
+                        ></textarea>
+                        <small style="color: #a0a0a0; margin-top: 0.25rem;">
+                            This reason will be logged and visible to other administrators
+                        </small>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-ban"></i>
+                            Ban IP Address
+                        </button>
+                        <button type="reset" class="btn" style="background: rgba(255,255,255,0.1); color: #fff;">
+                            <i class="fas fa-undo"></i>
+                            Clear Form
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
-        <button type="submit">Ban IP</button>
-    </form>
-    
-    <h2>Active Bans ({{ active_bans|length }})</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>IP Address</th>
-                <th>Reason</th>
-                <th>Banned By</th>
-                <th>Banned At</th>
-                <th>Expires At</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for ban in active_bans %}
-            <tr>
-                <td>{{ ban.ip_address }}</td>
-                <td>{{ ban.reason }}</td>
-                <td>{{ ban.banned_by }}</td>
-                <td>{{ ban.banned_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                <td>{% if ban.expires_at %}{{ ban.expires_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Permanent{% endif %}</td>
-                <td>
-                    <form method="post" action="/admin/unban-ip" style="display: inline;">
-                        <input type="hidden" name="ban_id" value="{{ ban.id }}">
-                        <button type="submit" class="unban-btn">Unban</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    
-    <p><a href="/admin">Back to Admin Dashboard</a></p>
+
+        <!-- Active Bans -->
+        <div class="bans-section">
+            <div class="section-header">
+                <h2>
+                    <i class="fas fa-list"></i> 
+                    Active Bans 
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">
+                        ({{ active_bans|length if active_bans else 0 }})
+                    </span>
+                </h2>
+            </div>
+            
+            {% if active_bans and active_bans|length > 0 %}
+                <div class="table-container">
+                    <table class="bans-table">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-network-wired"></i> IP Address</th>
+                                <th><i class="fas fa-comment"></i> Reason</th>
+                                <th><i class="fas fa-user"></i> Banned By</th>
+                                <th><i class="fas fa-calendar"></i> Banned At</th>
+                                <th><i class="fas fa-hourglass"></i> Expires</th>
+                                <th><i class="fas fa-cog"></i> Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ban in active_bans %}
+                            <tr>
+                                <td>
+                                    <div class="ip-address">{{ ban.ip_address }}</div>
+                                </td>
+                                <td>
+                                    <div class="ban-reason" title="{{ ban.reason }}">
+                                        {{ ban.reason }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <i class="fas fa-user-shield" style="color: #00ffff;"></i>
+                                        {{ ban.banned_by }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="font-size: 0.9rem;">
+                                        {{ ban.banned_at.strftime('%Y-%m-%d') }}<br>
+                                        <small style="color: #a0a0a0;">{{ ban.banned_at.strftime('%H:%M UTC') }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if ban.expires_at %}
+                                        <span class="status-badge status-temporary">
+                                            Temporary
+                                        </span><br>
+                                        <small style="color: #a0a0a0;">
+                                            {{ ban.expires_at.strftime('%Y-%m-%d %H:%M UTC') }}
+                                        </small>
+                                    {% else %}
+                                        <span class="status-badge status-permanent">
+                                            Permanent
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form method="post" action="/admin/unban-ip" style="display: inline;">
+                                        <input type="hidden" name="ban_id" value="{{ ban.id }}">
+                                        <button 
+                                            type="submit" 
+                                            class="btn btn-success btn-small"
+                                            onclick="return confirm('Are you sure you want to unban {{ ban.ip_address }}?')"
+                                        >
+                                            <i class="fas fa-unlock"></i>
+                                            Unban
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-shield-alt"></i>
+                    <h3>No Active Bans</h3>
+                    <p>There are currently no IP addresses banned from the system.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-container">
+            <div class="footer-left">
+                <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+            </div>
+            <div class="footer-links">
+                <a href="/tweetgiver">TweetGiver</a> |
+                <a href="/pricing">Pricing</a> |
+                <a href="/privacy">Privacy Policy</a> |
+                <a href="/terms">Terms of Service</a> |
+                <a href="/contact">Contact</a>
+            </div>
+            <div class="footer-right">
+                &copy; 2025 Giver.ai
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Form validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const ipInput = document.getElementById('ip_address');
+            const reasonInput = document.getElementById('reason');
+            
+            // Basic IP validation
+            const ipPattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
+            
+            if (!ipPattern.test(ipInput.value)) {
+                e.preventDefault();
+                alert('Please enter a valid IP address (IPv4 or IPv6)');
+                ipInput.focus();
+                return;
+            }
+            
+            if (reasonInput.value.trim().length < 10) {
+                e.preventDefault();
+                alert('Please provide a detailed reason (at least 10 characters)');
+                reasonInput.focus();
+                return;
+            }
+            
+            // Confirm ban
+            const duration = document.getElementById('duration_hours').value;
+            const banType = duration ? `for ${duration} hours` : 'permanently';
+            
+            if (!confirm(`Are you sure you want to ban IP ${ipInput.value} ${banType}?`)) {
+                e.preventDefault();
+            }
+        });
+
+        // Auto-dismiss alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    setTimeout(() => {
+                        alert.remove();
+                    }, 300);
+                }, 5000);
+            });
+        });
+
+        // Character counter for reason textarea
+        const reasonTextarea = document.getElementById('reason');
+        if (reasonTextarea) {
+            reasonTextarea.addEventListener('input', function() {
+                const maxLength = this.getAttribute('maxlength');
+                const currentLength = this.value.length;
+                
+                // You can add a character counter here if needed
+                console.log(`Characters: ${currentLength}/${maxLength}`);
+            });
+        }
+    </script>
 </body>
 </html>
