@@ -1540,8 +1540,10 @@ async def lock_account_temporarily(user: User, db: SessionLocal, hours: int = 24
     user.failed_login_attempts = 0  # Reset counter
     db.commit()
 
-    # Send notification email
-    await email_service.send_account_locked_email(user.email, hours)
+    try:
+        await email_service.send_account_locked_email(user.email, hours)
+    except Exception as e:
+        print(f"Failed to send account locked email: {e}")
 
 # Hacked account response workflow
 async def handle_hacked_account_report(user_email: str, db: SessionLocal):
