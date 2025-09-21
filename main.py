@@ -3221,81 +3221,30 @@ async def admin_ban_ip_page(
     admin: User = Depends(get_admin_user)
 ):
     """Admin page to ban IP addresses"""
+    db = SessionLocal()
     try:
-        db = SessionLocal()
+        # Get current active bans
+        active_bans = db.query(IPban).filter(IPban.is_active == True).all()
         
-        # Get current active bans (only if IpBan model exists)
-        try:
-            active_bans = db.query(IPban).filter(IPban.is_active == True).all()
-        except Exception as e:
-            print(f"Error querying IP bans: {e}")
-            active_bans = []
-        
-        # Return simple HTML instead of template for now
-        html_content = f"""
-        <!DOCTYPE html>
+        return templates.TemplateResponse("admin/ban-ip.html", {
+            "request": request,
+            "user": admin,
+            "active_bans": active_bans
+        })
+    except Exception as e:
+        print(f"Error in ban IP page: {e}")
+        # Return a simple response for now
+        return HTMLResponse(content=f"""
         <html>
-        <head>
-            <title>IP Ban Management</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                .ban-form {{ background: #f5f5f5; padding: 20px; margin: 20px 0; }}
-                input, textarea {{ width: 300px; padding: 8px; margin: 5px 0; }}
-                button {{ padding: 10px 20px; background: #dc3545; color: white; border: none; }}
-            </style>
-        </head>
         <body>
             <h1>IP Ban Management</h1>
-            <p>Admin: {admin.email}</p>
-            
-            <div class="ban-form">
-                <h2>Ban IP Address</h2>
-                <form method="post" action="/admin/ban-ip">
-                    <div>
-                        <label>IP Address:</label><br>
-                        <input type="text" name="ip_address" required placeholder="192.168.1.1">
-                    </div>
-                    <div>
-                        <label>Reason:</label><br>
-                        <textarea name="reason" required placeholder="Reason for ban..."></textarea>
-                    </div>
-                    <div>
-                        <label>Duration (hours, leave empty for permanent):</label><br>
-                        <input type="number" name="duration_hours" placeholder="24">
-                    </div>
-                    <button type="submit">Ban IP</button>
-                </form>
-            </div>
-            
-            <h2>Active Bans ({len(active_bans)})</h2>
-            <ul>
-                {"".join([f"<li>{ban.ip_address} - {ban.reason} (by {ban.banned_by})</li>" for ban in active_bans])}
-            </ul>
-            
-            <p><a href="/admin">Back to Admin Dashboard</a></p>
+            <p>Error loading page: {str(e)}</p>
+            <p><a href="/admin">Back to Admin</a></p>
         </body>
         </html>
-        """
-        
-        return HTMLResponse(content=html_content)
-        
-    except Exception as e:
-        print(f"Error in admin ban IP page: {e}")
-        import traceback
-        traceback.print_exc()
-        
-        return HTMLResponse(content=f"""
-        <html><body>
-            <h1>Error</h1>
-            <p>Error loading IP ban page: {str(e)}</p>
-            <p><a href="/admin">Back to Admin</a></p>
-        </body></html>
-        """, status_code=500)
+        """)
     finally:
-        try:
-            db.close()
-        except:
-            pass
+        db.close()
 
 @app.post("/admin/ban-ip")
 async def ban_ip_admin(
