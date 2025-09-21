@@ -19,10 +19,10 @@
 <body>
     <h1>IP Ban Management</h1>
     
-    {% if request.args.get('success') == 'banned' %}
+    {% if request.query_params.get('success') == 'banned' %}
         <div class="success">IP address banned successfully!</div>
     {% endif %}
-    {% if request.args.get('success') == 'unbanned' %}
+    {% if request.query_params.get('success') == 'unbanned' %}
         <div class="success">IP address unbanned successfully!</div>
     {% endif %}
     {% if error %}
