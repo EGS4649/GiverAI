@@ -369,13 +369,13 @@
                     <label for="appeal_type">Type of Appeal *</label>
                     <select id="appeal_type" name="appeal_type" required>
                         <option value="">Select appeal type</option>
-                        <option value="wrongful_suspension" {{ 'selected' if form_data.get('appeal_type') == 'wrongful_suspension' else '' }}>Account Wrongfully Suspended</option>
-                        <option value="policy_misunderstanding" {{ 'selected' if form_data.get('appeal_type') == 'policy_misunderstanding' else '' }}>Policy Misunderstanding</option>
-                        <option value="technical_error" {{ 'selected' if form_data.get('appeal_type') == 'technical_error' else '' }}>Technical Error</option>
-                        <option value="account_compromise" {{ 'selected' if form_data.get('appeal_type') == 'account_compromise' else '' }}>Account Was Compromised</option>
-                        <option value="content_misidentified" {{ 'selected' if form_data.get('appeal_type') == 'content_misidentified' else '' }}>Content Misidentified</option>
-                        <option value="first_time_offense" {{ 'selected' if form_data.get('appeal_type') == 'first_time_offense' else '' }}>First Time Offense - Request Leniency</option>
-                        <option value="other" {{ 'selected' if form_data.get('appeal_type') == 'other' else '' }}>Other</option>
+                        <option value="wrongful_suspension" {{ 'selected' if (form_data and form_data.get('appeal_type') == 'wrongful_suspension') else '' }}>Account Wrongfully Suspended</option>
+                        <option value="policy_misunderstanding" {{ 'selected' if (form_data and form_data.get('appeal_type') == 'policy_misunderstanding') else '' }}>Policy Misunderstanding</option>
+                        <option value="technical_error" {{ 'selected' if (form_data and form_data.get('appeal_type') == 'technical_error') else '' }}>Technical Error</option>
+                        <option value="account_compromise" {{ 'selected' if (form_data and form_data.get('appeal_type') == 'account_compromise') else '' }}>Account Was Compromised</option>
+                        <option value="content_misidentified" {{ 'selected' if (form_data and form_data.get('appeal_type') == 'content_misidentified') else '' }}>Content Misidentified</option>
+                        <option value="first_time_offense" {{ 'selected' if (form_data and form_data.get('appeal_type') == 'first_time_offense') else '' }}>First Time Offense - Request Leniency</option>
+                        <option value="other" {{ 'selected' if (form_data and form_data.get('appeal_type') == 'other') else '' }}>Other</option>
                     </select>
                 </div>
                 
