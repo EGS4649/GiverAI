@@ -4212,7 +4212,25 @@ async def admin_user_activity(
         
     finally:
         db.close()
-  
+
+@app.get("/test-email-config")
+async def test_email_config():
+    return {
+        "smtp_server": bool(os.getenv("SMTP_SERVER")),
+        "smtp_port": bool(os.getenv("SMTP_PORT")),
+        "smtp_username": bool(os.getenv("SMTP_USERNAME")),
+        "smtp_password": bool(os.getenv("SMTP_PASSWORD")),
+        "email_from": os.getenv("EMAIL_FROM", "noreply@giverai.me")
+    } 
+
+@app.get("/test-lock-email")
+async def test_lock_email(email: str):
+    try:
+        result = await email_service.send_account_locked_email(email, 24)
+        return {"success": result, "message": "Check email logs"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
     user = get_optional_user(request)
