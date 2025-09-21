@@ -21,7 +21,7 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError, ProgrammingError 
 from sqlalchemy.orm import defer
 from sqlalchemy import func, Text
-from sqlalchemy import Text
+from sqlalchemy import Text, TIMESTAMP
 from sqlalchemy.orm import Session
 from openai import OpenAI
 from pydantic import BaseModel
@@ -4107,7 +4107,38 @@ async def unsuspend_user_account(user_id: int, db: Session):
         db.rollback()
         print(f"❌ Error unsuspending user: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to unsuspend user")
-    
+
+# Add these helper functions after your existing helper functions
+def validate_ip_address(ip_str: str) -> bool:
+    """Validate if string is a valid IP address (IPv4 or IPv6)"""
+    try:
+        ipaddress.ip_address(ip_str.strip())
+        return True
+    except ValueError:
+        return False
+
+def is_ip_banned(ip_address: str, db) -> bool:
+    """Check if an IP address is currently banned"""
+    try:
+        active_ban = db.query(IPban).filter(
+            IPban.ip_address == ip_address,
+            IPban.is_active == True,
+            (IPban.expires_at.is_(None)) | (IPban.expires_at > datetime.utcnow())
+        ).first()
+        
+        return active_ban is not None
+    except Exception as e:
+        print(f"Error checking IP ban: {str(e)}")
+        return False
+
+# Add dependency to get database session (if you don't have it already)
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 def log_login_attempt(user_id: int, ip_address: str, success: bool, db: Session):
     """Log login attempts with IP addresses"""
     try:
@@ -4332,7 +4363,7 @@ def login_post(
         user.failed_login_attempts = 0
         user.last_failed_login = None
         user.account_locked_until = None
-        user.last_login = datetime.now(timezone.utc)  # ✅ Track last login
+        user.last_login = datetime.utcnow()  # ✅ Use utcnow instead of timezone
         db.commit()
         
         # Create access token
