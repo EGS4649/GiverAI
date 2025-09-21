@@ -3226,7 +3226,7 @@ async def admin_ban_ip_page(
         
         # Get current active bans (only if IpBan model exists)
         try:
-            active_bans = db.query(IpBan).filter(IpBan.is_active == True).all()
+            active_bans = db.query(IPban).filter(IPban.is_active == True).all()
         except Exception as e:
             print(f"Error querying IP bans: {e}")
             active_bans = []
