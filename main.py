@@ -3266,14 +3266,17 @@ async def admin_ban_ip_page(
     try:
         # Get current active bans
         active_bans = db.query(IPban).filter(IPban.is_active == True).all()
+        success: str = Query(None),
+        error: str = Query(None)
         
         return templates.TemplateResponse("admin/ban-ip.html", {
             "request": request,
             "user": admin,
-            "active_bans": active_bans
-            "success": success,  # Pass query params explicitly
+            "active_bans": active_bans,
+            "success": success, 
             "error": error
         })
+    
     except Exception as e:
         print(f"Error in ban IP page: {e}")
         # Return a simple response for now
