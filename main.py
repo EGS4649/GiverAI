@@ -4226,20 +4226,6 @@ async def test_email_config():
         "email_from": os.getenv("EMAIL_FROM", "noreply@giverai.me")
     } 
 
-@app.get("/test-lock-email/{email}")
-async def test_lock_email(email: str):
-    """Test endpoint to send account locked email"""
-    try:
-        result = await email_service.send_account_locked_email(email, 24)
-        return {"success": result, "email_sent_to": email, "message": "Email sent successfully"}
-    except Exception as e:
-        import traceback
-        return {
-            "success": False, 
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
-    
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
     user = get_optional_user(request)
