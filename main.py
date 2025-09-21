@@ -3134,54 +3134,6 @@ async def ip_ban_middleware(request: Request, call_next):
     response = await call_next(request)
     return response
 
-@app.middleware("http")
-async def check_suspension_middleware(request: Request, call_next):
-    """Middleware to check for suspended users and redirect them"""
-    
-    # Routes that suspended users should be able to access
-    allowed_paths = [
-        "/suspended",
-        "/logout", 
-        "/static/",
-        "/contact",
-        "/",
-        "/login"  # Allow login attempts so they can see the suspension message
-    ]
-    
-    # Skip middleware for these paths
-    path = request.url.path
-    if any(path.startswith(allowed_path) for allowed_path in allowed_paths):
-        response = await call_next(request)
-        return response
-    
-    # Skip for non-authenticated requests (no token)
-    token = request.cookies.get("access_token")
-    if not token:
-        response = await call_next(request)
-        return response
-    
-    # Check if user is suspended
-    try:
-        user = get_current_user(request)
-        if user and user.is_suspended:
-            # Redirect suspended users to suspension page
-            return RedirectResponse("/suspended", status_code=302)
-    except Exception:
-        # If we can't get the user, let the request proceed normally
-        # The original route will handle the authentication error
-        pass
-    
-    response = await call_next(request)
-    return response
-
-# You'll also want to add a function to get database session dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 # Middleware to track user IPs and check bans
 @app.middleware("http")
 async def ip_tracking_middleware(request: Request, call_next):
@@ -3946,7 +3898,7 @@ async def get_user_details_api(
             "error": str(e)
         }, status_code=500)
     
-    
+
 async def unsuspend_user_account(user_id: int, db: Session):
     """Unsuspend a user account"""
     user = db.query(User).filter(User.id == user_id).first()
