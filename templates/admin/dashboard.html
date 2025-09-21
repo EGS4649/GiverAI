@@ -837,6 +837,8 @@
             const startIndex = (currentPage - 1) * usersPerPage;
             const endIndex = startIndex + usersPerPage;
             const usersToShow = filteredUsers.slice(startIndex, endIndex);
+            const joinedDate = user.created_at_eastern || formatEDTDate(user.created_at) || 'Unknown';
+            const lastLogin = user.last_login_eastern || formatEDTDateTime(user.last_login) || 'Never';
 
             if (usersToShow.length === 0) {
                 tbody.innerHTML = `
@@ -1085,26 +1087,26 @@
                 </div>
 
                 <div class="profile-section">
-                    <h3><i class="fas fa-calendar-alt"></i> Account Timeline</h3>
-                    <div class="profile-grid">
-                        <div class="profile-item">
-                            <label>Join Date</label>
-                            <div class="value">${user.created_at_eastern || formatEDTDateTime(user.created_at) || 'Unknown'}</div>
-                        </div>
-                        <div class="profile-item">
-                            <label>Last Login</label>
-                            <div class="value">${user.last_login_eastern || formatEDTDateTime(user.last_login) || 'Never'}</div>
-                        </div>
-                        <div class="profile-item">
-                            <label>Account Age</label>
-                            <div class="value">${accountAge}</div>
-                        </div>
-                        <div class="profile-item">
-                            <label>Last Password Change</label>
-                            <div class="value">${user.last_password_change_eastern || formatEDTDateTime(user.last_password_change) || 'Never'}</div>
-                        </div>
-                    </div>
+                <h3><i class="fas fa-calendar-alt"></i> Account Timeline</h3>
+            <div class="profile-grid">
+                <div class="profile-item">
+                    <label>Join Date</label>
+                    <div class="value">${user.created_at_eastern || formatEDTDateTime(user.created_at) || 'Unknown'}</div>
                 </div>
+                <div class="profile-item">
+                    <label>Last Login</label>
+                    <div class="value">${user.last_login_eastern || formatEDTDateTime(user.last_login) || 'Never'}</div>
+                </div>
+                <div class="profile-item">
+                    <label>Account Age</label>
+                    <div class="value">${accountAge}</div>
+                </div>
+                <div class="profile-item">
+                    <label>Last Password Change</label>
+                    <div class="value">${user.last_password_change_eastern || formatEDTDateTime(user.last_password_change) || 'Never'}</div>
+                </div>
+            </div>
+        </div>
 
                 ${user.is_suspended ? `
                 <div class="profile-section">
