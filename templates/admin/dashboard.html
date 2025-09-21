@@ -679,6 +679,91 @@
         let currentPage = 1;
         const usersPerPage = 10;
 
+        // EDT Time Zone Utilities
+        function convertToEDT(dateString) {
+            if (!dateString) return 'Never';
+            
+            try {
+                // Parse the UTC date
+                const utcDate = new Date(dateString);
+                
+                // Convert to EDT (UTC-4) or EST (UTC-5) depending on time of year
+                const edtOffset = -4 * 60; // EDT is UTC-4
+                const estOffset = -5 * 60; // EST is UTC-5
+                
+                // Simple daylight saving check (rough approximation)
+                const month = utcDate.getUTCMonth();
+                const date = utcDate.getUTCDate();
+                const day = utcDate.getUTCDay();
+                
+                // Daylight saving roughly: second Sunday in March to first Sunday in November
+                let isDST = false;
+                if (month > 2 && month < 10) {
+                    isDST = true;
+                } else if (month === 2) { // March
+                    // Second Sunday is between 8th and 14th
+                    const secondSunday = 14 - ((day + 6) % 7);
+                    isDST = date >= secondSunday;
+                } else if (month === 10) { // November
+                    // First Sunday is between 1st and 7th
+                    const firstSunday = 7 - ((day + 6) % 7);
+                    isDST = date < firstSunday;
+                }
+                
+                const offset = isDST ? edtOffset : estOffset;
+                const localTime = new Date(utcDate.getTime() + (offset * 60000));
+                
+                return localTime.toLocaleString('en-US', {
+                    timeZone: 'America/New_York',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            } catch (error) {
+                console.error('Date conversion error:', error);
+                return dateString; // fallback to original
+            }
+        }
+        
+        function formatEDTDate(dateString) {
+            if (!dateString) return 'Unknown';
+            
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', {
+                    timeZone: 'America/New_York',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+            } catch (error) {
+                console.error('Date formatting error:', error);
+                return dateString;
+            }
+        }
+        
+        function formatEDTDateTime(dateString) {
+            if (!dateString) return 'Never';
+            
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleString('en-US', {
+                    timeZone: 'America/New_York',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (error) {
+                console.error('DateTime formatting error:', error);
+                return dateString;
+            }
+        }
+
         // Load users on page load
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Admin dashboard loading...');
@@ -780,18 +865,15 @@
                          <i class="fas fa-user-slash"></i> Suspend
                        </button>`;
 
-                const joinedDate = user.created_at_eastern ? 
-                    user.created_at_eastern.split(' ')[0] : 
-                    (user.created_at ? formatDate(user.created_at) : 'Unknown');
-                    
-                const lastLogin = user.last_login_eastern || 
-                    (user.last_login ? formatDateTime(user.last_login) : 'Never');
+                // Use backend-provided EDT timestamps if available, otherwise convert
+                const joinedDate = user.created_at_eastern || formatEDTDate(user.created_at);
+                const lastLogin = user.last_login_eastern || formatEDTDateTime(user.last_login);
 
                 return `
                     <tr>
                         <td>
                             <div class="user-info">
-                                <div class="user-avatar">${avatar}</div>
+                                                <div class="user-avatar">${avatar}</div>
                                 <div class="user-details">
                                     <h4>${user.username}</h4>
                                     <p>${user.email}</p>
@@ -964,7 +1046,7 @@
             
             modalBody.innerHTML = `
                 <div class="timezone-note">
-                    <i class="fas fa-clock"></i> All timestamps displayed in Eastern Time (ET)
+                    <i class="fas fa-clock"></i> All timestamps displayed in Eastern Time (EDT/EST)
                 </div>
                 
                 <div class="profile-section">
@@ -1007,11 +1089,11 @@
                     <div class="profile-grid">
                         <div class="profile-item">
                             <label>Join Date</label>
-                            <div class="value">${user.created_at_eastern || 'Unknown'}</div>
+                            <div class="value">${user.created_at_eastern || formatEDTDateTime(user.created_at) || 'Unknown'}</div>
                         </div>
                         <div class="profile-item">
                             <label>Last Login</label>
-                            <div class="value">${user.last_login_eastern || 'Never'}</div>
+                            <div class="value">${user.last_login_eastern || formatEDTDateTime(user.last_login) || 'Never'}</div>
                         </div>
                         <div class="profile-item">
                             <label>Account Age</label>
@@ -1019,7 +1101,7 @@
                         </div>
                         <div class="profile-item">
                             <label>Last Password Change</label>
-                            <div class="value">${user.last_password_change_eastern || 'Never'}</div>
+                            <div class="value">${user.last_password_change_eastern || formatEDTDateTime(user.last_password_change) || 'Never'}</div>
                         </div>
                     </div>
                 </div>
@@ -1038,7 +1120,7 @@
                         </div>
                         <div class="profile-item">
                             <label>Suspended At</label>
-                            <div class="value">${user.suspended_at_eastern || 'Unknown'}</div>
+                            <div class="value">${user.suspended_at_eastern || formatEDTDateTime(user.suspended_at) || 'Unknown'}</div>
                         </div>
                         <div class="profile-item">
                             <label>Suspended By</label>
@@ -1083,10 +1165,10 @@
                                 ${user.account_locked ? '🔒 Yes' : '✅ No'}
                             </div>
                         </div>
-                        ${user.account_locked_until_eastern ? `
+                        ${user.account_locked_until_eastern || user.account_locked_until ? `
                         <div class="profile-item">
                             <label>Locked Until</label>
-                            <div class="value danger">${user.account_locked_until_eastern}</div>
+                            <div class="value danger">${user.account_locked_until_eastern || formatEDTDateTime(user.account_locked_until)}</div>
                         </div>` : ''}
                     </div>
                 </div>
@@ -1274,14 +1356,14 @@
             window.open(`/admin/user/${userId}/activity`, '_blank');
         }
 
-        // Utility functions
-        function formatDate(dateString) {
-            return new Date(dateString).toLocaleDateString();
-        }
+        // Utility functions - Remove these as they're now handled by backend or convertToEDT
+        // function formatDate(dateString) {
+        //     return new Date(dateString).toLocaleDateString();
+        // }
 
-        function formatDateTime(dateString) {
-            return new Date(dateString).toLocaleString();
-        }
+        // function formatDateTime(dateString) {
+        //     return new Date(dateString).toLocaleString();
+        // }
 
         function showError(message) {
             const tbody = document.getElementById('usersTableBody');

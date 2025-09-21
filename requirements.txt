@@ -15,4 +15,4 @@ setuptools
 wheel
 httpx
 requests
-pytz
+pytz==2023.3
