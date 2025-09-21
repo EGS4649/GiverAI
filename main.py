@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResp
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text, Text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy.orm import Session
@@ -2824,15 +2825,51 @@ async def not_found_handler(request: Request, exc: HTTPException):
         status_code=404
     )
 
-# Custom exception handler for 500 errors
-@app.exception_handler(500)
-async def internal_server_error_handler(request: Request, exc: HTTPException):
-    """Handle 500 errors with custom page"""
-    return templates.TemplateResponse(
-        "500.html", 
-        {"request": request}, 
-        status_code=500
-    )
+# Handle StarletteHTTPException (includes 404s that aren't caught above)
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Handle HTTP exceptions"""
+    if exc.status_code == 404:
+        return templates.TemplateResponse(
+            "404.html", 
+            {"request": request}, 
+            status_code=404
+        )
+    elif exc.status_code == 500:
+        return templates.TemplateResponse(
+            "500.html", 
+            {"request": request}, 
+            status_code=500
+        )
+    elif exc.status_code == 403:
+        return templates.TemplateResponse(
+            "403.html", 
+            {
+                "request": request,
+                "error_message": str(exc.detail) if hasattr(exc, 'detail') else "Forbidden"
+            }, 
+            status_code=403
+        )
+    elif exc.status_code == 423:
+        return templates.TemplateResponse(
+            "423.html", 
+            {
+                "request": request,
+                "error_message": str(exc.detail) if hasattr(exc, 'detail') else "Account Locked"
+            }, 
+            status_code=423
+        )
+    else:
+        # For other HTTP errors, return a generic error page
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "status_code": exc.status_code,
+                "error_message": str(exc.detail) if hasattr(exc, 'detail') else "An error occurred"
+            },
+            status_code=exc.status_code
+        )
 
 # Handle validation errors (422)
 @app.exception_handler(RequestValidationError)
@@ -2847,48 +2884,52 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422
     )
 
-# Generic exception handler for any unhandled exceptions
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handle any unhandled exceptions"""
-    # Log the error for debugging
-    import traceback
-    print(f"Unhandled exception: {str(exc)}")
-    print(traceback.format_exc())
+# Handle FastAPI HTTPException
+@app.exception_handler(HTTPException)
+async def fastapi_http_exception_handler(request: Request, exc: HTTPException):
+    """Handle FastAPI HTTP exceptions"""
+    if exc.status_code == 404:
+        return templates.TemplateResponse(
+            "404.html", 
+            {"request": request}, 
+            status_code=404
+        )
+    elif exc.status_code == 403:
+        return templates.TemplateResponse(
+            "403.html", 
+            {
+                "request": request,
+                "error_message": str(exc.detail)
+            }, 
+            status_code=403
+        )
+    elif exc.status_code == 423:
+        return templates.TemplateResponse(
+            "423.html", 
+            {
+                "request": request,
+                "error_message": str(exc.detail)
+            }, 
+            status_code=423
+        )
+    else:
+        # Re-raise for other status codes to be handled elsewhere
+        raise exc
     
-    # Don't expose internal errors to users in production
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    """Handle specific ValueError exceptions"""
+    print(f"ValueError: {str(exc)}")
     return templates.TemplateResponse(
-        "500.html", 
-        {"request": request}, 
-        status_code=500
-    )
-
-# Custom 403 Forbidden (for suspended accounts)
-@app.exception_handler(403)
-async def forbidden_handler(request: Request, exc: HTTPException):
-    """Handle forbidden access (suspended accounts, etc.)"""
-    return templates.TemplateResponse(
-        "403.html", 
+        "error.html",
         {
             "request": request,
-            "error_message": str(exc.detail)
-        }, 
-        status_code=403
+            "status_code": 400,
+            "error_message": "Invalid input provided"
+        },
+        status_code=400
     )
-
-# Custom 423 Locked (for temporarily locked accounts)
-@app.exception_handler(423)
-async def locked_handler(request: Request, exc: HTTPException):
-    """Handle locked accounts"""
-    return templates.TemplateResponse(
-        "423.html", 
-        {
-            "request": request,
-            "error_message": str(exc.detail)
-        }, 
-        status_code=423
-    )
-    
+ 
 @app.get("/verify-email")
 def verify_email(request: Request, token: str = Query(...)):
     db = SessionLocal()
@@ -3218,12 +3259,10 @@ def get_users_admin_api(
 @app.get("/admin/ban-ip", response_class=HTMLResponse)
 async def admin_ban_ip_page(
     request: Request,
-    success: str = Query(None),
-    error: str = Query(None),
-    admin: User = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+    admin: User = Depends(get_admin_user)
 ):
     """Admin page to ban IP addresses"""
+    db = SessionLocal()
     try:
         # Get current active bans
         active_bans = db.query(IPban).filter(IPban.is_active == True).all()
@@ -3231,13 +3270,24 @@ async def admin_ban_ip_page(
         return templates.TemplateResponse("admin/ban-ip.html", {
             "request": request,
             "user": admin,
-            "active_bans": active_bans,
+            "active_bans": active_bans
             "success": success,  # Pass query params explicitly
             "error": error
         })
     except Exception as e:
         print(f"Error in ban IP page: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return a simple response for now
+        return HTMLResponse(content=f"""
+        <html>
+        <body>
+            <h1>IP Ban Management</h1>
+            <p>Error loading page: {str(e)}</p>
+            <p><a href="/admin">Back to Admin</a></p>
+        </body>
+        </html>
+        """)
+    finally:
+        db.close()
 
 @app.post("/admin/ban-ip")
 async def ban_ip_admin(
