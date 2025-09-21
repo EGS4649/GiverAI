@@ -6,7 +6,7 @@ import secrets
 import requests 
 import hashlib
 from typing import Optional, List
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header, Query
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header, Query, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
@@ -140,8 +140,6 @@ class User(Base):
     last_failed_login = Column(DateTime, nullable=True)
     account_locked_until = Column(DateTime, nullable=True)
 
-    
-
 class Usage(Base):
     __tablename__ = "usage"
     id = Column(Integer, primary_key=True, index=True)
@@ -182,6 +180,7 @@ class TeamMember(Base):
     status = Column(String, default="pending")  # pending, active, removed
     created_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User")
+
 
 class EmailService:
     def __init__(self):
@@ -1205,107 +1204,70 @@ class EmailService:
             "We're Sorry to See You Go - Your GiverAI Account Has Been Deleted 👋",
             html_body
         )
-    def send_suspension_appeal_notification(self, user, appeal_type, appeal_message, appellant_name):
-        """Send notification to support team about new suspension appeal"""
-        
-        appeal_type_labels = {
-            "wrongful_suspension": "Wrongful Suspension",
-            "policy_misunderstanding": "Policy Misunderstanding", 
-            "technical_error": "Technical Error",
-            "account_compromise": "Account Compromised",
-            "content_misidentified": "Content Misidentified",
-            "first_time_offense": "First Time Offense - Request Leniency",
-            "other": "Other"
-        }
-        
-        appeal_label = appeal_type_labels.get(appeal_type, appeal_type)
-        formatted_message = appeal_message.replace('\n', '<br>')
-        
+    
+async def send_suspension_appeal_notification(self, user, appeal):
+        """Send suspension appeal notification to admin"""
+        appeal_types = {
+        "wrongful_suspension": "Account Wrongfully Suspended",
+        "policy_misunderstanding": "Policy Misunderstanding", 
+        "technical_error": "Technical Error",
+        "account_compromise": "Account Was Compromised",
+        "content_misidentified": "Content Misidentified",
+        "first_time_offense": "First Time Offense - Request Leniency",
+        "other": "Other"
+    }
+    
+        appeal_type_display = appeal_types.get(appeal.appeal_type, appeal.appeal_type)
+    
         html_body = f"""
         <html>
-        <body style="font-family: Arial, sans-serif; color: #333; max-width: 700px; margin: 0 auto;">
-            <div style="background: #dc3545; color: white; padding: 20px; text-align: center;">
-                <h1 style="margin: 0; color: white;">🚨 New Suspension Appeal</h1>
-                <p style="margin: 10px 0 0 0; color: white;">Urgent: User appealing account suspension</p>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #dc3545; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+                <h1 style="margin: 0; color: white;">Suspension Appeal Submitted 📋</h1>
+                <p style="margin: 10px 0 0 0; color: white;">Requires Admin Review</p>
             </div>
-    
-            <div style="padding: 30px; background: white; border: 1px solid #eee;">
-                <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin-bottom: 25px; border-radius: 8px;">
-                    <h2 style="margin: 0; color: #721c24;">⚠️ PRIORITY: Suspension Appeal</h2>
-                    <p style="margin: 5px 0 0 0; color: #721c24;">This user is requesting review of their account suspension.</p>
-                </div>
-    
-                <h2 style="color: #333; border-bottom: 2px solid #dc3545; padding-bottom: 10px;">Appeal Details</h2>
-    
+            
+            <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+                <h2>Appeal Details</h2>
+                
                 <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                    <tr style="background: #f8f9fa;">
-                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold; width: 30%;">Suspended User:</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6;">
-                            <strong>{user.username}</strong> ({user.email})
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Appellant Name:</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6;">{appellant_name}</td>
-                    </tr>
-                    <tr style="background: #f8f9fa;">
-                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Appeal Type:</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6;">
-                            <span style="background: #dc3545; color: white; padding: 4px 12px; border-radius: 15px; font-size: 12px;">
-                                {appeal_label}
-                            </span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Current Status:</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6;">
-                            <span style="color: #dc3545; font-weight: bold;">SUSPENDED</span>
-                            {f'<br><small>Reason: {user.suspension_reason}</small>' if user.suspension_reason else ''}
-                        </td>
-                    </tr>
-                    <tr style="background: #f8f9fa;">
-                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Suspended Date:</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6;">
-                            {user.suspended_at.strftime('%Y-%m-%d %H:%M UTC') if user.suspended_at else 'Unknown'}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Plan:</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6;">{user.plan.replace('_', ' ').title()}</td>
-                    </tr>
-                    <tr style="background: #f8f9fa;">
-                        <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Appeal Submitted:</td>
-                        <td style="padding: 12px; border: 1px solid #dee2e6;">{datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}</td>
-                    </tr>
+                <tr style="background: #f8f9fa;">
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">User:</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6;">{user.username} ({user.email})</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Appeal Type:</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6;">{appeal_type_display}</td>
+                </tr>
+                <tr style="background: #f8f9fa;">
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Suspended Date:</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6;">
+                    {user.suspended_at.strftime('%Y-%m-%d %H:%M UTC') if user.suspended_at else 'Unknown'}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Suspension Reason:</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6;">{user.suspension_reason}</td>
+                </tr>
+                <tr style="background: #f8f9fa;">
+                    <td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">Plan:</td>
+                    <td style="padding: 12px; border: 1px solid #dee2e6;">{user.plan.replace('_', ' ').title()}</td>
+                </tr>
                 </table>
-    
-                <h3 style="color: #333; margin-top: 30px;">User's Appeal Statement:</h3>
-                <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #dc3545; border-radius: 4px; line-height: 1.6;">
-                    {formatted_message}
+                
+                <h3>Appeal Message:</h3>
+                <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #dc3545; border-radius: 4px;">
+                {appeal.appeal_message.replace(chr(10), '<br>')}
                 </div>
-    
-                <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
-                    <h3 style="margin-top: 0; color: #333;">⏰ Action Required</h3>
-                    <ul style="margin: 10px 0; padding-left: 20px;">
-                        <li>Review the user's suspension reason and appeal statement</li>
-                        <li>Check user's account history and previous violations</li>
-                        <li>Investigate the circumstances of the original suspension</li>
-                        <li>Make a decision: approve or deny the appeal</li>
-                        <li>Respond within 24-48 hours as promised</li>
-                    </ul>
-                </div>
-    
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://giverai.me/admin/appeals" 
-                       style="display: inline-block; background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                        Review Appeal in Admin Panel
-                    </a>
-                </div>
+                
+                <p style="text-align: center; margin: 30px 0;">
+                <a href="https://giverai.me/admin/appeals" 
+                    style="display: inline-block; background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px;">
+                    Review Appeal
+                </a>
+                </p>
             </div>
-    
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
-                <p>This appeal was submitted via the GiverAI suspension appeal form</p>
-                <p><strong>Priority:</strong> Review within 24-48 hours</p>
             </div>
         </body>
         </html>
@@ -1313,11 +1275,11 @@ class EmailService:
         
         return self.send_simple_email(
             "support@giverai.me",
-            f"🚨 URGENT: Suspension Appeal - {user.username} ({appeal_label})",
+            f"[URGENT] Suspension Appeal from {user.username} - {appeal_type_display}",
             html_body
         )
     
-    def send_appeal_confirmation_email(self, user, appeal_type):
+async def send_appeal_confirmation_email(self, user, appeal_type):
         """Send confirmation email to user who submitted appeal"""
         
         appeal_type_labels = {
@@ -1386,6 +1348,70 @@ class EmailService:
             html_body
         )
     
+def send_appeal_confirmation_email(self, user, appeal):
+    """Send appeal confirmation to user"""
+    appeal_types = {
+        "wrongful_suspension": "Account Wrongfully Suspended",
+        "policy_misunderstanding": "Policy Misunderstanding",
+        "technical_error": "Technical Error", 
+        "account_compromise": "Account Was Compromised",
+        "content_misidentified": "Content Misidentified",
+        "first_time_offense": "First Time Offense - Request Leniency",
+        "other": "Other"
+    }
+    
+    appeal_type_display = appeal_types.get(appeal.appeal_type, appeal.appeal_type)
+    
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #28a745; color: white; padding: 30px; text-align: center; border-radius: 8px;">
+            <h1 style="margin: 0; color: white;">Appeal Submitted Successfully ✅</h1>
+            <p style="margin: 10px 0 0 0; color: white;">We've received your suspension appeal</p>
+          </div>
+          
+          <div style="padding: 30px; background: white; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+            <h2>Hi {user.username},</h2>
+            
+            <p>Thank you for submitting your suspension appeal. We've received your request and our team will review it carefully.</p>
+            
+            <div style="background: #e3f2fd; padding: 15px; margin: 20px 0; border-radius: 6px;">
+              <h3 style="margin-top: 0;">Your Appeal Details:</h3>
+              <p><strong>Appeal Type:</strong> {appeal_type_display}</p>
+              <p><strong>Submitted:</strong> {appeal.created_at.strftime('%B %d, %Y at %I:%M %p UTC')}</p>
+              <p><strong>Reference ID:</strong> #{appeal.id}</p>
+            </div>
+            
+            <h3>What happens next?</h3>
+            <ul>
+              <li>📋 Our team will review your appeal within 24-48 hours</li>
+              <li>🔍 We'll investigate the circumstances of your suspension</li>
+              <li>📧 You'll receive an email with our decision</li>
+              <li>✅ If approved, your account will be restored immediately</li>
+            </ul>
+            
+            <div style="background: #fff3cd; padding: 15px; margin: 20px 0; border-radius: 6px;">
+              <p style="margin: 0;"><strong>⏰ Average Review Time:</strong> 24-48 hours</p>
+              <p>Complex cases may require additional investigation time.</p>
+            </div>
+            
+            <p>Please don't submit additional appeals as this may delay the review process.</p>
+            
+            <p>Thank you for your patience,</p>
+            <p><strong>The GiverAI Appeals Team</strong></p>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+    
+    return self.send_simple_email(
+        user.email,
+        f"Appeal Submitted - Reference #{appeal.id} | GiverAI",
+        html_body
+    )
+
     def test_simple_email(self, to_email: str):
         """Simple email test with minimal HTML"""
         try:
@@ -1627,6 +1653,17 @@ def check_admin_access(user):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     return user
+
+def create_suspension_appeals_table():
+    """Create the suspension_appeals table if it doesn't exist"""
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Suspension appeals table created/verified")
+    except Exception as e:
+        print(f"❌ Error creating suspension appeals table: {e}")
+
+# Call this once to create the table
+create_suspension_appeals_table()
 
 # Helper functions
 def generate_verification_token():
@@ -2244,6 +2281,49 @@ def migrate_database_suspension():
                     print(f"Error adding {col_name}: {e}")
 
     print("Suspension database migration completed")
+
+def update_user_table_for_suspension():
+    """Add missing suspension-related columns to users table"""
+    engine = create_engine(DATABASE_URL)
+    
+    try:
+        with engine.begin() as conn:
+            # Check existing columns
+            inspector = inspect(engine)
+            if 'users' in inspector.get_table_names():
+                columns = [col['name'] for col in inspector.get_columns('users')]
+                
+                # Add missing suspension columns
+                suspension_columns = {
+                    'is_suspended': "ALTER TABLE users ADD COLUMN is_suspended BOOLEAN DEFAULT FALSE",
+                    'suspension_reason': "ALTER TABLE users ADD COLUMN suspension_reason TEXT",
+                    'suspended_at': "ALTER TABLE users ADD COLUMN suspended_at TIMESTAMP",
+                    'suspended_by': "ALTER TABLE users ADD COLUMN suspended_by VARCHAR",
+                    'last_login': "ALTER TABLE users ADD COLUMN last_login TIMESTAMP"
+                }
+                
+                for col_name, sql in suspension_columns.items():
+                    if col_name not in columns:
+                        try:
+                            conn.execute(text(sql))
+                            print(f"✅ Added {col_name} column to users table")
+                        except Exception as e:
+                            print(f"❌ Error adding {col_name}: {e}")
+                
+                # Make sure suspension_reason is TEXT type (not VARCHAR)
+                try:
+                    conn.execute(text("ALTER TABLE users ALTER COLUMN suspension_reason TYPE TEXT"))
+                    print("✅ Updated suspension_reason to TEXT type")
+                except Exception as e:
+                    # This might fail if it's already TEXT, which is fine
+                    pass
+                    
+        print("✅ User table suspension fields updated")
+    except Exception as e:
+        print(f"❌ Error updating user table: {e}")
+
+# Add this to your migrate_database() function or call it separately
+update_user_table_for_suspension()
 
 def fix_corrupted_user_data():
     """Fix corrupted hashed_password data in the database"""
@@ -3054,6 +3134,54 @@ async def ip_ban_middleware(request: Request, call_next):
     response = await call_next(request)
     return response
 
+@app.middleware("http")
+async def check_suspension_middleware(request: Request, call_next):
+    """Middleware to check for suspended users and redirect them"""
+    
+    # Routes that suspended users should be able to access
+    allowed_paths = [
+        "/suspended",
+        "/logout", 
+        "/static/",
+        "/contact",
+        "/",
+        "/login"  # Allow login attempts so they can see the suspension message
+    ]
+    
+    # Skip middleware for these paths
+    path = request.url.path
+    if any(path.startswith(allowed_path) for allowed_path in allowed_paths):
+        response = await call_next(request)
+        return response
+    
+    # Skip for non-authenticated requests (no token)
+    token = request.cookies.get("access_token")
+    if not token:
+        response = await call_next(request)
+        return response
+    
+    # Check if user is suspended
+    try:
+        user = get_current_user(request)
+        if user and user.is_suspended:
+            # Redirect suspended users to suspension page
+            return RedirectResponse("/suspended", status_code=302)
+    except Exception:
+        # If we can't get the user, let the request proceed normally
+        # The original route will handle the authentication error
+        pass
+    
+    response = await call_next(request)
+    return response
+
+# You'll also want to add a function to get database session dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 # Middleware to track user IPs and check bans
 @app.middleware("http")
 async def ip_tracking_middleware(request: Request, call_next):
@@ -3539,6 +3667,54 @@ async def process_suspension_appeal(
             "message": f"Error: {str(e)}"
         }, status_code=500)
 
+@app.post("/admin/appeals/{appeal_id}/approve")
+async def approve_appeal(
+    appeal_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Approve a suspension appeal and unsuspend the user"""
+    appeal = db.query(SuspensionAppeal).filter(SuspensionAppeal.id == appeal_id).first()
+    if not appeal:
+        raise HTTPException(status_code=404, detail="Appeal not found")
+    
+    # Unsuspend the user
+    await unsuspend_user_account(appeal.user_id, db)
+    
+    # Update appeal status
+    appeal.status = "approved"
+    appeal.reviewed_by = admin.username
+    appeal.reviewed_at = datetime.utcnow()
+    db.commit()
+    
+    return RedirectResponse("/admin/appeals", status_code=302)
+
+@app.post("/admin/appeals/{appeal_id}/deny")
+async def deny_appeal(
+    appeal_id: int,
+    denial_reason: str = Form(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Deny a suspension appeal"""
+    appeal = db.query(SuspensionAppeal).filter(SuspensionAppeal.id == appeal_id).first()
+    if not appeal:
+        raise HTTPException(status_code=404, detail="Appeal not found")
+    
+    # Update appeal status
+    appeal.status = "denied"
+    appeal.reviewed_by = admin.username
+    appeal.reviewed_at = datetime.utcnow()
+    db.commit()
+    
+    # Send denial email to user
+    try:
+        await email_service.send_appeal_denial_email(appeal.user, denial_reason)
+    except Exception as e:
+        print(f"Failed to send appeal denial email: {str(e)}")
+    
+    return RedirectResponse("/admin/appeals", status_code=302)
+
 # Update the current user check to redirect suspended users
 def get_current_user_with_suspension_check(request: Request):
     """Modified get_current_user that redirects suspended users"""
@@ -3769,7 +3945,45 @@ async def get_user_details_api(
             "success": False,
             "error": str(e)
         }, status_code=500)
-      
+    
+    
+async def unsuspend_user_account(user_id: int, db: Session):
+    """Unsuspend a user account"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if not user.is_suspended:
+        return {"message": "User is not suspended", "user": user}
+    
+    # Clear suspension fields
+    old_reason = user.suspension_reason
+    user.is_suspended = False
+    user.suspension_reason = None
+    user.suspended_at = None
+    user.suspended_by = None
+    
+    try:
+        db.commit()
+        
+        # Log the action
+        print(f"✅ User {user.username} (ID: {user.id}) unsuspended")
+        print(f"   Previous reason: {old_reason}")
+        
+        # Send restoration email
+        try:
+            await email_service.send_account_restored_email(user.email)
+            print(f"✅ Account restored notification sent to {user.email}")
+        except Exception as e:
+            print(f"❌ Failed to send restoration email: {str(e)}")
+        
+        return {"message": "User unsuspended successfully", "user": user}
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error unsuspending user: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to unsuspend user")
+          
 # User activity endpoint
 @app.get("/admin/user/{user_id}/activity")
 async def admin_user_activity(
@@ -4222,136 +4436,118 @@ def faq_page(request: Request):
     })
 
 @app.get("/suspended", response_class=HTMLResponse)
-def suspended_page(request: Request):
-    """Show suspended account page"""
-    # Try to get user if they have a valid token
-    user = None
-    try:
-        user = get_current_user(request)
-        # Only show this page if user is actually suspended
-        if not user.is_suspended:
-            return RedirectResponse("/dashboard", status_code=302)
-    except:
-        # If no valid token, show generic suspended page
-        pass
+def suspended_page_get(request: Request):
+    """Display suspended account page"""
+    user = get_optional_user(request)
+    
+    # Check if user is actually suspended, if not redirect
+    if not user or not user.is_suspended:
+        return RedirectResponse("/dashboard", status_code=302)
     
     return templates.TemplateResponse("suspended.html", {
         "request": request,
         "user": user,
-        "form_data": {},
+        "success": None,
+        "error": None,
+        "form_data": None,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
 
 # Handle suspension appeal form submission
 @app.post("/suspended", response_class=HTMLResponse)
-async def handle_suspension_appeal(
-    request: Request,
-    name: str = Form(...),
-    email: str = Form(...),
-    appeal_type: str = Form(...),
-    appeal_message: str = Form(...),
-    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default=""),
-    db: Session = Depends(get_db)
-):
+async def suspended_page_post(request: Request):
     """Handle suspension appeal form submission"""
-    user = None
-    form_data = {
-        "name": name,
-        "email": email,
-        "appeal_type": appeal_type,
-        "appeal_message": appeal_message
-    }
+    user = get_optional_user(request)
+    form_data = {}
     
-    try:
-        user = get_current_user(request)
-    except:
-        pass
+    # Check if user is actually suspended
+    if not user or not user.is_suspended:
+        return RedirectResponse("/dashboard", status_code=302)
     
+    db = SessionLocal()
     try:
+        form = await request.form()
+        form_data = {
+            "name": form.get("name", "").strip(),
+            "email": form.get("email", "").strip(),
+            "appeal_type": form.get("appeal_type", "").strip(),
+            "appeal_message": form.get("appeal_message", "").strip(),
+            "account_info": form.get("account_info", "").strip()
+        }
+        
+        # Get reCAPTCHA response
+        g_recaptcha_response = form.get("g-recaptcha-response", "")
+        
         # Verify reCAPTCHA
         if not verify_recaptcha(g_recaptcha_response):
             return templates.TemplateResponse("suspended.html", {
                 "request": request,
                 "user": user,
-                "form_data": form_data,
                 "error": "Please complete the reCAPTCHA verification",
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
-            })
-        
-        # Validation
-        if not all([name.strip(), email.strip(), appeal_type, appeal_message.strip()]):
-            raise ValueError("All required fields must be filled out")
-        
-        if len(appeal_message.strip()) < 20:
-            raise ValueError("Please provide a more detailed explanation (minimum 20 characters)")
-        
-        # Find user by email if not logged in
-        if not user:
-            user = db.query(User).filter(User.email == email).first()
-            if not user:
-                return templates.TemplateResponse("suspended.html", {
-                    "request": request,
-                    "user": None,
-                    "form_data": form_data,
-                    "error": "No account found with that email address",
-                    "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
-                })
-        
-        # Check if user is actually suspended
-        if not user.is_suspended:
-            return templates.TemplateResponse("suspended.html", {
-                "request": request,
-                "user": user,
+                "success": None,
                 "form_data": form_data,
-                "error": "Account is not currently suspended",
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
-        # Check if user already has a pending appeal
+        # Validate form data
+        if not form_data["name"]:
+            raise ValueError("Name is required")
+        if not form_data["email"]:
+            raise ValueError("Email is required")
+        if not form_data["appeal_type"]:
+            raise ValueError("Appeal type is required")
+        if not form_data["appeal_message"]:
+            raise ValueError("Detailed explanation is required")
+        if len(form_data["appeal_message"]) < 50:
+            raise ValueError("Please provide a more detailed explanation (minimum 50 characters)")
+        
+        # Check if user has already submitted an appeal in the last 24 hours
         existing_appeal = db.query(SuspensionAppeal).filter(
             SuspensionAppeal.user_id == user.id,
-            SuspensionAppeal.status == "pending"
+            SuspensionAppeal.created_at > datetime.utcnow() - timedelta(hours=24)
         ).first()
         
         if existing_appeal:
             return templates.TemplateResponse("suspended.html", {
                 "request": request,
                 "user": user,
+                "error": "You can only submit one appeal per 24 hours. Your previous appeal is still being reviewed.",
+                "success": None,
                 "form_data": form_data,
-                "error": "You already have a pending appeal. Please wait for our team to review it.",
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
-        # Create appeal record
+        # Create new suspension appeal
         appeal = SuspensionAppeal(
             user_id=user.id,
-            name=name.strip(),
-            email=email.strip(),
-            appeal_type=appeal_type,
-            appeal_message=appeal_message.strip()
+            name=form_data["name"],
+            email=form_data["email"],
+            appeal_type=form_data["appeal_type"],
+            appeal_message=form_data["appeal_message"]
         )
+        
         db.add(appeal)
         db.commit()
         
-        # Send notification emails
+        # Send appeal notification to admin
         try:
-            # Email to support team
-            email_service.send_suspension_appeal_notification(
-                user, appeal_type, appeal_message, name
-            )
-            
-            # Confirmation email to user
-            email_service.send_appeal_confirmation_email(
-                user, appeal_type
-            )
+            await (user, appeal)
         except Exception as e:
-            print(f"Failed to send appeal emails: {e}")
+            print(f"Failed to send suspension appeal notification: {str(e)}")
         
+        # Send confirmation to user
+        try:
+            await send_appeal_confirmation_email(user, appeal)
+        except Exception as e:
+            print(f"Failed to send appeal confirmation: {str(e)}")
+        
+        # Clear form data on successful submission
         return templates.TemplateResponse("suspended.html", {
             "request": request,
             "user": user,
-            "form_data": {},
             "success": "Your appeal has been submitted successfully! Our team will review it within 24-48 hours and respond via email.",
+            "error": None,
+            "form_data": {},  # Clear form
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
         
@@ -4359,19 +4555,23 @@ async def handle_suspension_appeal(
         return templates.TemplateResponse("suspended.html", {
             "request": request,
             "user": user,
-            "form_data": form_data,
             "error": str(e),
+            "success": None,
+            "form_data": form_data,
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
     except Exception as e:
-        print(f"Appeal submission error: {e}")
+        print(f"Error processing suspension appeal: {str(e)}")
         return templates.TemplateResponse("suspended.html", {
             "request": request,
             "user": user,
+            "error": "An error occurred while submitting your appeal. Please try again.",
+            "success": None,
             "form_data": form_data,
-            "error": "Failed to submit appeal. Please try again.",
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
+    finally:
+        db.close()
 
         
 # Account Management Routes
