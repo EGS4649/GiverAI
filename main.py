@@ -3293,10 +3293,10 @@ def admin_dashboard_updated(
     total_users = db.query(User).count()
     suspended_count = db.query(User).filter(User.is_suspended == True).count()
     recent_signups = db.query(User).filter(
-        User.created_at > datetime.utcnow() - timedelta(days=7)
+        User.created_at > convert_to_eastern(datetime.utcnow()) - timedelta(days=7)
     ).count()
     active_today = db.query(User).filter(
-        User.last_login > datetime.utcnow() - timedelta(hours=24)
+        User.last_login > convert_to_eastern(datetime.utcnow()) - timedelta(hours=24)
     ).count()
     
     # Get pending appeals
