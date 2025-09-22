@@ -5710,25 +5710,36 @@ async def user_dashboard(  # <- Changed from admin_dashboard
     """User dashboard - For regular users (NOT admin)"""
     current_user = apply_plan_features(current_user)
     
-    # Get statistics
-    total_users = db.query(User).count()
-    suspended_count = db.query(User).filter(User.is_suspended == True).count()
+    # Get user's usage for today
+    today = str(date.today())
+    usage = db.query(Usage).filter(Usage.user_id == current_user.id, Usage.date == today).first()
+    if not usage:
+        usage = Usage(user_id=current_user.id, date=today, count=0)
+        db.add(usage)
+        db.commit()
     
-    # Recent signups (last 7 days)
-    seven_days_ago = datetime.utcnow() - timedelta(days=7)
-    recent_signups = db.query(User).filter(User.created_at >= seven_days_ago).count()
+    # Calculate tweets left based on plan
+    daily_limit = current_user.features["daily_limit"]
+    if daily_limit == float('inf'):
+        tweets_left = "Unlimited"
+        tweets_used = usage.count
+    else:
+        tweets_left = max(0, daily_limit - usage.count)
+        tweets_used = usage.count
     
-    # Active today (last 24 hours)
-    one_day_ago = datetime.utcnow() - timedelta(days=1)
-    active_today = db.query(User).filter(User.last_login >= one_day_ago).count()
+    # Get recent tweets for this user
+    recent_tweets = db.query(GeneratedTweet).filter(
+        GeneratedTweet.user_id == current_user.id
+    ).order_by(GeneratedTweet.generated_at.desc()).limit(10).all()
     
-    return templates.TemplateResponse("admin/dashboard.html", {
+    return templates.TemplateResponse("dashboard.html", {  # <- Use regular dashboard.html (NOT admin/dashboard.html)
         "request": request,
         "user": current_user,
-        "total_users": total_users,
-        "suspended_count": suspended_count,
-        "recent_signups": recent_signups,
-        "active_today": active_today,
+        "features": current_user.features,
+        "tweets_left": tweets_left,
+        "tweets_used": tweets_used,
+        "recent_tweets": recent_tweets,
+        "tweets": [],  # Empty initially, populated by POST
         "success": success,
         "error": error
     })
