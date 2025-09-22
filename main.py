@@ -2188,7 +2188,6 @@ def migrate_database():
             'suspended_at': "ALTER TABLE users ADD COLUMN suspended_at TIMESTAMP",
             'suspended_by': "ALTER TABLE users ADD COLUMN suspended_by VARCHAR",
             'suspension_reason': "ALTER TABLE users ADD COLUMN suspension_reason TEXT",
-            'last_login': "ALTER TABLE users ADD COLUMN last_login TIMESTAMP",
             'last_known_ip': "ALTER TABLE users ADD COLUMN last_known_ip VARCHAR",
             'registration_ip': "ALTER TABLE users ADD COLUMN registration_ip VARCHAR",
             'is_ip_banned': "ALTER TABLE users ADD COLUMN is_ip_banned BOOLEAN DEFAULT FALSE"
@@ -4198,7 +4197,8 @@ async def admin_user_activity(
                 "username": user.username,
                 "email": user.email,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
-                "created_at_eastern": convert_to_eastern(user.created_at)
+                "created_at_eastern": convert_to_eastern(user.created_at),
+                "last_login": convert_to_eastern(user.last_login)
             },
             "activities": sample_activities,
             "pagination": {
