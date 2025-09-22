@@ -3287,8 +3287,6 @@ def admin_dashboard_updated(
     db: Session = Depends(get_db),
     admin_user = Depends(get_admin_user)
 ):
-    """Enhanced admin dashboard with suspension appeals and IP bans"""
-    
     # Get user statistics
     total_users = db.query(User).count()
     suspended_count = db.query(User).filter(User.is_suspended == True).count()
@@ -5702,11 +5700,6 @@ async def admin_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Admin dashboard - Updated with EDT support"""
-    # Check if user is admin
-    if not current_user or current_user.email not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
     # Get statistics
     total_users = db.query(User).count()
     suspended_count = db.query(User).filter(User.is_suspended == True).count()
