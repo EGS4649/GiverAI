@@ -3159,9 +3159,14 @@ def get_db():
         db.close()
 
 def get_admin_user(current_user: User = Depends(get_current_user)):
+    """Check if current user is admin - ONLY use for admin routes"""
     if not current_user or current_user.email not in ADMIN_USERS:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
+
+def get_regular_user(request: Request):
+    """Get current user for regular dashboard - NOT for admin routes"""
+    return get_current_user(request)
 
 # Add this before your routes
 @app.middleware("http")
@@ -5693,6 +5698,7 @@ async def get_ai_tweets(prompt, count=5):
 @app.get("/complete-onboarding", response_class=HTMLResponse)
 def complete_onboarding_get(request: Request, user: User = Depends(get_current_user)):
     return templates.TemplateResponse("onboarding.html", {"request": request, "user": user})
+
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(
