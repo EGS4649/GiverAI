@@ -3258,6 +3258,8 @@ async def admin_dashboard(
         if not user or user.email not in ["support@giverai.me"]:
             raise HTTPException(status_code=403, detail="Admin access required")
         
+        last_login_eastern = convert_to_eastern(user.last_login) if user.last_login else None
+        
         # Get statistics
         total_users = db.query(User).count()
         suspended_count = db.query(User).filter(User.is_suspended == True).count()
@@ -3274,6 +3276,7 @@ async def admin_dashboard(
             "request": request,
             "user": user,
             "total_users": total_users,
+            "last_login_eastern": last_login_eastern,
             "suspended_count": suspended_count,
             "recent_signups": recent_signups,
             "active_today": active_today,
@@ -3300,7 +3303,7 @@ def admin_dashboard_updated(
         User.created_at > datetime.utcnow() - timedelta(days=7)
     ).count()
     active_today = db.query(User).filter(
-        User.last_login > datetime.timezone.utcnow() - timedelta(hours=24)
+        User.last_login > datetime.utcnow() - timedelta(hours=24)
     ).count()
     
     # Get pending appeals
@@ -3310,6 +3313,7 @@ def admin_dashboard_updated(
     
     # Get active IP bans
     active_ip_bans = db.query(IPban).filter(IPban.is_active == True).count()
+    last_login_eastern = convert_to_eastern(User.last_login) if User.last_login else None
     
     return templates.TemplateResponse("admin/dashboard.html", {
         "request": request,
@@ -3318,6 +3322,7 @@ def admin_dashboard_updated(
         "suspended_count": suspended_count,
         "recent_signups": recent_signups,
         "active_today": active_today,
+        "last_login_eastern": last_login_eastern,
         "pending_appeals": pending_appeals,
         "active_ip_bans": active_ip_bans
     })
