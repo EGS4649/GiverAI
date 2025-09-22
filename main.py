@@ -3301,7 +3301,7 @@ def admin_dashboard_updated(
         User.created_at > datetime.utcnow() - timedelta(days=7)
     ).count()
     active_today = db.query(User).filter(
-        User.last_login > datetime.utcnow() - timedelta(hours=24)
+        User.last_login > datetime.timezone.utcnow() - timedelta(hours=24)
     ).count()
     
     # Get pending appeals
