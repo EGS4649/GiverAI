@@ -5699,19 +5699,16 @@ async def get_ai_tweets(prompt, count=5):
 def complete_onboarding_get(request: Request, user: User = Depends(get_current_user)):
     return templates.TemplateResponse("onboarding.html", {"request": request, "user": user})
 
-
 @app.get("/dashboard", response_class=HTMLResponse)
-async def admin_dashboard(
+async def user_dashboard(  # <- Changed from admin_dashboard
     request: Request,
     success: str = None,
     error: str = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Admin dashboard - Updated with EDT support"""
-    # Check if user is admin
-    if not current_user or current_user.email not in ADMIN_USERS:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    """User dashboard - For regular users (NOT admin)"""
+    current_user = apply_plan_features(current_user)
     
     # Get statistics
     total_users = db.query(User).count()
