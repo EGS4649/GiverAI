@@ -2535,6 +2535,13 @@ async def register_post(
     db = SessionLocal()
     try:
         print(f"Starting registration for username: {username}")
+
+        # DEBUG: Show all IP info
+        debug_request_headers(request)
+        
+        # Get the real client IP
+        client_ip = get_real_client_ip(request)
+        print(f"🌐 Client IP for registration: {client_ip}")
         
         # Verify reCAPTCHA first
         if not verify_recaptcha(g_recaptcha_response):
@@ -2677,7 +2684,7 @@ async def forgot_password_post(  # <- Add async here
     db = SessionLocal()
     try:
         # Get IP address
-        ip_address = request.client.host if request.client else "Unknown"
+        ip_address = get_real_client_ip(request) if request.client else "Unknown"
         
         # Find user by email or username
         user = db.query(User).filter(
@@ -2896,7 +2903,7 @@ async def reset_password_post(
     db = SessionLocal()
     try:
         # Get IP address
-        ip_address = request.client.host if request.client else "Unknown"
+        ip_address = get_real_client_ip(request) if request.client else "Unknown"
         
         if new_password != confirm_password:
             return templates.TemplateResponse("reset_password.html", {
@@ -3118,7 +3125,7 @@ def verify_email_change(request: Request, token: str = Query(...)):
         new_email = change_request.new_email
         
         # Get IP address
-        ip_address = request.client.host if request.client else "Unknown"
+        ip_address = get_real_client_ip(request) if request.client else "Unknown"
         
         # Update user's email
         user.email = new_email
@@ -3177,7 +3184,7 @@ async def ip_ban_middleware(request: Request, call_next):
         return response
     
     # Get client IP
-    ip_address = request.client.host if request.client else None
+    ip_address = get_real_client_ip(request) if request.client else None
     
     if ip_address:
         db = SessionLocal()
@@ -3448,18 +3455,6 @@ def get_db():
         yield db
     finally:
         db.close()
-        
-@app.get("/debug-ip")
-def debug_ip(request: Request):
-    return {
-        "request_client_host": request.client.host,
-        "headers": {
-            "X-Forwarded-For": request.headers.get("X-Forwarded-For"),
-            "X-Real-IP": request.headers.get("X-Real-IP"),
-            "CF-Connecting-IP": request.headers.get("CF-Connecting-IP"),
-        },
-        "all_headers": dict(request.headers)
-    }
 
 @app.get("/admin/ban-ip", response_class=HTMLResponse)
 def ban_ip_page(request: Request, admin: User = Depends(get_admin_user)):
@@ -3616,6 +3611,81 @@ def cleanup_expired_bans():
         db.rollback()
     finally:
         db.close()
+
+def get_real_client_ip(request: Request) -> str:
+    """
+    Get the real client IP address, handling various proxy scenarios
+    """
+    # List of headers to check in order of preference
+    ip_headers = [
+        "CF-Connecting-IP",      # Cloudflare
+        "X-Forwarded-For",       # Standard proxy header
+        "X-Real-IP",             # Nginx proxy
+        "X-Client-IP",           # Apache proxy  
+        "X-Forwarded",           # Less common
+        "Forwarded-For",         # Less common
+        "Forwarded",             # RFC 7239
+    ]
+    
+    # Check each header for a valid IP
+    for header in ip_headers:
+        ip_value = request.headers.get(header)
+        if ip_value:
+            # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
+            # We want the first (leftmost) IP which is the original client
+            if header == "X-Forwarded-For":
+                ip_list = [ip.strip() for ip in ip_value.split(',')]
+                for ip in ip_list:
+                    if is_valid_public_ip(ip):
+                        print(f"✅ Found real client IP from {header}: {ip}")
+                        return ip
+            else:
+                if is_valid_public_ip(ip_value.strip()):
+                    print(f"✅ Found real client IP from {header}: {ip_value}")
+                    return ip_value.strip()
+    
+    # Fallback to request.client.host
+    fallback_ip = request.client.host if request.client else "Unknown"
+    print(f"⚠️  Using fallback IP: {fallback_ip}")
+    return fallback_ip
+
+def is_valid_public_ip(ip_str: str) -> bool:
+    """
+    Check if an IP address is valid and public (not private/local)
+    """
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        
+        # Check if it's a valid IP and not private
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            print(f"❌ IP {ip_str} is private/local, skipping")
+            return False
+            
+        print(f"✅ IP {ip_str} is valid public IP")
+        return True
+        
+    except ValueError:
+        print(f"❌ Invalid IP format: {ip_str}")
+        return False
+
+def debug_request_headers(request: Request):
+    """
+    Debug function to see all IP-related headers
+    """
+    print("\n=== IP DEBUG INFO ===")
+    print(f"request.client.host: {request.client.host}")
+    
+    ip_headers = [
+        "CF-Connecting-IP", "X-Forwarded-For", "X-Real-IP", 
+        "X-Client-IP", "X-Forwarded", "Forwarded-For", "Forwarded"
+    ]
+    
+    for header in ip_headers:
+        value = request.headers.get(header)
+        if value:
+            print(f"{header}: {value}")
+    
+    print("===================\n")
 
 @app.post("/admin/suspend-user")
 async def suspend_user_enhanced(
@@ -4257,6 +4327,10 @@ async def login_post(  # Made async
 ):
     db = SessionLocal()
     try:
+        # Get real client IP
+        client_ip = get_real_client_ip(request)
+        print(f"🔐 Login attempt from IP: {client_ip}")
+
         # Verify reCAPTCHA first
         if not verify_recaptcha(g_recaptcha_response):
             print("❌ reCAPTCHA verification failed for login")
@@ -4908,7 +4982,7 @@ async def change_password(
     db = SessionLocal()
     try:
         # Get IP address from request
-        ip_address = request.client.host if request.client else "Unknown"
+        ip_address = get_real_client_ip(request) if request.client else "Unknown"
 
         # Load user from DB for verification
         db_user = db.query(User).filter(User.id == user.id).first()
@@ -4958,7 +5032,7 @@ async def change_email(
     db = SessionLocal()
     try:
         # Get IP address from request  
-        ip_address = request.client.host if request.client else "Unknown"
+        ip_address = get_real_client_ip(request) if request.client else "Unknown"
         
         db_user = db.query(User).filter(User.id == user.id).first()
 
