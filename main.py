@@ -36,6 +36,8 @@ import ipaddress
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
 
 # Add your reCAPTCHA variables here
 RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY")
@@ -2084,6 +2086,16 @@ def apply_plan_features(user):
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# ADD THIS RATE LIMITING CODE HERE:
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENROUTER_API_KEY", "your-openrouter-api-key-here")
@@ -2454,7 +2466,8 @@ async def favicon():
     else:
         # Return 404 if favicon doesn't exist
         raise HTTPException(status_code=404, detail="Favicon not found")
-       
+
+@limiter.limit("3/minute") 
 @app.get("/register", response_class=HTMLResponse)
 def register(request: Request, success: str = None):
     user = get_optional_user(request)
@@ -4294,6 +4307,7 @@ async def test_email_config():
         "email_from": os.getenv("EMAIL_FROM", "noreply@giverai.me")
     } 
 
+@limiter.limit("5/minute")
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
     user = get_optional_user(request)
@@ -5826,6 +5840,7 @@ async def user_dashboard(  # <- Changed from admin_dashboard
         "error": error
     })
 
+@limiter.limit("30/hour")
 @app.post("/dashboard", response_class=HTMLResponse)
 async def generate(request: Request):
     db = SessionLocal()
