@@ -2612,7 +2612,24 @@ async def register_post(
         })
     finally:
         db.close()
-        
+
+import uuid
+@app.middleware("http")
+async def add_request_id_middleware(request: Request, call_next):
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
+
 @app.middleware("http")
 async def logo_cache_middleware(request: Request, call_next):
     """Add cache headers for logo and static assets"""
@@ -2629,6 +2646,14 @@ async def logo_cache_middleware(request: Request, call_next):
     
     return response
 
+@app.get("/_health")
+def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0"
+    }
+
 # Forgot Password/Username Form
 @app.get("/forgot-password", response_class=HTMLResponse)
 def forgot_password_get(request: Request):
@@ -2639,7 +2664,8 @@ def forgot_password_get(request: Request):
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
         "user": user
     })
-                      
+
+@limiter.limit("3/hour")
 @app.post("/forgot-password")
 async def forgot_password_post(  # <- Add async here
     request: Request,
@@ -2715,6 +2741,7 @@ def resend_verification_get(request: Request):
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
 
+@limiter.limit("3/hour")
 @app.post("/resend-verification")
 async def resend_verification_post(
     request: Request,
@@ -2802,7 +2829,8 @@ async def resend_verification_post(
 
     finally:
         db.close()
-        
+
+@limiter.limit("3/hour")
 # Also add a quick resend route for already logged-in users who aren't verified
 @app.post("/quick-resend-verification")
 async def quick_resend_verification(request: Request):
@@ -2870,6 +2898,7 @@ def reset_password_get(request: Request, token: str = Query(...)):
     finally:
         db.close()
 
+@limiter.limit("3/hour")
 @app.post("/reset-password")
 async def reset_password_post(
     request: Request,
@@ -3448,6 +3477,7 @@ def ban_ip_page(request: Request, admin: User = Depends(get_admin_user)):
     finally:
         db.close()
 
+@limiter.limit("1/hour")
 @app.post("/admin/ban-ip")
 async def ban_ip_address(
     request: Request,
@@ -3518,6 +3548,7 @@ async def ban_ip_address(
             "admin": admin
         })
 
+@limiter.limit("1/hour")
 @app.post("/admin/unban-ip")
 async def unban_ip_address(
     request: Request,
@@ -3639,7 +3670,8 @@ def is_valid_public_ip(ip_str: str) -> bool:
     except ValueError:
         print(f"❌ Invalid IP format: {ip_str}")
         return False
-
+    
+@limiter.limit("1/hour")
 @app.post("/admin/suspend-user")
 async def suspend_user_enhanced(
     request: Request,
@@ -3701,7 +3733,8 @@ async def suspend_user_enhanced(
             "success": False,
             "message": f"Error: {str(e)}"
         }, status_code=500)
-    
+
+@limiter.limit("1/hour")
 @app.post("/admin/unsuspend-user")
 async def unsuspend_user_enhanced(
     request: Request,
@@ -3771,6 +3804,7 @@ def view_suspension_appeals(
         "appeals": appeals
     })
 
+@limiter.limit("1/hour")
 # Process suspension appeal
 @app.post("/admin/process-appeal")
 async def process_suspension_appeal(
@@ -3835,6 +3869,7 @@ async def process_suspension_appeal(
             "message": f"Error: {str(e)}"
         }, status_code=500)
 
+@limiter.limit("1/hour")
 @app.post("/admin/appeals/{appeal_id}/approve")
 async def approve_appeal(
     appeal_id: int,
@@ -3933,7 +3968,8 @@ async def suspension_redirect_middleware(request: Request, call_next):
         pass
     
     return await call_next(request)
-       
+
+@limiter.limit("1/hour")
 # Updated force password reset endpoint
 @app.post("/admin/force-password-reset")
 async def force_password_reset_endpoint(
@@ -4289,7 +4325,7 @@ async def test_email_config():
         "email_from": os.getenv("EMAIL_FROM", "noreply@giverai.me")
     } 
 
-@limiter.limit("5/minute")
+
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
     user = get_optional_user(request)
@@ -4298,7 +4334,8 @@ def login(request: Request):
         "user": user,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
-    
+
+@limiter.limit("5/minute")   
 @app.post("/login")
 async def login_post(  # Made async
     request: Request, 
@@ -4520,6 +4557,7 @@ def contact_page(request: Request):
         "form_data": {}
     })
 
+@limiter.limit("10/minute")   
 @app.post("/contact", response_class=HTMLResponse)
 async def handle_contact_form(request: Request):
     user = get_optional_user(request)
