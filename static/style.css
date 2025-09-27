@@ -56,9 +56,49 @@ body::before {
   flex-shrink: 0;
 }
 
-@keyframes glow {
-  from { text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff; }
-  to { text-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff; }
+
+.brand-logo {
+  height: 32px !important;  /* Force the height */
+  width: auto !important;   /* Force maintain aspect ratio */
+  max-height: 32px !important;
+  max-width: 120px !important;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6));
+  transition: all 0.3s ease;
+  animation: logoGlow 3s ease-in-out infinite alternate;
+}
+
+.brand-logo:hover {
+  filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.8)) 
+          drop-shadow(0 0 25px rgba(255, 0, 255, 0.4));
+  transform: scale(1.05);
+}
+
+@keyframes logoGlow {
+  0% { 
+    filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6));
+  }
+  50% { 
+    filter: drop-shadow(0 0 12px rgba(0, 255, 255, 0.8)) 
+            drop-shadow(0 0 20px rgba(255, 0, 255, 0.3));
+  }
+  100% { 
+    filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6));
+  }
+}
+
+/* Responsive logo sizing */
+@media (max-width: 768px) {
+  .brand-logo {
+    height: 28px !important;
+    max-width: 100px !important;
+  }
+}
+
+@media (max-width: 320px) {
+  .brand-logo {
+    height: 24px !important;
+    max-width: 80px !important;
+  }
 }
 
 /* Mobile Navigation */
@@ -529,6 +569,132 @@ footer {
 .footer-right {
   color: #adc2ff;
   font-size: 0.85em;
+}
+
+.brand {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #00ffff;
+  text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+  animation: glow 2s ease-in-out infinite alternate;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.brand-logo {
+  height: 32px;
+  width: auto;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6));
+  transition: all 0.3s ease;
+  animation: logoGlow 3s ease-in-out infinite alternate;
+}
+
+.brand-logo:hover {
+  filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.8)) 
+          drop-shadow(0 0 25px rgba(255, 0, 255, 0.4));
+  transform: scale(1.05);
+}
+
+@keyframes logoGlow {
+  0% { 
+    filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6));
+  }
+  50% { 
+    filter: drop-shadow(0 0 12px rgba(0, 255, 255, 0.8)) 
+            drop-shadow(0 0 20px rgba(255, 0, 255, 0.3));
+  }
+  100% { 
+    filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6));
+  }
+}
+
+/* Responsive logo sizing */
+@media (max-width: 768px) {
+  .brand-logo {
+    height: 28px;
+  }
+  
+  .brand {
+    font-size: 1.3em;
+  }
+}
+
+@media (max-width: 320px) {
+  .brand-logo {
+    height: 24px;
+  }
+  
+  .brand {
+    font-size: 1.2em;
+    gap: 8px;
+  }
+}
+
+/* Optional: Logo-only version for mobile (if you want text to disappear on very small screens) */
+@media (max-width: 480px) {
+  .brand-text {
+    display: none; /* Hide text on very small screens, logo only */
+  }
+  
+  .brand-logo {
+    height: 30px;
+  }
+}
+
+/* Hero section logo (if you want a larger logo on homepage) */
+.hero-logo {
+  height: 80px;
+  width: auto;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.8));
+  animation: heroLogoFloat 4s ease-in-out infinite;
+}
+
+@keyframes heroLogoFloat {
+  0%, 100% { 
+    transform: translateY(0px);
+    filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.8));
+  }
+  50% { 
+    transform: translateY(-10px);
+    filter: drop-shadow(0 0 20px rgba(0, 255, 255, 1)) 
+            drop-shadow(0 0 30px rgba(255, 0, 255, 0.5));
+  }
+}
+
+/* Footer logo */
+.footer-logo {
+  height: 20px;
+  width: auto;
+  vertical-align: middle;
+  margin-right: 8px;
+  filter: drop-shadow(0 0 3px rgba(0, 255, 255, 0.5));
+}
+
+/* Loading state for logo */
+.brand-logo[src=""],
+.brand-logo:not([src]) {
+  display: none;
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .brand-logo,
+  .hero-logo,
+  .footer-logo {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
 }
 
 /* MOBILE UTILITIES */
