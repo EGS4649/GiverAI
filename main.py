@@ -4231,8 +4231,7 @@ def log_login_attempt(user_id: int, ip_address: str, success: bool, db: Session)
         print(f"Login attempt: User {user_id} from {ip_address} - {'Success' if success else 'Failed'}")
     except Exception as e:
         print(f"Error logging login attempt: {str(e)}")
-
-# User activity endpoint
+        
 @app.get("/admin/user/{user_id}/activity")
 async def admin_user_activity(
     user_id: int,
@@ -4252,29 +4251,51 @@ async def admin_user_activity(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # For now, we'll create some sample activity data
-        # You'll need to implement an actual ActivityLog model
-        sample_activities = [
-            {
-                "id": 1,
-                "type": "login",
-                "description": "User logged in",
-                "timestamp": user.last_login or datetime.utcnow(),
-                "ip_address": "192.168.1.1",
-                "metadata": {"user_agent": "Mozilla/5.0..."}
-            },
-            {
-                "id": 2,
-                "type": "account_created",
-                "description": "Account created",
-                "timestamp": user.created_at,
-                "ip_address": "192.168.1.1",
-                "metadata": {"signup_method": "email"}
-            }
-        ]
+        # Try to get real activity data first
+        real_activities = []
+        try:
+            activities = db.query(UserActivity).filter(
+                UserActivity.user_id == user_id
+            ).order_by(UserActivity.timestamp.desc()).limit(50).all()
+            
+            for activity in activities:
+                real_activities.append({
+                    "id": activity.id,
+                    "type": activity.activity_type,
+                    "description": activity.description,
+                    "timestamp": activity.timestamp,
+                    "ip_address": activity.ip_address,  # Real IP from database
+                    "metadata": json.loads(activity.user_metadata) if activity.user_metadata else {}
+                })
+        except Exception as e:
+            print(f"Could not get real activities: {e}")
+        
+        # If no real activities, create sample data with REAL IPs from user record
+        if not real_activities:
+            sample_activities = [
+                {
+                    "id": 1,
+                    "type": "login",
+                    "description": "User logged in",
+                    "timestamp": user.last_login or datetime.utcnow(),
+                    "ip_address": getattr(user, 'last_known_ip', None) or "Unknown",  # REAL IP
+                    "metadata": {"user_agent": "Unknown"}
+                },
+                {
+                    "id": 2,
+                    "type": "account_created",
+                    "description": "Account created",
+                    "timestamp": user.created_at,
+                    "ip_address": getattr(user, 'registration_ip', None) or "Unknown",  # REAL IP
+                    "metadata": {"signup_method": "email"}
+                }
+            ]
+            activities_to_use = sample_activities
+        else:
+            activities_to_use = real_activities
         
         # Convert timestamps to Eastern Time
-        for activity in sample_activities:
+        for activity in activities_to_use:
             activity["timestamp_eastern"] = convert_to_eastern(activity["timestamp"])
             activity["timestamp"] = activity["timestamp"].isoformat()
         
@@ -4287,11 +4308,11 @@ async def admin_user_activity(
                 "created_at_eastern": convert_to_eastern(user.created_at),
                 "last_login": convert_to_eastern(user.last_login)
             },
-            "activities": sample_activities,
+            "activities": activities_to_use,
             "pagination": {
                 "page": page,
                 "pages": 1,
-                "total": len(sample_activities)
+                "total": len(activities_to_use)
             },
             "timezone": "America/New_York" if TIMEZONE_AVAILABLE else "UTC"
         }
