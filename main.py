@@ -1616,9 +1616,6 @@ def create_suspension_appeals_table():
     except Exception as e:
         print(f"❌ Error creating suspension appeals table: {e}")
 
-# Call this once to create the table
-create_suspension_appeals_table()
-
 # Helper functions
 def generate_verification_token():
     """Generate secure verification token"""
@@ -2105,6 +2102,7 @@ from slowapi.errors import RateLimitExceeded
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/hour"])
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 client = OpenAI(
@@ -2342,9 +2340,6 @@ def update_user_table_for_suspension():
     except Exception as e:
         print(f"❌ Error updating user table: {e}")
 
-# Add this to your migrate_database() function or call it separately
-update_user_table_for_suspension()
-
 def fix_corrupted_user_data():
     """Fix corrupted hashed_password data in the database"""
     from sqlalchemy import create_engine, text
@@ -2433,21 +2428,18 @@ def log_user_activity(
     finally:
         if should_close:
             db.close()
-            
-# Run migrations
-migrate_database()
 
 # ---- ROUTES ----
 
 @app.get("/", response_class=HTMLResponse)
 @app.head("/")  
+
 def index(request: Request):
     user = get_optional_user(request)
     return templates.TemplateResponse("index.html", {
         "request": request, 
         "user": user
     })
-    
 def verify_recaptcha(recaptcha_response):
     """Verify reCAPTCHA response with Google"""
     secret_key = os.getenv("RECAPTCHA_SECRET_KEY")
@@ -2494,6 +2486,7 @@ def register(request: Request, success: str = None):
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
 
+@limiter.limit("3/hour")
 @app.post("/register", response_class=HTMLResponse)
 async def register_post(
     request: Request, 
@@ -3177,8 +3170,8 @@ def get_db():
         db.close()
 
 def get_admin_user(current_user: User = Depends(get_current_user)):
-    """Check if current user is admin - ONLY use for admin routes"""
-    if not current_user or current_user.email not in ADMIN_USERS:
+    """Check if current user is admin"""
+    if not current_user or not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
@@ -4340,9 +4333,9 @@ def login(request: Request):
         "user": user,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
-
-@limiter.limit("5/minute")   
+ 
 @app.post("/login")
+@limiter.limit("10/hour")
 async def login_post(  # Made async
     request: Request, 
     username: str = Form(...), 
@@ -4911,9 +4904,6 @@ def update_database_for_suspension_appeals():
     except Exception as e:
         print(f"❌ Error updating database for suspension appeals: {e}")
 
-# Call this after your existing migrate_database() call
-update_database_for_suspension_appeals()
-
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
 def account(request: Request, user: User = Depends(get_current_user)):
@@ -5266,8 +5256,8 @@ def tweetgiver(request: Request):
         return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse("tweetgiver.html", {"request": request, "tweets": None, "user": user})
 
-@limiter.limit("10/minute") 
 @app.post("/tweetgiver", response_class=HTMLResponse)
+@limiter.limit("60/hour")  
 async def generate_tweetgiver(request: Request):
     user = None
     try: 
