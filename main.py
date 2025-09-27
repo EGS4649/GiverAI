@@ -3448,6 +3448,18 @@ def get_db():
         yield db
     finally:
         db.close()
+        
+@app.get("/debug-ip")
+def debug_ip(request: Request):
+    return {
+        "request_client_host": request.client.host,
+        "headers": {
+            "X-Forwarded-For": request.headers.get("X-Forwarded-For"),
+            "X-Real-IP": request.headers.get("X-Real-IP"),
+            "CF-Connecting-IP": request.headers.get("CF-Connecting-IP"),
+        },
+        "all_headers": dict(request.headers)
+    }
 
 @app.get("/admin/ban-ip", response_class=HTMLResponse)
 def ban_ip_page(request: Request, admin: User = Depends(get_admin_user)):
