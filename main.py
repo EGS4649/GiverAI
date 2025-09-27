@@ -3701,6 +3701,12 @@ async def suspend_user_enhanced(
                 "message": "User not found"
             }, status_code=404)
         
+        if user.email in ADMIN_USERS:
+            return JSONResponse({
+                "success": False,
+                "message": "Cannot suspend admin accounts."
+            }, status_code=403)
+        
         # Suspend the user
         user.is_suspended = True
         user.suspension_reason = reason
