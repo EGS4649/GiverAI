@@ -1415,66 +1415,6 @@ def send_appeal_confirmation_email(self, user, appeal):
         html_body
     )
 
-    def test_simple_email(self, to_email: str):
-        """Simple email test with minimal HTML"""
-        try:
-            smtp_server = os.getenv("SMTP_SERVER")
-            smtp_port = int(os.getenv("SMTP_PORT", 587))
-            smtp_username = os.getenv("SMTP_USERNAME")
-            smtp_password = os.getenv("SMTP_PASSWORD")
-            from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
-
-            print(f"📧 Email Config:")
-            print(f"   Server: {smtp_server}")
-            print(f"   Port: {smtp_port}")
-            print(f"   Username: {smtp_username}")
-            print(f"   From: {from_email}")
-            print(f"   To: {to_email}")
-
-            if not all([smtp_server, smtp_username, smtp_password]):
-                print("⛔ Missing email configuration")
-                return False
-
-            # Create simple message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = "Test Email from GiverAI"
-            msg['From'] = from_email
-            msg['To'] = to_email
-
-            # Simple HTML body
-            html_body = """
-            <html>
-            <body>
-                <h2>Test Email</h2>
-                <p>This is a test email from GiverAI.</p>
-                <p>If you see this, the email service is working!</p>
-            </body>
-            </html>
-            """
-
-            html_part = MIMEText(html_body, 'html')
-            msg.attach(html_part)
-
-            # Send email
-            print("📤 Connecting to SMTP server...")
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                print("🔒 Starting TLS...")
-                server.starttls()
-                print("🔑 Logging in...")
-                server.login(smtp_username, smtp_password)
-                print("📧 Sending message...")
-                server.send_message(msg)
-                print("✅ Email sent successfully!")
-
-            return True
-
-        except Exception as e:
-            print(f"⛔ Email error: {str(e)}")
-            print(f"   Error type: {type(e)}")
-            import traceback
-            traceback.print_exc()
-            return False
-
 # Initialize email service
 email_service = EmailService()
 
@@ -1652,7 +1592,7 @@ def check_admin_access(user):
         raise HTTPException(status_code=401, detail="Authentication required")
     
     # Define your admin emails here
-    admin_emails = {"support@giverai.me", "admin@giverai.me"}  # Add your admin emails
+    admin_emails = {"support@giverai.me"}  # Add your admin emails
     
     if user.email not in admin_emails:
         raise HTTPException(status_code=403, detail="Admin access required")
@@ -1883,7 +1823,10 @@ class EmailChangeRequest(Base):
     user = relationship("User")
     
 # ----- Auth Setup -----
-SECRET_KEY = "your-secret-key-here"
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is required")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 
@@ -2500,14 +2443,7 @@ def verify_recaptcha(recaptcha_response):
         return result.get('success', False)
     except Exception as e:
         print(f"❌ reCAPTCHA verification error: {str(e)}")
-        return False
-        
-@app.get("/debug-env")
-def debug_env():
-    return {
-        "recaptcha_site_key_exists": bool(os.getenv("RECAPTCHA_SITE_KEY")),
-        "recaptcha_secret_key_exists": bool(os.getenv("RECAPTCHA_SECRET_KEY"))
-    }        
+        return False    
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
@@ -3181,7 +3117,7 @@ def verify_email_change(request: Request, token: str = Query(...)):
     finally:
         db.close()
         
-ADMIN_USERS = {"support@giverai.me"}
+ADMIN_USERS = set(os.getenv("ADMIN_EMAILS", "support@giverai.me").split(","))
 
 def get_db():
     db = SessionLocal()
@@ -4504,8 +4440,9 @@ async def login_post(  # Made async
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=True,  # Enable in production
-            samesite='lax'
+            secure=True,  
+            samesite='strict',
+            max_age=2*24*3600
         )
         return response
         
