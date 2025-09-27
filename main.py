@@ -36,6 +36,7 @@ import ipaddress
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 
@@ -2087,6 +2088,10 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["giverai.me", "www.giverai.me"]
+)
 # ADD THIS RATE LIMITING CODE HERE:
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -5217,6 +5222,7 @@ def tweetgiver(request: Request):
         return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse("tweetgiver.html", {"request": request, "tweets": None, "user": user})
 
+@limiter.limit("10/minute") 
 @app.post("/tweetgiver", response_class=HTMLResponse)
 async def generate_tweetgiver(request: Request):
     user = None
