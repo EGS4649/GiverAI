@@ -16,3 +16,5 @@ wheel
 httpx
 requests
 pytz==2023.3
+slowapi==0.1.9
+redis==4.6.0
