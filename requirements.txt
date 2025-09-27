@@ -18,3 +18,4 @@ requests
 pytz==2023.3
 slowapi
 redis==4.6.0
+python-multipart
