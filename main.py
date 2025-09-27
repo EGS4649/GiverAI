@@ -2494,9 +2494,6 @@ async def register_post(
     db = SessionLocal()
     try:
         print(f"Starting registration for username: {username}")
-
-        # DEBUG: Show all IP info
-        debug_request_headers(request)
         
         # Get the real client IP
         client_ip = get_real_client_ip(request)
@@ -3632,31 +3629,11 @@ def is_valid_public_ip(ip_str: str) -> bool:
             print(f"❌ IP {ip_str} is private/local, skipping")
             return False
             
-        print(f"✅ IP {ip_str} is valid public IP")
         return True
         
     except ValueError:
         print(f"❌ Invalid IP format: {ip_str}")
         return False
-
-def debug_request_headers(request: Request):
-    """
-    Debug function to see all IP-related headers
-    """
-    print("\n=== IP DEBUG INFO ===")
-    print(f"request.client.host: {request.client.host}")
-    
-    ip_headers = [
-        "CF-Connecting-IP", "X-Forwarded-For", "X-Real-IP", 
-        "X-Client-IP", "X-Forwarded", "Forwarded-For", "Forwarded"
-    ]
-    
-    for header in ip_headers:
-        value = request.headers.get(header)
-        if value:
-            print(f"{header}: {value}")
-    
-    print("===================\n")
 
 @app.post("/admin/suspend-user")
 async def suspend_user_enhanced(
