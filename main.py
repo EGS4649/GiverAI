@@ -4368,6 +4368,11 @@ async def login_post(  # Made async
         # Authenticate user
         user = authenticate_user(db, username, password)
         
+        if user:  # successful login
+            user.last_known_ip = client_ip  # Store REAL IP
+            user.last_login = datetime.utcnow()
+            db.commit()
+            
         if not user:
             # Track failed login attempts
             if user_record:
