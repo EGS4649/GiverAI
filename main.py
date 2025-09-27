@@ -3174,12 +3174,17 @@ def get_regular_user(request: Request):
     """Get current user for regular dashboard - NOT for admin routes"""
     return get_current_user(request)
 
-# Add this before your routes
 @app.middleware("http")
 async def ip_ban_middleware(request: Request, call_next):
     """Middleware to check for IP bans"""
     # Skip IP ban check for admin routes (so admins can unban themselves)
     if request.url.path.startswith("/admin"):
+        response = await call_next(request)
+        return response
+    
+    # Skip for static files and health checks
+    skip_routes = ["/static", "/favicon.ico", "/_health"]
+    if any(request.url.path.startswith(route) for route in skip_routes):
         response = await call_next(request)
         return response
     
@@ -3189,11 +3194,12 @@ async def ip_ban_middleware(request: Request, call_next):
     if ip_address:
         db = SessionLocal()
         try:
-            if check_ip_ban(ip_address, db):
-                return JSONResponse(
-                    status_code=403,
-                    content={"detail": "Your IP address has been banned"}
-                )
+            if is_ip_banned(ip_address, db):
+                # Use the styled template instead of inline HTML
+                return templates.TemplateResponse("ip_banned.html", {
+                    "request": request,
+                    "ip_address": ip_address
+                }, status_code=403)
         finally:
             db.close()
     
@@ -3201,7 +3207,7 @@ async def ip_ban_middleware(request: Request, call_next):
     return response
 
 # Middleware to track user IPs and check bans
-@app.middleware("http")
+@app.middleware("http") 
 async def ip_tracking_middleware(request: Request, call_next):
     """Track user IPs and check for IP bans"""
     client_ip = get_client_ip(request)
@@ -3211,26 +3217,16 @@ async def ip_tracking_middleware(request: Request, call_next):
     if any(request.url.path.startswith(route) for route in skip_routes):
         return await call_next(request)
     
-    # Check IP ban for all routes except suspended page
-    if not request.url.path.startswith("/suspended"):
+    # Check IP ban for all routes except suspended page and admin
+    if not request.url.path.startswith(("/suspended", "/admin")):
         db = SessionLocal()
         try:
             if is_ip_banned(client_ip, db):
-                # Return a simple banned page
-                return HTMLResponse(
-                    content="""
-                    <!DOCTYPE html>
-                    <html>
-                    <head><title>Access Denied</title></head>
-                    <body style="font-family: Arial; text-align: center; padding: 50px;">
-                        <h1>Access Denied</h1>
-                        <p>Your IP address has been banned due to policy violations.</p>
-                        <p>Contact support@giverai.me if you believe this is an error.</p>
-                    </body>
-                    </html>
-                    """,
-                    status_code=403
-                )
+                # Use styled template instead of basic HTML
+                return templates.TemplateResponse("ip_banned.html", {
+                    "request": request,
+                    "ip_address": client_ip
+                }, status_code=403)
         finally:
             db.close()
     
