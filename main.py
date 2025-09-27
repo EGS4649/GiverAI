@@ -7,7 +7,7 @@ import requests
 import hashlib
 from typing import Optional, List
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header, Query, Response
-from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -2508,7 +2508,17 @@ def debug_env():
         "recaptcha_site_key_exists": bool(os.getenv("RECAPTCHA_SITE_KEY")),
         "recaptcha_secret_key_exists": bool(os.getenv("RECAPTCHA_SECRET_KEY"))
     }        
-    
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Serve favicon.ico"""
+    favicon_path = os.path.join("static", "favicon.ico")
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path)
+    else:
+        # Return 404 if favicon doesn't exist
+        raise HTTPException(status_code=404, detail="Favicon not found")
+       
 @app.get("/register", response_class=HTMLResponse)
 def register(request: Request, success: str = None):
     user = get_optional_user(request)
@@ -2651,6 +2661,22 @@ async def register_post(
         })
     finally:
         db.close()
+        
+@app.middleware("http")
+async def logo_cache_middleware(request: Request, call_next):
+    """Add cache headers for logo and static assets"""
+    response = await call_next(request)
+    
+    # Add cache headers for static assets
+    if request.url.path.startswith("/static/"):
+        if request.url.path.endswith((".png", ".jpg", ".jpeg", ".ico", ".svg")):
+            # Cache images for 7 days
+            response.headers["Cache-Control"] = "public, max-age=604800"
+        elif request.url.path.endswith((".css", ".js")):
+            # Cache CSS/JS for 1 day
+            response.headers["Cache-Control"] = "public, max-age=86400"
+    
+    return response
 
 # Forgot Password/Username Form
 @app.get("/forgot-password", response_class=HTMLResponse)
