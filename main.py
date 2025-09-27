@@ -3335,7 +3335,7 @@ def admin_dashboard_updated(
         "active_ip_bans": active_ip_bans
     })
 
-  
+@limiter.limit("4/hour")
 # API endpoint to get users data
 @app.get("/admin/api/users")
 def get_users_admin_api(
@@ -3454,6 +3454,25 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    finally:
+        db.close()
+        
+@app.get("/admin/health-check")
+def admin_health_check(admin: User = Depends(get_admin_user)):
+    db = SessionLocal()
+    try:
+        # Check database
+        user_count = db.query(User).count()
+        
+        # Check recent errors
+        recent_errors = check_recent_errors()
+        
+        return {
+            "status": "healthy",
+            "user_count": user_count,
+            "recent_errors": recent_errors,
+            "timestamp": datetime.utcnow()
+        }
     finally:
         db.close()
 
