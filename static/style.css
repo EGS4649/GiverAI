@@ -56,6 +56,10 @@ body::before {
   flex-shrink: 0;
 }
 
+.brand-logo {
+  height: 40px; /* Adjust this value as needed */
+  width: auto; /* Maintains aspect ratio */
+}
 @keyframes glow {
   from { text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff; }
   to { text-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff; }
