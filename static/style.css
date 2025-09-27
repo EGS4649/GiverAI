@@ -56,16 +56,49 @@ body::before {
   flex-shrink: 0;
 }
 
+
 .brand-logo {
-  max-height: 40px;
-  max-width: 150px;
-  width: auto;
-  height: auto;
+  height: 32px !important;  /* Force the height */
+  width: auto !important;   /* Force maintain aspect ratio */
+  max-height: 32px !important;
+  max-width: 120px !important;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6));
+  transition: all 0.3s ease;
+  animation: logoGlow 3s ease-in-out infinite alternate;
 }
 
-@keyframes glow {
-  from { text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff; }
-  to { text-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff; }
+.brand-logo:hover {
+  filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.8)) 
+          drop-shadow(0 0 25px rgba(255, 0, 255, 0.4));
+  transform: scale(1.05);
+}
+
+@keyframes logoGlow {
+  0% { 
+    filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6));
+  }
+  50% { 
+    filter: drop-shadow(0 0 12px rgba(0, 255, 255, 0.8)) 
+            drop-shadow(0 0 20px rgba(255, 0, 255, 0.3));
+  }
+  100% { 
+    filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6));
+  }
+}
+
+/* Responsive logo sizing */
+@media (max-width: 768px) {
+  .brand-logo {
+    height: 28px !important;
+    max-width: 100px !important;
+  }
+}
+
+@media (max-width: 320px) {
+  .brand-logo {
+    height: 24px !important;
+    max-width: 80px !important;
+  }
 }
 
 /* Mobile Navigation */
