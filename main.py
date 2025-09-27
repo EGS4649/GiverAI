@@ -3456,7 +3456,7 @@ def get_db():
         yield db
     finally:
         db.close()
-        
+
 @app.get("/admin/health-check")
 def admin_health_check(admin: User = Depends(get_admin_user)):
     db = SessionLocal()
@@ -3887,7 +3887,6 @@ async def process_suspension_appeal(
             "message": f"Error: {str(e)}"
         }, status_code=500)
 
-@limiter.limit("1/hour")
 @app.post("/admin/appeals/{appeal_id}/approve")
 async def approve_appeal(
     appeal_id: int,
