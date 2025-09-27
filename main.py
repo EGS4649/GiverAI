@@ -1600,13 +1600,14 @@ def check_admin_access(user):
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
     
-    # Define your admin emails here
-    admin_emails = {"support@giverai.me"}  # Add your admin emails
-    
-    if user.email not in admin_emails:
+    if user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Admin access required")
     
     return user
+
+def is_admin_user(user):
+    """Check if user has admin privileges (returns True/False)"""
+    return user and user.email in ADMIN_EMAILS
 
 def create_suspension_appeals_table():
     """Create the suspension_appeals table if it doesn't exist"""
@@ -1835,6 +1836,7 @@ if not SECRET_KEY:
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
+ADMIN_EMAILS = set(email.strip() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip())
 
 # Password hashing function with better debugging
 def hash_password(password: str) -> bytes:
@@ -3160,7 +3162,7 @@ def verify_email_change(request: Request, token: str = Query(...)):
     finally:
         db.close()
         
-ADMIN_USERS = set(os.getenv("ADMIN_EMAILS", "support@giverai.me").split(","))
+ADMIN_USERS = set(os.getenv("ADMIN_EMAILS", "").split(","))
 
 def get_db():
     db = SessionLocal()
@@ -3263,7 +3265,7 @@ async def admin_dashboard(
     try:
         # Check if user is admin
         user = get_optional_user(request)
-        if not user or user.email not in ["support@giverai.me"]:
+        if not is_admin_user(user):
             raise HTTPException(status_code=403, detail="Admin access required")
         
         last_login_eastern = convert_to_eastern(user.last_login) if user.last_login else None
@@ -3456,6 +3458,11 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def check_recent_errors():
+    """Stub for recent error checking - returns empty list or dummy data"""
+    # You can implement actual error log reading here if needed
+    return []
 
 @app.get("/admin/health-check")
 def admin_health_check(admin: User = Depends(get_admin_user)):
@@ -4042,7 +4049,7 @@ async def get_user_details_api(
         
         # Check admin authorization
         user = get_optional_user(request)
-        if not user or user.email not in {"support@giverai.me", "admin@giverai.me"}:
+        if not is_admin_user(user):
             return JSONResponse({
                 "success": False,
                 "error": "Admin access required"
