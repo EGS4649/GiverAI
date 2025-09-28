@@ -21,3 +21,4 @@ redis==4.6.0
 python-multipart
 structlog
 fastapi-csrf-protect
+email-validator
