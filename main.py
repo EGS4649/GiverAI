@@ -3279,7 +3279,7 @@ class CsrfSettings(BaseSettings):
     header_name: str = "x-csrf-token" 
     
 # Load the config
-CsrfProtect.load_config(CsrfSettings())
+CsrfProtect.load_config(CsrfSettings)
 
 # Exception handler
 @app.exception_handler(CsrfProtectError)
