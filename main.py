@@ -2078,7 +2078,7 @@ def get_current_user(request: Request, allow_suspended: bool = False):
     except JWTError:
         raise credentials_exception
     
-    db = Session()
+    db = SessionLocal()
     try:
         user = get_user(db, username)
         if user is None:
