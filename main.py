@@ -4533,7 +4533,7 @@ async def login_post(  # Made async
         return templates.TemplateResponse("login.html", {
             "request": request,
             "user": None, 
-            "error": "Invalid credentials"
+            "error": "Invalid credentials",
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
     finally:
