@@ -59,6 +59,7 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 logging.basicConfig(level=logging.INFO)
 logger = structlog.get_logger()
 
+
 try:
     import bcrypt
     print("bcrypt module imported successfully")
@@ -2488,7 +2489,7 @@ def register(request: Request, success: str = None):
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
 
-@limiter.limit("3/hour")
+@limiter.limit("10/minute")
 @app.post("/register", response_class=HTMLResponse)
 async def register_post(
     request: Request, 
@@ -2629,6 +2630,15 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
     return response
 
 @app.middleware("http")
@@ -2649,11 +2659,14 @@ async def logo_cache_middleware(request: Request, call_next):
 
 @app.get("/_health")
 def health_check():
-    return {
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
-        "version": "1.0.0"
-    }
+    try:
+        # Test database connection
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
 
 # Forgot Password/Username Form
 @app.get("/forgot-password", response_class=HTMLResponse)
@@ -2666,7 +2679,7 @@ def forgot_password_get(request: Request):
         "user": user
     })
 
-@limiter.limit("3/hour")
+@limiter.limit("30/hour")
 @app.post("/forgot-password")
 async def forgot_password_post(  # <- Add async here
     request: Request,
@@ -2742,7 +2755,7 @@ def resend_verification_get(request: Request):
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
 
-@limiter.limit("3/hour")
+@limiter.limit("30/hour")
 @app.post("/resend-verification")
 async def resend_verification_post(
     request: Request,
@@ -2831,7 +2844,7 @@ async def resend_verification_post(
     finally:
         db.close()
 
-@limiter.limit("3/hour")
+@limiter.limit("30/hour")
 # Also add a quick resend route for already logged-in users who aren't verified
 @app.post("/quick-resend-verification")
 async def quick_resend_verification(request: Request):
@@ -2899,7 +2912,7 @@ def reset_password_get(request: Request, token: str = Query(...)):
     finally:
         db.close()
 
-@limiter.limit("3/hour")
+@limiter.limit("30/hour")
 @app.post("/reset-password")
 async def reset_password_post(
     request: Request,
