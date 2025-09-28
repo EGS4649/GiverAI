@@ -19,3 +19,4 @@ email-validator
 bleach
 pydantic-settings
 ipaddress
+uvicorn[standard]
