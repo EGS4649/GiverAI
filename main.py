@@ -28,6 +28,7 @@ from sqlalchemy.orm import defer
 from sqlalchemy import func, Text
 from sqlalchemy import Text, TIMESTAMP
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
 from openai import OpenAI
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -47,7 +48,6 @@ from slowapi.errors import RateLimitExceeded
 import logging
 import structlog
 import bleach
-
 
 # Add your reCAPTCHA variables here
 RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY")
@@ -1483,7 +1483,7 @@ async def suspend_user(
     user_id: int, 
     reason: str, 
     suspended_by: str,
-    db: SessionLocal
+    db: Session
 ):
     reason = sanitize_input(reason)
     """Suspend a user account"""
@@ -1504,7 +1504,7 @@ async def suspend_user(
     # Send email notification to user
     await email_service.send_suspension_email(user.email, reason)
 
-async def force_password_reset(user_id: int, db: SessionLocal):
+async def force_password_reset(user_id: int, db: Session):
     """Force user to reset password on next login"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -1518,7 +1518,7 @@ async def force_password_reset(user_id: int, db: SessionLocal):
     reset_record = create_password_reset_record(user.id, db)
     await email_service.send_password_reset_email(user, reset_record.token)
 
-async def lock_account_temporarily(user: User, db: SessionLocal, hours: int = 24):
+async def lock_account_temporarily(user: User, db: Session, hours: int = 24):
     """Temporarily lock account (for failed login attempts)"""
     user.account_locked_until = datetime.utcnow() + timedelta(hours=hours)
     user.failed_login_attempts = 0  # Reset counter
@@ -1530,7 +1530,7 @@ async def lock_account_temporarily(user: User, db: SessionLocal, hours: int = 24
         print(f"Failed to send account locked email: {e}")
 
 # Hacked account response workflow
-async def handle_hacked_account_report(user_email: str, db: SessionLocal):
+async def handle_hacked_account_report(user_email: str, db: Session):
     """When user reports their account is hacked"""
     user = db.query(User).filter(User.email == user_email).first()
     if not user:
@@ -1562,7 +1562,7 @@ def generate_reset_token():
     """Generate secure password reset token"""
     return secrets.token_urlsafe(32)
 
-def create_password_reset_record(user_id: int, db: SessionLocal):
+def create_password_reset_record(user_id: int, db: Session):
     """Create password reset record with hashed token storage"""
     # Invalidate any existing tokens for this user
     existing_tokens = db.query(PasswordReset).filter(
@@ -1602,7 +1602,7 @@ def validate_email_address(email: str) -> bool:
 
 # Add missing get_db dependency function
 def get_db():
-    db = SessionLocal()
+    db = Session()
     try:
         yield db
     finally:
@@ -2078,7 +2078,7 @@ def get_current_user(request: Request, allow_suspended: bool = False):
     except JWTError:
         raise credentials_exception
     
-    db = SessionLocal()
+    db = Session()
     try:
         user = get_user(db, username)
         if user is None:
