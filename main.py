@@ -2703,14 +2703,14 @@ def health_check():
 
 # Forgot Password/Username Form
 @app.get("/forgot-password", response_class=HTMLResponse)
-def forgot_password_get(request: Request):
+async def forgot_password_get(request: Request):
     """Display the forgot password form"""
     user = get_optional_user(request)
 
     # Generate CSRF token
     csrf_protect = CsrfProtect()
-    csrf_token = csrf_protect.generate_csrf()
-    
+    csrf_token = await csrf_protect.generate_csrf()
+
     return templates.TemplateResponse("forgot_password.html", {
         "request": request,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
@@ -5088,7 +5088,6 @@ def onboarding_post(request: Request,
     finally:
         db.close()
 
-# Fix the change_password route (around line 787):
 @app.post("/account/change_password")
 async def change_password(
     request: Request,
