@@ -3181,6 +3181,22 @@ def get_regular_user(request: Request):
     """Get current user for regular dashboard - NOT for admin routes"""
     return get_current_user(request)
 
+@app.get("/debug/admin-status")
+def debug_admin_status(request: Request):
+    try:
+        user = get_current_user(request)
+        return {
+            "authenticated": True,
+            "username": user.username,
+            "email": user.email,
+            "is_admin_field": getattr(user, 'is_admin', 'MISSING'),
+            "admin_emails_env": os.getenv("ADMIN_EMAILS", "NOT_SET"),
+            "is_in_admin_emails": user.email in ADMIN_EMAILS if ADMIN_EMAILS else False,
+            "admin_emails_set": list(ADMIN_EMAILS) if ADMIN_EMAILS else []
+        }
+    except Exception as e:
+        return {"error": str(e), "authenticated": False}
+    
 @app.middleware("http")
 async def ip_ban_middleware(request: Request, call_next):
     """Middleware to check for IP bans"""
