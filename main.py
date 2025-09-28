@@ -3239,6 +3239,8 @@ def get_regular_user(request: Request):
 
 class CsrfSettings(BaseSettings):
     secret_key: str = SECRET_KEY
+    cookie_name: str = "csrftoken" 
+    header_name: str = "x-csrf-token" 
     
 # Load the config
 CsrfProtect.load_config(CsrfSettings)
