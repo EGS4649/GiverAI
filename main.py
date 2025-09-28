@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi_csrf_protect import CsrfProtect
 from fastapi_csrf_protect.exceptions import CsrfProtectError
+from pydantic import BaseSettings
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text, Text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
@@ -3205,9 +3206,19 @@ def get_regular_user(request: Request):
     """Get current user for regular dashboard - NOT for admin routes"""
     return get_current_user(request)
 
-@CsrfSettings.load_config
 class CsrfSettings(BaseSettings):
     secret_key: str = SECRET_KEY
+    
+# Load the config
+CsrfProtect.load_config(CsrfSettings)
+
+# Exception handler
+@app.exception_handler(CsrfProtectError)
+def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
+    return JSONResponse(
+        status_code=exc.status_code, 
+        content={"detail": "CSRF token validation failed"}
+    )
 
 @app.exception_handler(CsrfProtectError)
 def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
