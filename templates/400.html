@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bad Request - GiverAI</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">
+            <a href="/">GiverAI</a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/login">Login</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <div class="hero">
+            <h1>400 - Bad Request</h1>
+            <p class="page-description">
+                There was an issue with your request. Please check your input and try again.
+            </p>
+        </div>
+
+        {% if error_details %}
+        <div style="background: rgba(255, 0, 0, 0.1); border: 1px solid #ff0066; border-radius: 8px; padding: 15px; margin: 20px 0; color: #ff0066;">
+            <h3>Error Details:</h3>
+            <pre>{{ error_details }}</pre>
+        </div>
+        {% endif %}
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/" style="color: #00ffff; text-decoration: none; padding: 10px 20px; border: 1px solid #00ffff; border-radius: 5px;">
+                Go Back Home
+            </a>
+        </div>
+    </main>
+</body>
+</html>
