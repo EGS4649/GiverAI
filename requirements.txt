@@ -22,3 +22,4 @@ python-multipart
 structlog
 fastapi-csrf-protect
 email-validator
+bleach
