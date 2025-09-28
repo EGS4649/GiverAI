@@ -2700,20 +2700,18 @@ def health_check():
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
-
-# Forgot Password/Username Form
 @app.get("/forgot-password", response_class=HTMLResponse)
 async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depends()):
-    print(f"🔍 Forgot password GET route hit from IP: {request.client.host}")
+    print(f"🔍 Forgot password GET route hit from IP: {get_real_client_ip(request)}")
     """Display the forgot password form"""
     user = get_optional_user(request)
-    csrf_token = await csrf_protect.generate_csrf()
+    csrf_token = csrf_protect.generate_csrf()  # Remove await
 
     return templates.TemplateResponse("forgot_password.html", {
         "request": request,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
         "user": user,
-        "csrf_token" : csrf_token
+        "csrf_token": csrf_token
     })
 
 @limiter.limit("30/hour")
@@ -2729,7 +2727,7 @@ async def forgot_password_post(
     try:
         await csrf_protect.validate_csrf(request)
     except CsrfProtectError:
-        csrf_token = await csrf_protect.generate_csrf()
+        csrf_token = csrf_protect.generate_csrf()  # Remove await
         return templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Invalid CSRF token. Please refresh and try again.",
@@ -2738,7 +2736,7 @@ async def forgot_password_post(
         })
     
     if not verify_recaptcha(g_recaptcha_response):
-        csrf_token = await csrf_protect.generate_csrf()
+        csrf_token = csrf_protect.generate_csrf()  # Remove await
         return templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Please complete the reCAPTCHA verification",
@@ -2756,7 +2754,7 @@ async def forgot_password_post(
         ).first()
         
         # Generate CSRF token for response
-        csrf_token = await csrf_protect.generate_csrf()
+        csrf_token = csrf_protect.generate_csrf()  # Remove await
         
         if not user:
             # Don't reveal if user exists or not for security
@@ -2821,7 +2819,7 @@ async def resend_verification_post(
     try:
         # Verify reCAPTCHA
         if not verify_recaptcha(g_recaptcha_response):
-            csrf_token = await csrf_protect.generate_csrf()
+            csrf_token = csrf_protect.generate_csrf() 
             return templates.TemplateResponse("resend_verification.html", {
                 "request": request,
                 "user": None,
@@ -2837,7 +2835,7 @@ async def resend_verification_post(
         ).first()
 
         if not user:
-            csrf_token = await csrf_protect.generate_csrf()
+            csrf_token = csrf_protect.generate_csrf() 
             return templates.TemplateResponse("resend_verification.html", {
                 "request": request,
                 "user": None,
@@ -2890,7 +2888,7 @@ async def resend_verification_post(
             print(f"❌ Failed to send verification email: {str(e)}")
             success_message = "If an account exists and needs verification, we've sent a new verification email."
 
-        csrf_token = await csrf_protect.generate_csrf()
+        csrf_token = csrf_protect.generate_csrf() 
         return templates.TemplateResponse("resend_verification.html", {
             "request": request,
             "user": None,
@@ -5023,7 +5021,7 @@ def update_database_for_suspension_appeals():
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
 async def account(request: Request, user: User = Depends(get_current_user), csrf_protect: CsrfProtect = Depends()):
-    csrf_token = await csrf_protect.generate_csrf()
+    csrf_token = csrf_protect.generate_csrf() 
 
     return templates.TemplateResponse("account.html", {
         "request": request,
