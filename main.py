@@ -2704,6 +2704,7 @@ def health_check():
 # Forgot Password/Username Form
 @app.get("/forgot-password", response_class=HTMLResponse)
 def forgot_password_get(request: Request):
+    print(f"🔍 Forgot password GET route hit from IP: {request.client.host}")
     """Display the forgot password form"""
     user = get_optional_user(request)
 
