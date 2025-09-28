@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi_csrf_protect import CsrfProtect
 from fastapi_csrf_protect.exceptions import CsrfProtectError
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text, Text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
