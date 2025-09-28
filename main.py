@@ -16,6 +16,7 @@ from fastapi_csrf_protect.exceptions import CsrfProtectError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text, Text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from email_validator import validate_email, EmailNotValidError
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from sqlalchemy import LargeBinary
@@ -43,6 +44,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 import logging
 import structlog
+import bleach
 
 
 # Add your reCAPTCHA variables here
@@ -1555,8 +1557,12 @@ def create_password_reset_record(user_id: int, db: SessionLocal):
     db.commit()
     return reset_record
 
-# Add missing imports at the top of your file
-from sqlalchemy import Text
+def validate_email_address(email: str) -> bool:
+    try:
+        validate_email(email)
+        return True
+    except EmailNotValidError:
+        return False
 
 # Add missing get_db dependency function
 def get_db():
@@ -3177,7 +3183,10 @@ def verify_email_change(request: Request, token: str = Query(...)):
     finally:
         db.close()
         
-ADMIN_USERS = set(os.getenv("ADMIN_EMAILS", "").split(","))
+ADMIN_EMAILS_ENV = os.getenv("ADMIN_EMAILS", "")
+if not ADMIN_EMAILS_ENV:
+    raise ValueError("ADMIN_EMAILS environment variable must be set")
+ADMIN_USERS = set(email.strip() for email in ADMIN_EMAILS_ENV.split(",") if email.strip())
 
 def get_db():
     db = SessionLocal()
@@ -3195,6 +3204,14 @@ def get_admin_user(current_user: User = Depends(get_current_user)):
 def get_regular_user(request: Request):
     """Get current user for regular dashboard - NOT for admin routes"""
     return get_current_user(request)
+
+@CsrfSettings.load_config
+class CsrfSettings(BaseSettings):
+    secret_key: str = SECRET_KEY
+
+@app.exception_handler(CsrfProtectError)
+def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
 @app.middleware("http")
 async def ip_ban_middleware(request: Request, call_next):
@@ -4354,17 +4371,6 @@ async def admin_user_activity(
     finally:
         db.close()
 
-@app.get("/test-email-config")
-async def test_email_config():
-    return {
-        "smtp_server": bool(os.getenv("SMTP_SERVER")),
-        "smtp_port": bool(os.getenv("SMTP_PORT")),
-        "smtp_username": bool(os.getenv("SMTP_USERNAME")),
-        "smtp_password": bool(os.getenv("SMTP_PASSWORD")),
-        "email_from": os.getenv("EMAIL_FROM", "noreply@giverai.me")
-    } 
-
-
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
     user = get_optional_user(request)
@@ -4514,7 +4520,9 @@ async def login_post(  # Made async
             httponly=True,
             secure=True,  
             samesite='strict',
-            max_age=2*24*3600
+            max_age=2*24*3600,
+            domain=".giverai.me"
+
         )
         return response
         
@@ -4525,7 +4533,7 @@ async def login_post(  # Made async
         return templates.TemplateResponse("login.html", {
             "request": request,
             "user": None, 
-            "error": "Login failed. Please try again.",
+            "error": "Invalid credentials"
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
     finally:
@@ -4550,7 +4558,7 @@ async def unlock_account_request(
     if not verify_recaptcha(g_recaptcha_response):
         return templates.TemplateResponse("unlock_account.html", {
             "request": request,
-            "error": "Please complete the reCAPTCHA verification",
+            "error": "Invalid credentials",
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
     
