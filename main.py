@@ -41,6 +41,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 import logging
 import structlog
+from fastapi_csrf_protect import CsrfProtect
+from fastapi_csrf_protect.exceptions import CsrfProtectError
 
 # Add your reCAPTCHA variables here
 RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY")
@@ -58,7 +60,6 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 # Configure structured logging
 logging.basicConfig(level=logging.INFO)
 logger = structlog.get_logger()
-
 
 try:
     import bcrypt
@@ -1836,7 +1837,7 @@ if not SECRET_KEY:
     raise ValueError("SECRET_KEY environment variable is required")
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 2  # 1 day
 ADMIN_EMAILS = set(email.strip() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip())
 
 # Password hashing function with better debugging
@@ -3585,6 +3586,12 @@ async def ban_ip_address(
             "active_bans": db.query(IPban).filter(IPban.is_active == True).all(),
             "admin": admin
         })
+    
+@CsrfProtect.load_config
+def get_csrf_config():
+    return CsrfSettings(secret_key=os.getenv("CSRF_SECRET_KEY"))
+
+app.add_middleware(CsrfProtect)
 
 @limiter.limit("1/hour")
 @app.post("/admin/unban-ip")
@@ -5658,7 +5665,8 @@ async def generate_tweet_api(
             
             return {"tweet": tweets[0]}
         
-        return {"error": "Failed to generate tweet"}
+        logger.error(f"Database error: {str(e)}")
+        return {"error": "An error occurred. Please try again."}
     finally:
         db.close()
 
