@@ -2707,7 +2707,7 @@ async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depe
     """Display the forgot password form"""
     user = get_optional_user(request)
 
-    # Generate CSRF token
+    # Generate fresh CSRF token for all responses
     csrf_token = await csrf_protect.generate_csrf()
 
     return templates.TemplateResponse("forgot_password.html", {
@@ -2726,15 +2726,19 @@ async def forgot_password_post(
     csrf_protect: CsrfProtect = Depends(),  # Add CSRF protection
     g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
 ):
-    await csrf_protect.validate_csrf(request) 
+    await csrf_protect.validate_csrf(request)
     
-    # Get client IP using your helper function
+    # Generate fresh CSRF token for all responses
+    csrf_token = await csrf_protect.generate_csrf()
+    
     client_ip = get_real_client_ip(request)
     
     if not verify_recaptcha(g_recaptcha_response):
         return templates.TemplateResponse("forgot_password.html", {
             "request": request,
-            "error": "Please complete the reCAPTCHA verification"
+            "error": "Please complete the reCAPTCHA verification",
+            "csrf_token": csrf_token,  
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY") 
         })
     
     db = SessionLocal()
@@ -2749,7 +2753,9 @@ async def forgot_password_post(
             return templates.TemplateResponse("forgot_password.html", {
                 "request": request,
                 "user": None,
-                "success": "If an account with that email/username exists, we've sent you an email."
+                "success": "If an account with that email/username exists, we've sent you an email.",
+                "csrf_token": csrf_token, 
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
         if reset_type == "password":
@@ -2774,7 +2780,9 @@ async def forgot_password_post(
         return templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "user": None,
-            "success": success_message
+            "success": success_message,
+            "csrf_token": csrf_token, 
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
         
     finally:
