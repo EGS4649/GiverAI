@@ -5100,7 +5100,7 @@ async def change_password(
     csrf_protect: CsrfProtect = Depends(),
     user: User = Depends(get_current_user)
 ):
-    csrf_protect.validate_csrf(request)
+    await csrf_protect.validate_csrf(request)
     db = SessionLocal()
     try:
         # Get IP address from request
