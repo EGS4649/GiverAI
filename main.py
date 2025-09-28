@@ -2743,7 +2743,6 @@ async def forgot_password_post(
                 "request": request,
                 "user": None,
                 "success": "If an account with that email/username exists, we've sent you an email.",
-                "csrf_token": csrf_token, 
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
