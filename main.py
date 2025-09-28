@@ -2700,12 +2700,19 @@ def health_check():
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
+    
 @app.get("/forgot-password", response_class=HTMLResponse)
 async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depends()):
     print(f"🔍 Forgot password GET route hit from IP: {get_real_client_ip(request)}")
     """Display the forgot password form"""
     user = get_optional_user(request)
-    csrf_token = csrf_protect.generate_csrf()  # Remove await
+    csrf_response = csrf_protect.generate_csrf()
+
+    # Extract just the token from the tuple
+    if isinstance(csrf_response, tuple):
+        csrf_token = csrf_response[0]  # Get the token value
+    else:
+        csrf_token = csrf_response
 
     return templates.TemplateResponse("forgot_password.html", {
         "request": request,
@@ -2944,7 +2951,12 @@ async def quick_resend_verification(request: Request):
         
 # Reset Password Form
 @app.get("/reset-password", response_class=HTMLResponse)
-def reset_password_get(request: Request, token: str = Query(...)):
+def reset_password_get(request: Request, token: str = Query(None)):
+    if not token:
+        return templates.TemplateResponse("reset_password_error.html", {
+            "request": request,
+            "error": "Invalid or missing reset token. Please request a new password reset."
+        })
     db = SessionLocal()
     try:
         # Hash the provided token to compare with stored hash
@@ -3267,7 +3279,7 @@ class CsrfSettings(BaseSettings):
     header_name: str = "x-csrf-token" 
     
 # Load the config
-CsrfProtect.load_config(CsrfSettings)
+CsrfProtect.load_config(CsrfSettings())
 
 # Exception handler
 @app.exception_handler(CsrfProtectError)
