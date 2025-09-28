@@ -2542,7 +2542,7 @@ async def register_post(
     # Sanitize inputs immediately after receiving them
     username = sanitize_input(username)
     email = sanitize_input(email)
-    csrf_protect.validate_csrf(request)  # Add CSRF validation
+    await csrf_protect.validate_csrf(request)  # Add CSRF validation
     db = SessionLocal()
     try:
         print(f"Starting registration for username: {username}")
@@ -2721,7 +2721,7 @@ async def forgot_password_post(
     csrf_protect: CsrfProtect = Depends(),  # Add CSRF protection
     g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
 ):
-    csrf_protect.validate_csrf(request)  # Add CSRF validation
+    await csrf_protect.validate_csrf(request) 
     
     # Get client IP using your helper function
     client_ip = get_real_client_ip(request)
@@ -2954,7 +2954,7 @@ async def reset_password_post(
     confirm_password: str = Form(...),
     csrf_protect: CsrfProtect = Depends()  # Add CSRF protection
 ):
-    csrf_protect.validate_csrf(request)  # Add CSRF validation
+    await csrf_protect.validate_csrf(request)  # Add CSRF validation
     db = SessionLocal()
     try:
         # Get IP address for logging
