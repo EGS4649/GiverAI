@@ -43,6 +43,7 @@ from dotenv import load_dotenv
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import logging
 import structlog
 import bleach
@@ -1535,27 +1536,34 @@ def generate_reset_token():
     return secrets.token_urlsafe(32)
 
 def create_password_reset_record(user_id: int, db: SessionLocal):
-    """Create password reset record"""
+    """Create password reset record with hashed token storage"""
     # Invalidate any existing tokens for this user
     existing_tokens = db.query(PasswordReset).filter(
         PasswordReset.user_id == user_id,
         PasswordReset.used == False,
         PasswordReset.expires_at > datetime.utcnow()
     ).all()
-
+    
     for token in existing_tokens:
         token.used = True
         token.used_at = datetime.utcnow()
-
+    
     # Create new token
-    token = generate_reset_token()
+    raw_token = generate_reset_token() 
+    hashed_token = hashlib.sha256(raw_token.encode()).hexdigest() 
+    
     reset_record = PasswordReset(
         user_id=user_id,
-        token=token,
+        token=hashed_token,  # Store the hashed version
         expires_at=datetime.utcnow() + timedelta(hours=1)
     )
+    
     db.add(reset_record)
     db.commit()
+    
+    # Add the raw token as a temporary attribute for email sending
+    reset_record.raw_token = raw_token
+    
     return reset_record
 
 def validate_email_address(email: str) -> bool:
@@ -2107,10 +2115,6 @@ app.add_middleware(
     TrustedHostMiddleware, 
     allowed_hosts=["giverai.me", "www.giverai.me"]
 )
-# ADD THIS RATE LIMITING CODE HERE:
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -2505,8 +2509,10 @@ async def register_post(
     username: str = Form(...), 
     email: str = Form(...), 
     password: str = Form(...),
-    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")  # Add this
+    csrf_protect: CsrfProtect = Depends(),  # Add CSRF protection
+    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
 ):
+    csrf_protect.validate_csrf(request)  # Add CSRF validation
     db = SessionLocal()
     try:
         print(f"Starting registration for username: {username}")
@@ -2527,13 +2533,9 @@ async def register_post(
         
         print("✅ reCAPTCHA verified successfully")
         
-        # Check username exists using raw SQL
-        result = db.execute(text("""
-            SELECT COUNT(*) FROM users WHERE username = :username
-        """), {"username": username})
-        username_count = result.scalar()
-        
-        if username_count > 0:
+        # Check username exists using ORM
+        existing_username = db.query(User).filter(User.username == username).first()
+        if existing_username:
             print(f"Username {username} already exists")
             return templates.TemplateResponse("register.html", {
                 "request": request, 
@@ -2542,13 +2544,9 @@ async def register_post(
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
         
-        # Check email exists using raw SQL  
-        result = db.execute(text("""
-            SELECT COUNT(*) FROM users WHERE email = :email
-        """), {"email": email})
-        email_count = result.scalar()
-        
-        if email_count > 0:
+        # Check email exists using ORM
+        existing_email = db.query(User).filter(User.email == email).first()
+        if existing_email:
             print(f"Email {email} already registered")
             return templates.TemplateResponse("register.html", {
                 "request": request, 
@@ -2562,38 +2560,36 @@ async def register_post(
         hashed_password = hash_password(password)
         print(f"Password hashed successfully, type: {type(hashed_password)}")
         
-        # Insert user
-        result = db.execute(text("""
-            INSERT INTO users (username, email, hashed_password, plan, is_active, created_at)
-            VALUES (:username, :email, :hashed_password, :plan, :is_active, :created_at)
-            RETURNING id
-        """), {
-            "username": username,
-            "email": email, 
-            "hashed_password": hashed_password,
-            "plan": "free",
-            "is_active": False,
-            "created_at": datetime.utcnow()
-        })
+        # Create user using ORM
+        new_user = User(
+            username=username,
+            email=email,
+            hashed_password=hashed_password,
+            plan="free",
+            is_active=False,
+            created_at=datetime.utcnow(),
+            registration_ip=client_ip  # Store registration IP for security
+        )
         
-        user_id = result.fetchone()[0]
+        db.add(new_user)
+        db.flush()  # This assigns the ID without committing
+        user_id = new_user.id
         db.commit()
         
         # Create email verification record
         verification = create_verification_record(user_id, db)
         
         # Send verification email
-        db_user = db.query(User).filter(User.id == user_id).first()
-        if db_user:
+        if new_user:
             try:
-                await email_service.send_verification_email(db_user, verification.token)
+                await email_service.send_verification_email(new_user, verification.token)
                 print("✅ Verification email sent successfully")
             except Exception as e:
                 print(f"❌ Failed to send verification email: {str(e)}")
         
         # Also send welcome email
         try:
-            await email_service.send_welcome_email(db_user)
+            await email_service.send_welcome_email(new_user)
             print("✅ Welcome email sent successfully")
         except Exception as e:
             print(f"❌ Failed to send welcome email: {str(e)}")
@@ -2640,15 +2636,13 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self'; frame-src https://www.google.com;"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     return response
 
-@app.middleware("http")
-async def security_headers_middleware(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    return response
+
 
 @app.middleware("http")
 async def logo_cache_middleware(request: Request, call_next):
@@ -2690,16 +2684,17 @@ def forgot_password_get(request: Request):
 
 @limiter.limit("30/hour")
 @app.post("/forgot-password")
-async def forgot_password_post(  # <- Add async here
+async def forgot_password_post(
     request: Request,
     reset_type: str = Form(...),
     email_or_username: str = Form(...),
+    csrf_protect: CsrfProtect = Depends(),  # Add CSRF protection
     g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
 ):
-    # Get client IP
-    client_ip = request.headers.get("X-Forwarded-For", "").split(',')[0].strip()
-    if not client_ip:
-        client_ip = request.headers.get("X-Real-IP", "unknown")
+    csrf_protect.validate_csrf(request)  # Add CSRF validation
+    
+    # Get client IP using your helper function
+    client_ip = get_real_client_ip(request)
     
     if not verify_recaptcha(g_recaptcha_response):
         return templates.TemplateResponse("forgot_password.html", {
@@ -2709,9 +2704,6 @@ async def forgot_password_post(  # <- Add async here
     
     db = SessionLocal()
     try:
-        # Get IP address
-        ip_address = get_real_client_ip(request) if request.client else "Unknown"
-        
         # Find user by email or username
         user = db.query(User).filter(
             (User.email == email_or_username) | (User.username == email_or_username)
@@ -2726,11 +2718,10 @@ async def forgot_password_post(  # <- Add async here
             })
         
         if reset_type == "password":
-        
             # Send password reset email
             reset_record = create_password_reset_record(user.id, db)
             try:
-                await email_service.send_password_reset_email(user, reset_record.token, client_ip)
+                await email_service.send_password_reset_email(user, reset_record.raw_token, client_ip)
                 success_message = "Password reset email sent! Check your inbox."
             except Exception as e:
                 print(f"Failed to send password reset email: {str(e)}")
@@ -2900,9 +2891,12 @@ async def quick_resend_verification(request: Request):
 def reset_password_get(request: Request, token: str = Query(...)):
     db = SessionLocal()
     try:
-        # Verify token
+        # Hash the provided token to compare with stored hash
+        hashed_token = hashlib.sha256(token.encode()).hexdigest()
+        
+        # Verify token using hashed version
         reset_record = db.query(PasswordReset).filter(
-            PasswordReset.token == token,
+            PasswordReset.token == hashed_token,  # Compare with hashed version
             PasswordReset.used == False,
             PasswordReset.expires_at > datetime.utcnow()
         ).first()
@@ -2915,7 +2909,7 @@ def reset_password_get(request: Request, token: str = Query(...)):
         
         return templates.TemplateResponse("reset_password.html", {
             "request": request,
-            "token": token,
+            "token": token,  # Pass the original token back to the form
             "username": reset_record.user.username
         })
     finally:
@@ -2927,13 +2921,16 @@ async def reset_password_post(
     request: Request,
     token: str = Form(...),
     new_password: str = Form(...),
-    confirm_password: str = Form(...)
+    confirm_password: str = Form(...),
+    csrf_protect: CsrfProtect = Depends()  # Add CSRF protection
 ):
+    csrf_protect.validate_csrf(request)  # Add CSRF validation
     db = SessionLocal()
     try:
-        # Get IP address
-        ip_address = get_real_client_ip(request) if request.client else "Unknown"
+        # Get IP address for logging
+        ip_address = get_real_client_ip(request)
         
+        # Validate passwords match
         if new_password != confirm_password:
             return templates.TemplateResponse("reset_password.html", {
                 "request": request,
@@ -2941,6 +2938,7 @@ async def reset_password_post(
                 "error": "Passwords don't match"
             })
         
+        # Validate password strength
         if len(new_password) < 8:
             return templates.TemplateResponse("reset_password.html", {
                 "request": request,
@@ -2948,9 +2946,12 @@ async def reset_password_post(
                 "error": "Password must be at least 8 characters long"
             })
         
+        # Hash the provided token to find the record
+        hashed_token = hashlib.sha256(token.encode()).hexdigest()
+        
         # Verify and use token
         reset_record = db.query(PasswordReset).filter(
-            PasswordReset.token == token,
+            PasswordReset.token == hashed_token,  # Compare with hashed version
             PasswordReset.used == False,
             PasswordReset.expires_at > datetime.utcnow()
         ).first()
@@ -3219,10 +3220,6 @@ def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
         status_code=exc.status_code, 
         content={"detail": "CSRF token validation failed"}
     )
-
-@app.exception_handler(CsrfProtectError)
-def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
 @app.middleware("http")
 async def ip_ban_middleware(request: Request, call_next):
@@ -4397,8 +4394,10 @@ async def login_post(  # Made async
     request: Request, 
     username: str = Form(...), 
     password: str = Form(...),
+    csrf_protect: CsrfProtect = Depends(),
     g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
 ):
+    csrf_protect.validate_csrf(request)
     db = SessionLocal()
     try:
         # Get real client IP
@@ -5057,8 +5056,10 @@ async def change_password(
     request: Request,
     current_password: str = Form(...),
     new_password: str = Form(...),
+    csrf_protect: CsrfProtect = Depends(),
     user: User = Depends(get_current_user)
 ):
+    csrf_protect.validate_csrf(request)
     db = SessionLocal()
     try:
         # Get IP address from request
@@ -5109,6 +5110,7 @@ async def change_email(
     new_email: str = Form(...),
     user: User = Depends(get_current_user)
 ):
+    
     db = SessionLocal()
     try:
         # Get IP address from request  
