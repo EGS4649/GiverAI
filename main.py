@@ -2703,15 +2703,17 @@ def health_check():
 
 # Forgot Password/Username Form
 @app.get("/forgot-password", response_class=HTMLResponse)
-def forgot_password_get(request: Request):
+async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depends()):
     print(f"🔍 Forgot password GET route hit from IP: {request.client.host}")
     """Display the forgot password form"""
     user = get_optional_user(request)
+    csrf_token = await csrf_protect.generate_csrf()
 
     return templates.TemplateResponse("forgot_password.html", {
         "request": request,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
         "user": user,
+        "csrf_token" : csrf_token
     })
 
 @limiter.limit("30/hour")
@@ -2720,17 +2722,33 @@ async def forgot_password_post(
     request: Request,
     reset_type: str = Form(...),
     email_or_username: str = Form(...),
-    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
+    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default=""),
+    csrf_protect: CsrfProtect = Depends()
 ):
     client_ip = get_real_client_ip(request)
+    try:
+        await csrf_protect.validate_csrf(request)
+    except CsrfProtectError:
+        csrf_token = await csrf_protect.generate_csrf()
+        return templates.TemplateResponse("forgot_password.html", {
+        "request": request,
+        "error": "Invalid CSRF token. Please refresh and try again.",
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+        "csrf_token": csrf_token
+
+    })
     
     if not verify_recaptcha(g_recaptcha_response):
+        csrf_token = await csrf_protect.generate_csrf()
         return templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Please complete the reCAPTCHA verification",
-            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY") 
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+            "csrf_token": csrf_token
         })
     
+    email_or_username = sanitize_input(email_or_username)
+
     db = SessionLocal()
     try:
         # Find user by email or username
@@ -2739,12 +2757,14 @@ async def forgot_password_post(
         ).first()
         
         if not user:
+            csrf_token = await csrf_protect.generate_csrf()
             # Don't reveal if user exists or not for security
             return templates.TemplateResponse("forgot_password.html", {
                 "request": request,
                 "user": None,
                 "success": "If an account with that email/username exists, we've sent you an email.",
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+                "csrf_token": csrf_token
             })
         
         if reset_type == "password":
@@ -2760,17 +2780,19 @@ async def forgot_password_post(
         elif reset_type == "username":
             # Send username reminder email
             try:
-                await email_service.send_username_reminder_email(user, client_ip)
+                await email_service.send_username_reminder_email(user)
                 success_message = "Username reminder sent! Check your inbox."
             except Exception as e:
                 print(f"Failed to send username reminder: {str(e)}")
                 success_message = "If an account exists, we've sent a username reminder."
         
+        csrf_token = await csrf_protect.generate_csrf()
         return templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "user": None,
             "success": success_message,
-            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+            "csrf_token": csrf_token
         })
         
     finally:
@@ -2791,19 +2813,22 @@ def resend_verification_get(request: Request):
 async def resend_verification_post(
     request: Request,
     email_or_username: str = Form(...),
-    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
+    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default=""),
+    csrf_protect: CsrfProtect = Depends()
 ):
     """Resend verification email"""
     db = SessionLocal()
     try:
         # Verify reCAPTCHA
         if not verify_recaptcha(g_recaptcha_response):
+            csrf_token = await csrf_protect.generate_csrf()
             return templates.TemplateResponse("resend_verification.html", {
                 "request": request,
                 "user": None,
                 "error": "Please complete the reCAPTCHA verification",
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-                "email_or_username": email_or_username
+                "email_or_username": email_or_username,
+                "csrf_token": csrf_token
             })
 
         # Find user by email or username
@@ -2812,7 +2837,7 @@ async def resend_verification_post(
         ).first()
 
         if not user:
-            # Don't reveal if user exists or not for security
+            csrf_token = await csrf_protect.generate_csrf()
             return templates.TemplateResponse("resend_verification.html", {
                 "request": request,
                 "user": None,
@@ -2865,11 +2890,13 @@ async def resend_verification_post(
             print(f"❌ Failed to send verification email: {str(e)}")
             success_message = "If an account exists and needs verification, we've sent a new verification email."
 
+        csrf_token = await csrf_protect.generate_csrf()
         return templates.TemplateResponse("resend_verification.html", {
             "request": request,
             "user": None,
             "success": success_message,
-            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+            "csrf_token": csrf_token
         })
 
     finally:
