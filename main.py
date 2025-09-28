@@ -1452,6 +1452,32 @@ async def check_user_status(user: User):
     
     return user
 
+
+def sanitize_input(text: str) -> str:
+    """Sanitize user input to prevent XSS and other injection attacks"""
+    if not text:
+        return ""
+    
+    # Strip whitespace and clean HTML
+    cleaned = bleach.clean(text.strip(), tags=[], strip=True)
+    
+    # Additional cleaning for common attack patterns
+    cleaned = cleaned.replace('<', '&lt;').replace('>', '&gt;')
+    
+    return cleaned
+
+def sanitize_email(email: str) -> str:
+    """Special sanitization for email addresses"""
+    if not email:
+        return ""
+    
+    # Basic email cleaning - be more permissive since emails have specific format
+    cleaned = email.strip().lower()
+    # Remove any HTML tags but preserve @ and . for email format
+    cleaned = bleach.clean(cleaned, tags=[], strip=True)
+    
+    return cleaned
+
 # Admin functions for account management (STANDALONE FUNCTIONS)
 async def suspend_user(
     user_id: int, 
@@ -1459,6 +1485,7 @@ async def suspend_user(
     suspended_by: str,
     db: SessionLocal
 ):
+    reason = sanitize_input(reason)
     """Suspend a user account"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -2512,6 +2539,9 @@ async def register_post(
     csrf_protect: CsrfProtect = Depends(),  # Add CSRF protection
     g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
 ):
+    # Sanitize inputs immediately after receiving them
+    username = sanitize_input(username)
+    email = sanitize_input(email)
     csrf_protect.validate_csrf(request)  # Add CSRF validation
     db = SessionLocal()
     try:
@@ -4623,10 +4653,10 @@ async def handle_contact_form(request: Request):
     try:
         form = await request.form()
         form_data = {
-            "name": form["name"].strip(),
-            "email": form["email"].strip(), 
+            "name": sanitize_input(form["name"]),
+            "email": sanitize_input(form["email"]),
             "subject": form["subject"],
-            "message": form["message"].strip()
+            "message": sanitize_input(form["message"])
         }
         
         # Validation
@@ -5110,7 +5140,7 @@ async def change_email(
     new_email: str = Form(...),
     user: User = Depends(get_current_user)
 ):
-    
+    new_email = sanitize_input(new_email)
     db = SessionLocal()
     try:
         # Get IP address from request  
@@ -5335,8 +5365,8 @@ async def generate_tweetgiver(request: Request):
         return RedirectResponse("/register", status_code=302)
         
     form = await request.form()
-    job = form["job"]
-    goal = form["goal"]
+    job = sanitize_input(form.get("job"))
+    goal = sanitize_input(form.get("goal"))
     
     # Generate tweets for non-authenticated users (no usage tracking)
     prompt = f"As a {job}, suggest 5 engaging tweets to achieve: {goal}."
