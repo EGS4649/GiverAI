@@ -5001,8 +5001,7 @@ def update_database_for_suspension_appeals():
 
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
-async def account(request: Request, user: User = Depends(get_current_user)):
-    csrf_protect: CsrfProtect = Depends(),
+async def account(request: Request, user: User = Depends(get_current_user), csrf_protect: CsrfProtect = Depends()):
     csrf_token = await csrf_protect.generate_csrf()
 
     return templates.TemplateResponse("account.html", {
