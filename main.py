@@ -2731,12 +2731,11 @@ async def forgot_password_post(
     except CsrfProtectError:
         csrf_token = await csrf_protect.generate_csrf()
         return templates.TemplateResponse("forgot_password.html", {
-        "request": request,
-        "error": "Invalid CSRF token. Please refresh and try again.",
-        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-        "csrf_token": csrf_token
-
-    })
+            "request": request,
+            "error": "Invalid CSRF token. Please refresh and try again.",
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+            "csrf_token": csrf_token
+        })
     
     if not verify_recaptcha(g_recaptcha_response):
         csrf_token = await csrf_protect.generate_csrf()
@@ -2756,8 +2755,10 @@ async def forgot_password_post(
             (User.email == email_or_username) | (User.username == email_or_username)
         ).first()
         
+        # Generate CSRF token for response
+        csrf_token = await csrf_protect.generate_csrf()
+        
         if not user:
-            csrf_token = await csrf_protect.generate_csrf()
             # Don't reveal if user exists or not for security
             return templates.TemplateResponse("forgot_password.html", {
                 "request": request,
@@ -2786,7 +2787,6 @@ async def forgot_password_post(
                 print(f"Failed to send username reminder: {str(e)}")
                 success_message = "If an account exists, we've sent a username reminder."
         
-        csrf_token = await csrf_protect.generate_csrf()
         return templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "user": None,
