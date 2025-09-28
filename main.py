@@ -3173,7 +3173,7 @@ def get_db():
 
 def get_admin_user(current_user: User = Depends(get_current_user)):
     """Check if current user is admin"""
-    if User.email not in ADMIN_EMAILS:
+    if current_user.email not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
