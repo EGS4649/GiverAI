@@ -2703,18 +2703,14 @@ def health_check():
 
 # Forgot Password/Username Form
 @app.get("/forgot-password", response_class=HTMLResponse)
-async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depends()):
+def forgot_password_get(request: Request):
     """Display the forgot password form"""
     user = get_optional_user(request)
-
-    # Generate fresh CSRF token for all responses
-    csrf_token = await csrf_protect.generate_csrf()
 
     return templates.TemplateResponse("forgot_password.html", {
         "request": request,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
         "user": user,
-        "csrf_token": csrf_token
     })
 
 @limiter.limit("30/hour")
@@ -2723,21 +2719,14 @@ async def forgot_password_post(
     request: Request,
     reset_type: str = Form(...),
     email_or_username: str = Form(...),
-    csrf_protect: CsrfProtect = Depends(),  # Add CSRF protection
     g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
 ):
-    await csrf_protect.validate_csrf(request)
-    
-    # Generate fresh CSRF token for all responses
-    csrf_token = await csrf_protect.generate_csrf()
-    
     client_ip = get_real_client_ip(request)
     
     if not verify_recaptcha(g_recaptcha_response):
         return templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Please complete the reCAPTCHA verification",
-            "csrf_token": csrf_token,  
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY") 
         })
     
@@ -2781,7 +2770,6 @@ async def forgot_password_post(
             "request": request,
             "user": None,
             "success": success_message,
-            "csrf_token": csrf_token, 
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
         
@@ -2960,14 +2948,12 @@ def reset_password_get(request: Request, token: str = Query(...)):
 
 @limiter.limit("30/hour")
 @app.post("/reset-password")
-async def reset_password_post(
+def reset_password_post(
     request: Request,
     token: str = Form(...),
     new_password: str = Form(...),
     confirm_password: str = Form(...),
-    csrf_protect: CsrfProtect = Depends()  # Add CSRF protection
 ):
-    await csrf_protect.validate_csrf(request)  # Add CSRF validation
     db = SessionLocal()
     try:
         # Get IP address for logging
