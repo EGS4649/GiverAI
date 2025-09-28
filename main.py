@@ -3587,12 +3587,6 @@ async def ban_ip_address(
             "active_bans": db.query(IPban).filter(IPban.is_active == True).all(),
             "admin": admin
         })
-    
-@CsrfProtect.load_config
-def get_csrf_config():
-    return CsrfSettings(secret_key=os.getenv("CSRF_SECRET_KEY"))
-
-app.add_middleware(CsrfProtect)
 
 @limiter.limit("1/hour")
 @app.post("/admin/unban-ip")
