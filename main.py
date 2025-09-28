@@ -2702,13 +2702,11 @@ def health_check():
         return {"status": "unhealthy", "error": str(e)}
 
 # Forgot Password/Username Form
-@app.get("/forgot-password", response_class=HTMLResponse)
-async def forgot_password_get(request: Request):
+async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depends()):
     """Display the forgot password form"""
     user = get_optional_user(request)
 
     # Generate CSRF token
-    csrf_protect = CsrfProtect()
     csrf_token = await csrf_protect.generate_csrf()
 
     return templates.TemplateResponse("forgot_password.html", {
