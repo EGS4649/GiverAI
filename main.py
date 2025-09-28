@@ -5002,10 +5002,14 @@ def update_database_for_suspension_appeals():
 
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
-def account(request: Request, user: User = Depends(get_current_user)):
+async def account(request: Request, user: User = Depends(get_current_user)):
+    csrf_protect: CsrfProtect = Depends(),
+    csrf_token = await csrf_protect.generate_csrf()
+
     return templates.TemplateResponse("account.html", {
         "request": request,
-        "user": user
+        "user": user,
+        "csrf_token": csrf_token
     })
 
 # Fix history route
