@@ -19,7 +19,7 @@ pytz==2023.3
 slowapi==0.1.9
 redis==4.6.0
 structlog==23.2.0
-fastapi-csrf-protect==0.3.4
+fastapi-csrf-protect==0.3.2
 email-validator==2.1.0
 bleach==6.1.0
 pydantic-settings==2.1.0
