@@ -2731,47 +2731,48 @@ async def forgot_password_post(
     csrf_protect: CsrfProtect = Depends()
 ):
     client_ip = get_real_client_ip(request)
+    
     try:
         await csrf_protect.validate_csrf(request)
     except CsrfProtectError:
-        csrf_token = csrf_protect.generate_csrf()  # Remove await
-        return templates.TemplateResponse("forgot_password.html", {
+        # Generate new token AND set it in the response
+        response = templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Invalid CSRF token. Please refresh and try again.",
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-            "csrf_token": csrf_token
         })
+        # This sets both the cookie and makes token available in template
+        csrf_protect.generate_csrf(response=response)
+        return response
     
     if not verify_recaptcha(g_recaptcha_response):
-        csrf_token = csrf_protect.generate_csrf()  # Remove await
-        return templates.TemplateResponse("forgot_password.html", {
+        response = templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Please complete the reCAPTCHA verification",
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-            "csrf_token": csrf_token
         })
+        csrf_protect.generate_csrf(response=response)
+        return response
     
     email_or_username = sanitize_input(email_or_username)
-
     db = SessionLocal()
+    
     try:
         # Find user by email or username
         user = db.query(User).filter(
             (User.email == email_or_username) | (User.username == email_or_username)
         ).first()
         
-        # Generate CSRF token for response
-        csrf_token = csrf_protect.generate_csrf()  # Remove await
-        
         if not user:
             # Don't reveal if user exists or not for security
-            return templates.TemplateResponse("forgot_password.html", {
+            response = templates.TemplateResponse("forgot_password.html", {
                 "request": request,
                 "user": None,
                 "success": "If an account with that email/username exists, we've sent you an email.",
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-                "csrf_token": csrf_token
             })
+            csrf_protect.generate_csrf(response=response)
+            return response
         
         if reset_type == "password":
             # Send password reset email
@@ -2782,7 +2783,7 @@ async def forgot_password_post(
             except Exception as e:
                 print(f"Failed to send password reset email: {str(e)}")
                 success_message = "If an account exists, we've sent a reset email."
-                
+        
         elif reset_type == "username":
             # Send username reminder email
             try:
@@ -2792,14 +2793,15 @@ async def forgot_password_post(
                 print(f"Failed to send username reminder: {str(e)}")
                 success_message = "If an account exists, we've sent a username reminder."
         
-        return templates.TemplateResponse("forgot_password.html", {
+        response = templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "user": None,
             "success": success_message,
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-            "csrf_token": csrf_token
         })
-        
+        csrf_protect.generate_csrf(response=response)
+        return response
+    
     finally:
         db.close()
         
