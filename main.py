@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi_csrf_protect import CsrfProtect
 from fastapi_csrf_protect.exceptions import CsrfProtectError
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text, Text
@@ -30,7 +31,6 @@ from sqlalchemy import Text, TIMESTAMP
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 from openai import OpenAI
-from pydantic import BaseModel
 from jose import JWTError, jwt
 import stripe
 import json
@@ -2741,6 +2741,14 @@ async def forgot_password_post(
     csrf_protect: CsrfProtect = Depends()
 ):
     client_ip = get_real_client_ip(request)
+
+    form_data = await request.form()
+    print("=" * 50)
+    print("🔍 DEBUG INFO:")
+    print(f"📝 Form CSRF token: {form_data.get('csrf_token')}")
+    print(f"🍪 Cookie CSRF token: {request.cookies.get('fastapi-csrf-token')}")
+    print(f"🍪 All cookies: {request.cookies}")
+    print("=" * 50)
     
     try:
         await csrf_protect.validate_csrf(request)
