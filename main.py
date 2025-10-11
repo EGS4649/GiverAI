@@ -3317,11 +3317,25 @@ def get_db():
     finally:
         db.close()
 
-def get_admin_user(current_user: User = Depends(get_current_user)):
-    """Check if current user is admin"""
-    if current_user.email not in ADMIN_EMAILS:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
+def is_admin_user(user) -> bool:
+    """Check if a user object is an admin"""
+    if not user:
+        return False
+    return user.email in ADMIN_USERS
+
+def get_admin_user(request: Request):
+    """Get current user and verify admin status - returns 404 if not admin"""
+    try:
+        user = get_current_user(request)
+    except HTTPException:
+        # User not logged in
+        raise HTTPException(status_code=404, detail="Page not found")
+    
+    # Check if user is admin
+    if not is_admin_user(user):
+        raise HTTPException(status_code=404, detail="Page not found")
+    
+    return user
 
 def get_regular_user(request: Request):
     """Get current user for regular dashboard - NOT for admin routes"""
