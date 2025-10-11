@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error {{ status_code }} - Giver.ai</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .error-container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 40px 20px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 0, 102, 0.3);
+            border-radius: 15px;
+        }
+        .error-code {
+            font-size: 6em;
+            color: #ff0066;
+            text-shadow: 0 0 20px #ff0066;
+            margin-bottom: 20px;
+        }
+        .error-message {
+            color: #ff0066;
+            font-size: 1.5em;
+            margin-bottom: 30px;
+        }
+        .error-description {
+            color: #adc2ff;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        .error-actions {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .error-button {
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            color: #000;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .error-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 255, 255, 0.4);
+        }
+        .error-button.secondary {
+            background: transparent;
+            color: #00ffff;
+            border: 2px solid #00ffff;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar" style="align-items: center; min-height: 60px;">
+        <div class="brand" style="display: flex; align-items: center; gap: 12px;">
+            <a href="/" style="color: white; text-decoration: none; display: flex; align-items: center; gap: 12px;">
+                <img src="/static/logo.png" alt="Giver.ai Logo" class="brand-logo" style="height: 40px !important; width: auto !important; vertical-align: middle;">
+                <span class="brand-text" style="line-height: 1;">Giver.ai</span>
+            </a>
+        </div>
+        <ul class="nav-links" style="align-items: center;">
+            <li><a href="/">Home</a></li>
+            <li><a href="/contact">Contact</a></li>
+        </ul>
+    </nav>
+
+    <main class="error-container">
+        <div class="error-code">{{ status_code }}</div>
+        <div class="error-message">Oops! Something went wrong</div>
+        <div class="error-description">
+            {{ error_message }}
+        </div>
+        <div class="error-actions">
+            <a href="/" class="error-button">Go Home</a>
+            <a href="javascript:history.back()" class="error-button secondary">Go Back</a>
+            <a href="/contact" class="error-button secondary">Contact Support</a>
+        </div>
+    </main>
+</body>
+</html>
