@@ -1883,6 +1883,8 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 2  # 1 day
 ADMIN_EMAILS = set(email.strip() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip())
 
+
+
 # Password hashing function with better debugging
 def hash_password(password: str) -> bytes:
     """Hash a password and return bytes for database storage"""
@@ -2150,8 +2152,17 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY", "your-openrouter-api-key-here")
+    api_key=os.getenv("OPENROUTER_API_KEY")
 )
+
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc: HTTPException):
+    """Custom 404 page handler"""
+    user = get_optional_user(request)
+    return templates.TemplateResponse("404.html", {
+        "request": request,
+        "user": user
+    }, status_code=404)
 
 def migrate_database():
     engine = create_engine(DATABASE_URL)
@@ -3304,7 +3315,7 @@ def verify_email_change(request: Request, token: str = Query(...)):
         
     finally:
         db.close()
-        
+
 ADMIN_EMAILS_ENV = os.getenv("ADMIN_EMAILS", "")
 if not ADMIN_EMAILS_ENV:
     raise ValueError("ADMIN_EMAILS environment variable must be set")
