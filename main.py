@@ -2703,23 +2703,34 @@ def health_check():
     
 @app.get("/forgot-password", response_class=HTMLResponse)
 async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depends()):
-    print(f"🔍 Forgot password GET route hit from IP: {get_real_client_ip(request)}")
     """Display the forgot password form"""
     user = get_optional_user(request)
     csrf_response = csrf_protect.generate_csrf()
-
+    
     # Extract just the token from the tuple
     if isinstance(csrf_response, tuple):
-        csrf_token = csrf_response[0]  # Get the token value
+        csrf_token = csrf_response[0]  
     else:
         csrf_token = csrf_response
-
-    return templates.TemplateResponse("forgot_password.html", {
+    
+    response = templates.TemplateResponse("forgot_password.html", {
         "request": request,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
         "user": user,
         "csrf_token": csrf_token
     })
+
+    response.set_cookie(
+        key="fastapi-csrf-token",
+        value=csrf_token,
+        max_age=3600,
+        path="/",
+        secure=True,  
+        httponly=True,
+        samesite="lax"
+    )
+    
+    return response
 @limiter.limit("30/hour")
 @app.post("/forgot-password")
 async def forgot_password_post(
