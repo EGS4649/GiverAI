@@ -2720,7 +2720,6 @@ async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depe
         "user": user,
         "csrf_token": csrf_token
     })
-
 @limiter.limit("30/hour")
 @app.post("/forgot-password")
 async def forgot_password_post(
@@ -2735,28 +2734,32 @@ async def forgot_password_post(
     try:
         await csrf_protect.validate_csrf(request)
     except CsrfProtectError:
-        csrf_token = csrf_protect.generate_csrf()
+        # Generate new CSRF token - it returns a tuple (token, cookie)
+        csrf_response = csrf_protect.generate_csrf()
+        csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        
         response = templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Invalid CSRF token. Please refresh and try again.",
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
             "csrf_token": csrf_token
         })
-        # Manually set the CSRF token in the cookie
+        # Set the CSRF cookie using standard cookie name
         response.set_cookie(
-            key=csrf_protect._cookie_name,
+            key="fastapi-csrf-token",  # Default cookie name for this library
             value=csrf_token,
-            max_age=csrf_protect._max_age,
+            max_age=3600,
             path="/",
-            domain=csrf_protect._cookie_domain,
-            secure=csrf_protect._cookie_secure,
-            httponly=csrf_protect._httponly,
-            samesite=csrf_protect._cookie_samesite
+            secure=True,  # Set to True in production (HTTPS)
+            httponly=True,
+            samesite="lax"
         )
         return response
     
     if not verify_recaptcha(g_recaptcha_response):
-        csrf_token = csrf_protect.generate_csrf()
+        csrf_response = csrf_protect.generate_csrf()
+        csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        
         response = templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Please complete the reCAPTCHA verification",
@@ -2764,14 +2767,13 @@ async def forgot_password_post(
             "csrf_token": csrf_token
         })
         response.set_cookie(
-            key=csrf_protect._cookie_name,
+            key="fastapi-csrf-token",
             value=csrf_token,
-            max_age=csrf_protect._max_age,
+            max_age=3600,
             path="/",
-            domain=csrf_protect._cookie_domain,
-            secure=csrf_protect._cookie_secure,
-            httponly=csrf_protect._httponly,
-            samesite=csrf_protect._cookie_samesite
+            secure=True,
+            httponly=True,
+            samesite="lax"
         )
         return response
     
@@ -2783,7 +2785,8 @@ async def forgot_password_post(
             (User.email == email_or_username) | (User.username == email_or_username)
         ).first()
         
-        csrf_token = csrf_protect.generate_csrf()
+        csrf_response = csrf_protect.generate_csrf()
+        csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
         
         if not user:
             response = templates.TemplateResponse("forgot_password.html", {
@@ -2794,14 +2797,13 @@ async def forgot_password_post(
                 "csrf_token": csrf_token
             })
             response.set_cookie(
-                key=csrf_protect._cookie_name,
+                key="fastapi-csrf-token",
                 value=csrf_token,
-                max_age=csrf_protect._max_age,
+                max_age=3600,
                 path="/",
-                domain=csrf_protect._cookie_domain,
-                secure=csrf_protect._cookie_secure,
-                httponly=csrf_protect._httponly,
-                samesite=csrf_protect._cookie_samesite
+                secure=True,
+                httponly=True,
+                samesite="lax"
             )
             return response
         
@@ -2830,14 +2832,13 @@ async def forgot_password_post(
             "csrf_token": csrf_token
         })
         response.set_cookie(
-            key=csrf_protect._cookie_name,
+            key="fastapi-csrf-token",
             value=csrf_token,
-            max_age=csrf_protect._max_age,
+            max_age=3600,
             path="/",
-            domain=csrf_protect._cookie_domain,
-            secure=csrf_protect._cookie_secure,
-            httponly=csrf_protect._httponly,
-            samesite=csrf_protect._cookie_samesite
+            secure=True,
+            httponly=True,
+            samesite="lax"
         )
         return response
     
