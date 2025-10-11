@@ -2752,6 +2752,12 @@ async def forgot_password_post(
     
     try:
         await csrf_protect.validate_csrf(request)
+        print("✅ CSRF VALIDATION PASSED!")
+    except CsrfProtectError as e:
+        print(f"❌ CSRF VALIDATION FAILED: {str(e)}")
+        
+    try:
+        await csrf_protect.validate_csrf(request)
     except CsrfProtectError:
         # Generate new CSRF token - it returns a tuple (token, cookie)
         csrf_response = csrf_protect.generate_csrf()
