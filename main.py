@@ -3326,7 +3326,7 @@ def get_regular_user(request: Request):
     """Get current user for regular dashboard - NOT for admin routes"""
     return get_current_user(request)
 
-class CsrfSettings(BaseSettings):
+class CsrfSettings(BaseModel):
     secret_key: str = os.getenv("SECRET_KEY")
     cookie_name: str = "fastapi-csrf-token"
     cookie_samesite: str = "lax"
