@@ -3434,8 +3434,8 @@ async def admin_dashboard(
     try:
         # Check if user is admin
         user = get_optional_user(request)
-        if not is_admin_user(user):
-            raise HTTPException(status_code=403, detail="Admin access required")
+        if not user or not is_admin_user(user):
+            raise HTTPException(status_code=404, detail="Page not found")
         
         last_login_eastern = convert_to_eastern(user.last_login) if user.last_login else None
         
@@ -3463,9 +3463,14 @@ async def admin_dashboard(
             "error": error
         })
         
+    except HTTPException:
+        # Re-raise HTTPException (404)
+        raise
+        
     except Exception as e:
         print(f"Admin dashboard error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Admin dashboard error")
+        # Return 404 instead of 500 to hide admin panel existence
+        raise HTTPException(status_code=404, detail="Page not found")
         
 @app.get("/admin/dashboard", response_class=HTMLResponse)
 def admin_dashboard_updated(
@@ -5669,7 +5674,6 @@ async def verify_cancellation(stripe_customer_id: str):
     finally:
         db.close()
 
-# Updated checkout endpoint with coming soon restriction
 @app.post("/checkout/{plan_type}")
 async def create_checkout_session(request: Request, plan_type: str):
     try:
@@ -5737,9 +5741,10 @@ async def create_checkout_session(request: Request, plan_type: str):
                 print(f"✅ Created new customer {customer_id} for user {user.email}")
                 
                 # Update the user object as well so it's available for the checkout session
-                user.stripe_customer_id = customer_id
+                #user.stripe_customer_id = customer_id
                 
             except Exception as e:
+                db.rollback()
                 print(f"❌ Failed to create Stripe customer: {str(e)}")
                 return templates.TemplateResponse("pricing.html", {
                     "request": request,
