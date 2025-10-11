@@ -2735,47 +2735,77 @@ async def forgot_password_post(
     try:
         await csrf_protect.validate_csrf(request)
     except CsrfProtectError:
-        # Generate new token AND set it in the response
+        csrf_token = csrf_protect.generate_csrf()
         response = templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Invalid CSRF token. Please refresh and try again.",
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+            "csrf_token": csrf_token
         })
-        # This sets both the cookie and makes token available in template
-        csrf_protect.generate_csrf(response=response)
+        # Manually set the CSRF token in the cookie
+        response.set_cookie(
+            key=csrf_protect._cookie_name,
+            value=csrf_token,
+            max_age=csrf_protect._max_age,
+            path="/",
+            domain=csrf_protect._cookie_domain,
+            secure=csrf_protect._cookie_secure,
+            httponly=csrf_protect._httponly,
+            samesite=csrf_protect._cookie_samesite
+        )
         return response
     
     if not verify_recaptcha(g_recaptcha_response):
+        csrf_token = csrf_protect.generate_csrf()
         response = templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Please complete the reCAPTCHA verification",
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+            "csrf_token": csrf_token
         })
-        csrf_protect.generate_csrf(response=response)
+        response.set_cookie(
+            key=csrf_protect._cookie_name,
+            value=csrf_token,
+            max_age=csrf_protect._max_age,
+            path="/",
+            domain=csrf_protect._cookie_domain,
+            secure=csrf_protect._cookie_secure,
+            httponly=csrf_protect._httponly,
+            samesite=csrf_protect._cookie_samesite
+        )
         return response
     
     email_or_username = sanitize_input(email_or_username)
     db = SessionLocal()
     
     try:
-        # Find user by email or username
         user = db.query(User).filter(
             (User.email == email_or_username) | (User.username == email_or_username)
         ).first()
         
+        csrf_token = csrf_protect.generate_csrf()
+        
         if not user:
-            # Don't reveal if user exists or not for security
             response = templates.TemplateResponse("forgot_password.html", {
                 "request": request,
                 "user": None,
                 "success": "If an account with that email/username exists, we've sent you an email.",
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+                "csrf_token": csrf_token
             })
-            csrf_protect.generate_csrf(response=response)
+            response.set_cookie(
+                key=csrf_protect._cookie_name,
+                value=csrf_token,
+                max_age=csrf_protect._max_age,
+                path="/",
+                domain=csrf_protect._cookie_domain,
+                secure=csrf_protect._cookie_secure,
+                httponly=csrf_protect._httponly,
+                samesite=csrf_protect._cookie_samesite
+            )
             return response
         
         if reset_type == "password":
-            # Send password reset email
             reset_record = create_password_reset_record(user.id, db)
             try:
                 await email_service.send_password_reset_email(user, reset_record.raw_token, client_ip)
@@ -2785,7 +2815,6 @@ async def forgot_password_post(
                 success_message = "If an account exists, we've sent a reset email."
         
         elif reset_type == "username":
-            # Send username reminder email
             try:
                 await email_service.send_username_reminder_email(user)
                 success_message = "Username reminder sent! Check your inbox."
@@ -2798,8 +2827,18 @@ async def forgot_password_post(
             "user": None,
             "success": success_message,
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+            "csrf_token": csrf_token
         })
-        csrf_protect.generate_csrf(response=response)
+        response.set_cookie(
+            key=csrf_protect._cookie_name,
+            value=csrf_token,
+            max_age=csrf_protect._max_age,
+            path="/",
+            domain=csrf_protect._cookie_domain,
+            secure=csrf_protect._cookie_secure,
+            httponly=csrf_protect._httponly,
+            samesite=csrf_protect._cookie_samesite
+        )
         return response
     
     finally:
