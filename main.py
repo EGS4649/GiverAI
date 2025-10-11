@@ -2755,7 +2755,7 @@ async def forgot_password_post(
         print("✅ CSRF VALIDATION PASSED!")
     except CsrfProtectError as e:
         print(f"❌ CSRF VALIDATION FAILED: {str(e)}")
-        
+
     try:
         await csrf_protect.validate_csrf(request)
     except CsrfProtectError:
@@ -3347,6 +3347,7 @@ class CsrfSettings(BaseModel):
     cookie_secure: bool = True  # HTTPS only
     cookie_httponly: bool = True
     header_name: str = "X-CSRF-Token"
+    header_type: str = "form"
     max_age: int = 3600  # 1 hour 
     
 # Load the config using decorator
