@@ -2737,63 +2737,50 @@ async def forgot_password_post(
     request: Request,
     reset_type: str = Form(...),
     email_or_username: str = Form(...),
+    csrf_token: str = Form(...),  
     g_recaptcha_response: str = Form(alias="g-recaptcha-response", default=""),
     csrf_protect: CsrfProtect = Depends()
 ):
     client_ip = get_real_client_ip(request)
-
-    form_data = await request.form()
-    print("=" * 50)
-    print("🔍 DEBUG INFO:")
-    print(f"📝 Form CSRF token: {form_data.get('csrf_token')}")
-    print(f"🍪 Cookie CSRF token: {request.cookies.get('fastapi-csrf-token')}")
-    print(f"🍪 All cookies: {request.cookies}")
-    print("=" * 50)
     
-    try:
-        await csrf_protect.validate_csrf(request)
-        print("✅ CSRF VALIDATION PASSED!")
-    except CsrfProtectError as e:
-        print(f"❌ CSRF VALIDATION FAILED: {str(e)}")
-
-    try:
-        await csrf_protect.validate_csrf(request)
-    except CsrfProtectError:
-        # Generate new CSRF token - it returns a tuple (token, cookie)
+    # Manual CSRF validation
+    cookie_token = request.cookies.get("fastapi-csrf-token")
+    
+    if not cookie_token or cookie_token != csrf_token:
         csrf_response = csrf_protect.generate_csrf()
-        csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
         
         response = templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Invalid CSRF token. Please refresh and try again.",
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-            "csrf_token": csrf_token
+            "csrf_token": new_csrf_token
         })
-        # Set the CSRF cookie using standard cookie name
         response.set_cookie(
-            key="fastapi-csrf-token",  # Default cookie name for this library
-            value=csrf_token,
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
             max_age=3600,
             path="/",
-            secure=True,  # Set to True in production (HTTPS)
+            secure=True,
             httponly=True,
             samesite="lax"
         )
         return response
     
+    # CSRF is valid, continue with rest of the logic
     if not verify_recaptcha(g_recaptcha_response):
         csrf_response = csrf_protect.generate_csrf()
-        csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
         
         response = templates.TemplateResponse("forgot_password.html", {
             "request": request,
             "error": "Please complete the reCAPTCHA verification",
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-            "csrf_token": csrf_token
+            "csrf_token": new_csrf_token
         })
         response.set_cookie(
             key="fastapi-csrf-token",
-            value=csrf_token,
+            value=new_csrf_token,
             max_age=3600,
             path="/",
             secure=True,
@@ -2811,7 +2798,7 @@ async def forgot_password_post(
         ).first()
         
         csrf_response = csrf_protect.generate_csrf()
-        csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
         
         if not user:
             response = templates.TemplateResponse("forgot_password.html", {
@@ -2819,11 +2806,11 @@ async def forgot_password_post(
                 "user": None,
                 "success": "If an account with that email/username exists, we've sent you an email.",
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-                "csrf_token": csrf_token
+                "csrf_token": new_csrf_token
             })
             response.set_cookie(
                 key="fastapi-csrf-token",
-                value=csrf_token,
+                value=new_csrf_token,
                 max_age=3600,
                 path="/",
                 secure=True,
@@ -2854,11 +2841,11 @@ async def forgot_password_post(
             "user": None,
             "success": success_message,
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-            "csrf_token": csrf_token
+            "csrf_token": new_csrf_token
         })
         response.set_cookie(
             key="fastapi-csrf-token",
-            value=csrf_token,
+            value=new_csrf_token,
             max_age=3600,
             path="/",
             secure=True,
