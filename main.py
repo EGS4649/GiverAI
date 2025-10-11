@@ -3327,12 +3327,18 @@ def get_regular_user(request: Request):
     return get_current_user(request)
 
 class CsrfSettings(BaseSettings):
-    secret_key: str = SECRET_KEY
-    cookie_name: str = "csrftoken" 
-    header_name: str = "x-csrf-token" 
+    secret_key: str = os.getenv("SECRET_KEY")
+    cookie_name: str = "fastapi-csrf-token"
+    cookie_samesite: str = "lax"
+    cookie_secure: bool = True  # HTTPS only
+    cookie_httponly: bool = True
+    header_name: str = "X-CSRF-Token"
+    max_age: int = 3600  # 1 hour 
     
-# Load the config
-CsrfProtect.load_config(CsrfSettings)
+# Load the config using decorator
+@CsrfProtect.load_config
+def get_csrf_config():
+    return CsrfSettings()  
 
 # Exception handler
 @app.exception_handler(CsrfProtectError)
