@@ -3494,7 +3494,6 @@ async def admin_dashboard(
         
     except Exception as e:
         print(f"Admin dashboard error: {str(e)}")
-        # Return 404 instead of 500 to hide admin panel existence
         raise HTTPException(status_code=404, detail="Page not found")
         
 @app.get("/admin/dashboard", response_class=HTMLResponse)
@@ -5765,8 +5764,6 @@ async def create_checkout_session(request: Request, plan_type: str):
                 db.commit()
                 print(f"✅ Created new customer {customer_id} for user {user.email}")
                 
-                # Update the user object as well so it's available for the checkout session
-                #user.stripe_customer_id = customer_id
                 
             except Exception as e:
                 db.rollback()
@@ -7007,7 +7004,7 @@ async def handle_subscription_updated(subscription):
                 
                 if user:
                     # Update the user's stripe_customer_id
-                    user.stripe_customer_id = customer_id
+                    #user.stripe_customer_id = customer_id
                     db.commit()
                     print(f"✅ Updated user {user.email} with customer ID {customer_id}")
                 else:
