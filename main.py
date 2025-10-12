@@ -5786,8 +5786,9 @@ async def create_checkout_session(request: Request, plan_type: str):
             success_url=str(request.url_for('checkout_success')) + "?session_id={CHECKOUT_SESSION_ID}",
             cancel_url=str(request.url_for('pricing')),
             customer=customer_id,
+            client_reference_id=str(user.id),
             metadata={
-                "user_id": user.id,
+                "user_id": str(user.id), 
                 "plan": plan_type
             }
         )
@@ -5870,6 +5871,18 @@ async def checkout_success(request: Request, session_id: str = None):
             print(f"⚠️ Payment not completed: {session.payment_status}")
             return RedirectResponse("/pricing?error=Payment+not+completed", status_code=302)
         
+        # THIS IS THE KEY FIX - Get user_id from Stripe
+        user_id = None
+        if session.client_reference_id:
+            user_id = int(session.client_reference_id)
+            print(f"✅ Found user ID from client_reference_id: {user_id}")
+        elif session.metadata.get("user_id"):
+            user_id = int(session.metadata.get("user_id"))
+            print(f"✅ Found user ID from metadata: {user_id}")
+        else:
+            print("❌ No user ID found in session")
+            return RedirectResponse("/pricing?error=User+not+found", status_code=302)
+        
         # Get subscription details with proper error handling
         subscription_id = session.subscription
         print(f"🔗 Subscription ID: {subscription_id}")
@@ -5882,7 +5895,6 @@ async def checkout_success(request: Request, session_id: str = None):
                 print("📋 Retrieving subscription details...")
                 subscription = stripe.Subscription.retrieve(subscription_id)
                 
-                # Debug: Print subscription object structure
                 print(f"🔍 Subscription status: {subscription.status}")
                 
                 # Get next billing date safely
@@ -5891,22 +5903,17 @@ async def checkout_success(request: Request, session_id: str = None):
                     next_billing_date = datetime.fromtimestamp(next_billing_timestamp)
                     print(f"✅ Next billing date: {next_billing_date}")
                 else:
-                    # Fallback: calculate 1 month from now
                     next_billing_date = datetime.now() + timedelta(days=30)
                     print(f"⚠️ Using fallback billing date: {next_billing_date}")
                 
-                # Get amount safely - FIX HERE
+                # Get amount safely
                 try:
-                    # Handle items as either object with data attribute or list-like object
                     items_data = None
                     if hasattr(subscription, 'items'):
-                        # Try to get .data attribute
                         if hasattr(subscription.items, 'data'):
                             items_data = subscription.items.data
-                        # If items is list-like, use it directly
                         elif hasattr(subscription.items, '__iter__'):
                             items_data = list(subscription.items)
-                        # Try dictionary access
                         elif isinstance(subscription.items, dict) and 'data' in subscription.items:
                             items_data = subscription.items['data']
                     
@@ -5916,33 +5923,15 @@ async def checkout_success(request: Request, session_id: str = None):
                             amount = price_obj.unit_amount / 100
                             print(f"💰 Amount: ${amount}")
                         else:
-                            print("⚠️ Could not get price amount, using fallback")
-                            plan_amounts = {
-                                "creator": 9.0,
-                                "small_team": 79.0,
-                                "agency": 199.0,
-                                "enterprise": 499.0
-                            }
+                            plan_amounts = {"creator": 9.0, "small_team": 79.0, "agency": 199.0, "enterprise": 499.0}
                             amount = plan_amounts.get(plan_name, 9.0)
                     else:
-                        print("⚠️ No items data found, using fallback")
-                        plan_amounts = {
-                            "creator": 9.0,
-                            "small_team": 79.0,
-                            "agency": 199.0,
-                            "enterprise": 499.0
-                        }
+                        plan_amounts = {"creator": 9.0, "small_team": 79.0, "agency": 199.0, "enterprise": 499.0}
                         amount = plan_amounts.get(plan_name, 9.0)
                         
                 except Exception as items_error:
                     print(f"⚠️ Error accessing items: {str(items_error)}")
-                    # Use fallback amounts
-                    plan_amounts = {
-                        "creator": 9.0,
-                        "small_team": 79.0,
-                        "agency": 199.0,
-                        "enterprise": 499.0
-                    }
+                    plan_amounts = {"creator": 9.0, "small_team": 79.0, "agency": 199.0, "enterprise": 499.0}
                     amount = plan_amounts.get(plan_name, 9.0)
                     print(f"💰 Using fallback amount: ${amount}")
                     
@@ -5950,79 +5939,62 @@ async def checkout_success(request: Request, session_id: str = None):
                 print(f"❌ Error retrieving subscription: {str(sub_error)}")
                 import traceback
                 traceback.print_exc()
-                
-                # Set fallback values
                 next_billing_date = datetime.now() + timedelta(days=30)
-                plan_amounts = {
-                    "creator": 9.0,
-                    "small_team": 79.0,
-                    "agency": 199.0,
-                    "enterprise": 499.0
-                }
+                plan_amounts = {"creator": 9.0, "small_team": 79.0, "agency": 199.0, "enterprise": 499.0}
                 amount = plan_amounts.get(plan_name, 9.0)
-                print(f"⚠️ Using fallback values - Date: {next_billing_date}, Amount: ${amount}")
         else:
             print("❌ No subscription found in session")
-            # Set fallback values even if no subscription
             next_billing_date = datetime.now() + timedelta(days=30)
-            plan_amounts = {
-                "creator": 9.0,
-                "small_team": 79.0,
-                "agency": 199.0,
-                "enterprise": 499.0
-            }
+            plan_amounts = {"creator": 9.0, "small_team": 79.0, "agency": 199.0, "enterprise": 499.0}
             amount = plan_amounts.get(plan_name, 9.0)
         
-        # Update user's plan in database
+        # Update user's plan in database - USE user_id FROM STRIPE
         db = SessionLocal()
+        db_user = None  # Initialize
         try:
-            user = get_optional_user(request)
-            print(f"👤 Current user: {user.username if user else 'None'}")
+            # Query database using user_id from Stripe (not from session cookie!)
+            db_user = db.query(User).filter(User.id == user_id).first()
             
-            if user:
-                db_user = db.query(User).filter(User.id == user.id).first()
-                if db_user:
-                    old_plan = db_user.plan
-                    print(f"📋 Updating plan from {old_plan} to {plan_name}")
-                    
-                    # Update plan and subscription details
-                    db_user.plan = plan_name
-                    db_user.stripe_subscription_id = subscription_id
-                    db_user.subscription_status = 'active'
-                    
-                    if next_billing_date:
-                        db_user.subscription_end_date = next_billing_date
-                    
-                    # Get customer ID from session
-                    if session.customer:
-                        db_user.stripe_customer_id = session.customer
-                        print(f"🆔 Updated customer ID: {session.customer}")
-                    
-                    db.commit()
-                    print("✅ Database updated successfully")
-                    
-                    # Send upgrade email
-                    if next_billing_date and amount > 0:
-                        try:
-                            print("📧 Attempting to send upgrade email...")
-                            await email_service.send_subscription_upgrade_email(
-                                user=db_user,
-                                old_plan=old_plan,
-                                new_plan=plan_name,
-                                amount=amount,
-                                next_billing_date=next_billing_date
-                            )
-                            print("✅ Upgrade email sent successfully")
-                        except Exception as e:
-                            print(f"❌ Failed to send upgrade email: {str(e)}")
-                            import traceback
-                            traceback.print_exc()
-                    else:
-                        print("⚠️ Skipping email - missing billing date or amount")
+            if db_user:
+                old_plan = db_user.plan
+                print(f"📋 Updating user {db_user.username} (ID: {user_id}) from {old_plan} to {plan_name}")
+                
+                # Update plan and subscription details
+                db_user.plan = plan_name
+                db_user.stripe_subscription_id = subscription_id
+                db_user.subscription_status = 'active'
+                
+                if next_billing_date:
+                    db_user.subscription_end_date = next_billing_date
+                
+                # Get customer ID from session
+                if session.customer:
+                    db_user.stripe_customer_id = session.customer
+                    print(f"🆔 Updated customer ID: {session.customer}")
+                
+                db.commit()
+                print("✅ Database updated successfully")
+                
+                # Send upgrade email
+                if next_billing_date and amount > 0:
+                    try:
+                        print("📧 Attempting to send upgrade email...")
+                        await email_service.send_subscription_upgrade_email(
+                            user=db_user,
+                            old_plan=old_plan,
+                            new_plan=plan_name,
+                            amount=amount,
+                            next_billing_date=next_billing_date
+                        )
+                        print("✅ Upgrade email sent successfully")
+                    except Exception as e:
+                        print(f"❌ Failed to send upgrade email: {str(e)}")
+                        import traceback
+                        traceback.print_exc()
                 else:
-                    print(f"❌ User not found in database")
+                    print("⚠️ Skipping email - missing billing date or amount")
             else:
-                print("❌ No user in session")
+                print(f"❌ User not found in database with ID: {user_id}")
                         
         except Exception as db_error:
             print(f"❌ Database error: {str(db_error)}")
@@ -6048,9 +6020,12 @@ async def checkout_success(request: Request, session_id: str = None):
     display_name = plan_display_names.get(plan_name, 
         plan_name.replace("_", " ").title() + " Plan")
 
+    # For display, try to get user from session, but fall back to db_user
+    current_user = get_optional_user(request) or db_user
+
     return templates.TemplateResponse("checkout_success.html", {
         "request": request,
-        "user": get_optional_user(request),
+        "user": current_user,
         "plan": display_name
     })
         
