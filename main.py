@@ -5884,45 +5884,67 @@ async def checkout_success(request: Request, session_id: str = None):
                 
                 # Debug: Print subscription object structure
                 print(f"🔍 Subscription status: {subscription.status}")
-                print(f"🔍 Subscription object keys: {list(subscription.keys()) if hasattr(subscription, 'keys') else 'No keys method'}")
                 
-                # Check if current_period_end exists and get it safely
-                if hasattr(subscription, 'current_period_end'):
+                # Get next billing date safely
+                if hasattr(subscription, 'current_period_end') and subscription.current_period_end:
                     next_billing_timestamp = subscription.current_period_end
                     next_billing_date = datetime.fromtimestamp(next_billing_timestamp)
                     print(f"✅ Next billing date: {next_billing_date}")
                 else:
-                    print("⚠️ current_period_end not found in subscription object")
-                    # Try accessing it as a dictionary
-                    if 'current_period_end' in subscription:
-                        next_billing_timestamp = subscription['current_period_end']
-                        next_billing_date = datetime.fromtimestamp(next_billing_timestamp)
-                        print(f"✅ Next billing date (dict access): {next_billing_date}")
-                    else:
-                        print("❌ current_period_end not found in subscription")
-                        # Fallback: calculate 1 month from now
-                        next_billing_date = datetime.now() + timedelta(days=30)
-                        print(f"⚠️ Using fallback billing date: {next_billing_date}")
+                    # Fallback: calculate 1 month from now
+                    next_billing_date = datetime.now() + timedelta(days=30)
+                    print(f"⚠️ Using fallback billing date: {next_billing_date}")
                 
-                # Get amount safely
-                if subscription.items and subscription.items.data:
-                    price_obj = subscription.items.data[0].price
-                    if hasattr(price_obj, 'unit_amount') and price_obj.unit_amount:
-                        amount = price_obj.unit_amount / 100
-                        print(f"💰 Amount: ${amount}")
+                # Get amount safely - FIX HERE
+                try:
+                    # Handle items as either object with data attribute or list-like object
+                    items_data = None
+                    if hasattr(subscription, 'items'):
+                        # Try to get .data attribute
+                        if hasattr(subscription.items, 'data'):
+                            items_data = subscription.items.data
+                        # If items is list-like, use it directly
+                        elif hasattr(subscription.items, '__iter__'):
+                            items_data = list(subscription.items)
+                        # Try dictionary access
+                        elif isinstance(subscription.items, dict) and 'data' in subscription.items:
+                            items_data = subscription.items['data']
+                    
+                    if items_data and len(items_data) > 0:
+                        price_obj = items_data[0].price
+                        if hasattr(price_obj, 'unit_amount') and price_obj.unit_amount:
+                            amount = price_obj.unit_amount / 100
+                            print(f"💰 Amount: ${amount}")
+                        else:
+                            print("⚠️ Could not get price amount, using fallback")
+                            plan_amounts = {
+                                "creator": 9.0,
+                                "small_team": 79.0,
+                                "agency": 199.0,
+                                "enterprise": 499.0
+                            }
+                            amount = plan_amounts.get(plan_name, 9.0)
                     else:
-                        print("⚠️ Could not get price amount")
-                        # Fallback amounts based on plan
+                        print("⚠️ No items data found, using fallback")
                         plan_amounts = {
                             "creator": 9.0,
                             "small_team": 79.0,
                             "agency": 199.0,
                             "enterprise": 499.0
                         }
-                        amount = plan_amounts.get(plan_name)
-                        print(f"⚠️ Using fallback amount: ${amount}")
-                else:
-                    print("❌ No subscription items found")
+                        amount = plan_amounts.get(plan_name, 9.0)
+                        
+                except Exception as items_error:
+                    print(f"⚠️ Error accessing items: {str(items_error)}")
+                    # Use fallback amounts
+                    plan_amounts = {
+                        "creator": 9.0,
+                        "small_team": 79.0,
+                        "agency": 199.0,
+                        "enterprise": 499.0
+                    }
+                    amount = plan_amounts.get(plan_name, 9.0)
+                    print(f"💰 Using fallback amount: ${amount}")
                     
             except Exception as sub_error:
                 print(f"❌ Error retrieving subscription: {str(sub_error)}")
@@ -5933,14 +5955,23 @@ async def checkout_success(request: Request, session_id: str = None):
                 next_billing_date = datetime.now() + timedelta(days=30)
                 plan_amounts = {
                     "creator": 9.0,
-                    "small_team": 25.0,
-                    "agency": 69.0,
-                    "enterprise": 199.0
+                    "small_team": 79.0,
+                    "agency": 199.0,
+                    "enterprise": 499.0
                 }
-                amount = plan_amounts.get(plan_name)
+                amount = plan_amounts.get(plan_name, 9.0)
                 print(f"⚠️ Using fallback values - Date: {next_billing_date}, Amount: ${amount}")
         else:
             print("❌ No subscription found in session")
+            # Set fallback values even if no subscription
+            next_billing_date = datetime.now() + timedelta(days=30)
+            plan_amounts = {
+                "creator": 9.0,
+                "small_team": 79.0,
+                "agency": 199.0,
+                "enterprise": 499.0
+            }
+            amount = plan_amounts.get(plan_name, 9.0)
         
         # Update user's plan in database
         db = SessionLocal()
@@ -5954,8 +5985,13 @@ async def checkout_success(request: Request, session_id: str = None):
                     old_plan = db_user.plan
                     print(f"📋 Updating plan from {old_plan} to {plan_name}")
                     
-                    # Update plan and customer ID
+                    # Update plan and subscription details
                     db_user.plan = plan_name
+                    db_user.stripe_subscription_id = subscription_id
+                    db_user.subscription_status = 'active'
+                    
+                    if next_billing_date:
+                        db_user.subscription_end_date = next_billing_date
                     
                     # Get customer ID from session
                     if session.customer:
@@ -5965,11 +6001,11 @@ async def checkout_success(request: Request, session_id: str = None):
                     db.commit()
                     print("✅ Database updated successfully")
                     
-                    # Send upgrade email (even with fallback values)
+                    # Send upgrade email
                     if next_billing_date and amount > 0:
                         try:
                             print("📧 Attempting to send upgrade email...")
-                            email_service.send_subscription_upgrade_email(
+                            await email_service.send_subscription_upgrade_email(
                                 user=db_user,
                                 old_plan=old_plan,
                                 new_plan=plan_name,
@@ -5983,7 +6019,16 @@ async def checkout_success(request: Request, session_id: str = None):
                             traceback.print_exc()
                     else:
                         print("⚠️ Skipping email - missing billing date or amount")
+                else:
+                    print(f"❌ User not found in database")
+            else:
+                print("❌ No user in session")
                         
+        except Exception as db_error:
+            print(f"❌ Database error: {str(db_error)}")
+            db.rollback()
+            import traceback
+            traceback.print_exc()
         finally:
             db.close()
             
