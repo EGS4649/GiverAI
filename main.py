@@ -5718,10 +5718,6 @@ async def create_checkout_session(request: Request, plan_type: str):
         # Map plan types to price IDs (only creator is active)
         price_map = {
             "creator": STRIPE_CREATOR_PRICE_ID,
-            # Commented out for coming soon:
-            # "small_team": STRIPE_SMALL_TEAM_PRICE_ID,
-            # "agency": STRIPE_AGENCY_PRICE_ID,
-            # "enterprise": STRIPE_ENTERPRISE_PRICE_ID
         }
         
         price_id = price_map.get(plan_type)
@@ -5734,23 +5730,28 @@ async def create_checkout_session(request: Request, plan_type: str):
         
         # Create or retrieve Stripe customer
         customer_id = None
-        if user.stripe_customer_id:
+        
+        # Check if user already has a stripe_customer_id in database
+        db_user = db.query(User).filter(User.id == user.id).first()
+        
+        if db_user.stripe_customer_id:
             # User already has a customer ID, verify it exists in Stripe
             try:
-                customer = stripe.Customer.retrieve(user.stripe_customer_id)
+                customer = stripe.Customer.retrieve(db_user.stripe_customer_id)
                 customer_id = customer.id
                 print(f"✅ Using existing customer {customer_id} for user {user.email}")
             except stripe.error.InvalidRequestError:
                 # Customer doesn't exist in Stripe anymore, create a new one
-                print(f"⚠️ Customer {user.stripe_customer_id} not found in Stripe, creating new one")
-                user.stripe_customer_id = None
+                print(f"⚠️ Customer {db_user.stripe_customer_id} not found in Stripe, creating new one")
+                db_user.stripe_customer_id = None
+                db.commit()
         
         if not customer_id:
             # Create new Stripe customer
             try:
                 customer = stripe.Customer.create(
                     email=user.email,
-                    name=getattr(user, 'name', None),  # Use name if your User model has it
+                    name=getattr(user, 'name', user.username) if hasattr(user, 'name') else user.username,
                     metadata={
                         "user_id": str(user.id),
                         "created_from": "checkout"
@@ -5758,16 +5759,16 @@ async def create_checkout_session(request: Request, plan_type: str):
                 )
                 customer_id = customer.id
                 
-                # Save the customer ID to the user
-                db_user = db.query(User).filter(User.id == user.id).first()
+                # Save the customer ID to the database user
                 db_user.stripe_customer_id = customer_id
                 db.commit()
                 print(f"✅ Created new customer {customer_id} for user {user.email}")
                 
-                
             except Exception as e:
                 db.rollback()
                 print(f"❌ Failed to create Stripe customer: {str(e)}")
+                import traceback
+                traceback.print_exc()  # This will show the full error
                 return templates.TemplateResponse("pricing.html", {
                     "request": request,
                     "error": "Failed to create customer. Please try again.",
@@ -5784,7 +5785,7 @@ async def create_checkout_session(request: Request, plan_type: str):
             mode='subscription',
             success_url=str(request.url_for('checkout_success')) + "?session_id={CHECKOUT_SESSION_ID}",
             cancel_url=str(request.url_for('pricing')),
-            customer=customer_id,  # Use customer ID instead of customer_email
+            customer=customer_id,
             metadata={
                 "user_id": user.id,
                 "plan": plan_type
@@ -5794,10 +5795,13 @@ async def create_checkout_session(request: Request, plan_type: str):
         return RedirectResponse(checkout_session.url, status_code=303)
         
     except Exception as e:
+        db.rollback()  # Add rollback here too
         print(f"❌ Error creating checkout session: {str(e)}")
+        import traceback
+        traceback.print_exc()  # Show full traceback
         return templates.TemplateResponse("pricing.html", {
             "request": request,
-            "error": f"Error creating checkout session: {str(e)}",
+            "error": "Error creating checkout session. Please try again.",
             "user": user
         })
     finally:
@@ -7004,7 +7008,7 @@ async def handle_subscription_updated(subscription):
                 
                 if user:
                     # Update the user's stripe_customer_id
-                    #user.stripe_customer_id = customer_id
+                    user.stripe_customer_id = customer_id
                     db.commit()
                     print(f"✅ Updated user {user.email} with customer ID {customer_id}")
                 else:
