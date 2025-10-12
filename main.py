@@ -1883,8 +1883,6 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 2  # 1 day
 ADMIN_EMAILS = set(email.strip() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip())
 
-
-
 # Password hashing function with better debugging
 def hash_password(password: str) -> bytes:
     """Hash a password and return bytes for database storage"""
@@ -4536,6 +4534,106 @@ async def admin_user_activity(
         
     finally:
         db.close()
+
+@app.get("/admin/live-activity", response_class=HTMLResponse)
+def admin_live_activity(
+    request: Request, 
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Real-time activity monitoring for admins"""
+    check_admin_access(user)
+    
+    # Get recent activities (last hour)
+    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    
+    recent_activities = db.query(UserActivity).filter(
+        UserActivity.timestamp >= one_hour_ago
+    ).order_by(UserActivity.timestamp.desc()).limit(100).all()
+    
+    # Get suspicious activities
+    suspicious = db.query(UserActivity).join(User).filter(
+        or_(
+            User.failed_login_attempts >= 3,
+            UserActivity.activity_type == 'suspicious_behavior'
+        )
+    ).order_by(UserActivity.timestamp.desc()).limit(50).all()
+    
+    # Get active users (logged in today)
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0)
+    active_users = db.query(User).filter(
+        User.last_login >= today
+    ).count()
+    
+    return templates.TemplateResponse("admin/live_activity.html", {
+        "request": request,
+        "user": user,
+        "recent_activities": recent_activities,
+        "suspicious": suspicious,
+        "active_users": active_users
+    })
+
+@app.get("/admin/activity-feed")
+async def admin_activity_feed(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """SSE endpoint for live activity updates"""
+    check_admin_access(user)
+    
+    async def event_generator():
+        while True:
+            # Query latest activities
+            latest = db.query(UserActivity).order_by(
+                UserActivity.timestamp.desc()
+            ).limit(10).all()
+            
+            activities_json = json.dumps([{
+                "user": a.user.username,
+                "type": a.activity_type,
+                "description": a.description,
+                "ip": a.ip_address,
+                "time": a.timestamp.isoformat()
+            } for a in latest])
+            
+            yield f"data: {activities_json}\n\n"
+            await asyncio.sleep(5)  # Update every 5 seconds
+    
+    return Response(
+        event_generator(),
+        media_type="text/event-stream"
+    )
+
+# Quick ban button for bad actors
+@app.post("/admin/quick-ban/{user_id}")
+async def quick_ban_user(
+    user_id: int,
+    reason: str = Form("Admin quick ban"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Quickly suspend a user from live feed"""
+    check_admin_access(user)
+    
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Suspend user
+    await suspend_user(user_id, reason, user.username, db)
+    
+    # Ban their IP if available
+    if target_user.last_known_ip:
+        ban_ip_address(
+            target_user.last_known_ip, 
+            reason, 
+            user.username, 
+            db,
+            expires_hours=24
+        )
+    
+    return {"status": "success", "message": f"User {target_user.username} banned"}
 
 @app.get("/login", response_class=HTMLResponse)
 def login(request: Request):
