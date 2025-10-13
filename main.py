@@ -16,6 +16,7 @@ from fastapi_csrf_protect.exceptions import CsrfProtectError
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text, Text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from email_validator import validate_email, EmailNotValidError
@@ -200,6 +201,27 @@ class TeamMember(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User")
 
+# Security Headers Middleware
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://cdnjs.cloudflare.com https://js.stripe.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' data: https://fonts.gstatic.com; "
+            "connect-src 'self' https://api.stripe.com; "
+            "frame-src https://www.google.com https://js.stripe.com; "
+            "object-src 'none';"
+        )
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        return response
 
 class EmailService:
     def __init__(self):
@@ -1453,30 +1475,32 @@ async def check_user_status(user: User):
     return user
 
 
-def sanitize_input(text: str) -> str:
-    """Sanitize user input to prevent XSS and other injection attacks"""
+def sanitize_input(text: str, max_length: int = 500) -> str:
     if not text:
         return ""
-    
-    # Strip whitespace and clean HTML
-    cleaned = bleach.clean(text.strip(), tags=[], strip=True)
-    
-    # Additional cleaning for common attack patterns
-    cleaned = cleaned.replace('<', '&lt;').replace('>', '&gt;')
-    
-    return cleaned
+    text = text[:max_length].strip()
+    text = bleach.clean(text, tags=[], strip=True)
+    text = text.replace('\x00', '').replace('<', '&lt;').replace('>', '&gt;')
+    return text
 
 def sanitize_email(email: str) -> str:
-    """Special sanitization for email addresses"""
     if not email:
         return ""
-    
-    # Basic email cleaning - be more permissive since emails have specific format
-    cleaned = email.strip().lower()
-    # Remove any HTML tags but preserve @ and . for email format
-    cleaned = bleach.clean(cleaned, tags=[], strip=True)
-    
-    return cleaned
+    email = email.strip().lower()
+    email = bleach.clean(email, tags=[], strip=True)
+    email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+    if not email_pattern.match(email):
+        raise ValueError("Invalid email format")
+    return email
+
+def sanitize_username(username: str) -> str:
+    if not username:
+        return ""
+    username = username.strip().lower()
+    username = re.sub(r'[^a-z0-9_]', '', username)
+    if len(username) < 3:
+        raise ValueError("Username must be at least 3 characters")
+    return username[:30]
 
 # Admin functions for account management (STANDALONE FUNCTIONS)
 async def suspend_user(
@@ -1873,7 +1897,22 @@ class EmailChangeRequest(Base):
     verified = Column(Boolean, default=False)
     verified_at = Column(DateTime, nullable=True)
     user = relationship("User")
-    
+
+class CsrfSettings(BaseModel):
+    secret_key: str = os.getenv("SECRET_KEY")
+    cookie_name: str = "fastapi-csrf-token"
+    cookie_samesite: str = "lax"
+    cookie_secure: bool = True  # HTTPS only
+    cookie_httponly: bool = True
+    header_name: str = "X-CSRF-Token"
+    header_type: str = "form"
+    max_age: int = 3600  # 1 hour 
+
+# Load the config using decorator
+@CsrfProtect.load_config
+def get_csrf_config():
+    return CsrfSettings()  
+
 # ----- Auth Setup -----
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
@@ -2135,6 +2174,26 @@ def apply_plan_features(user):
     
 # ---- FastAPI Setup -----
 app = FastAPI()
+
+# Add middlewares
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["giverai.me", "www.giverai.me", "localhost"])
+
+# Exception handler
+@app.exception_handler(CsrfProtectError)
+def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
+    return JSONResponse(
+        status_code=exc.status_code, 
+        content={"detail": "CSRF token validation failed"}
+    )
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Too many requests. Please try again later."}
+    )
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -2524,8 +2583,9 @@ async def favicon():
 
 @limiter.limit("3/minute") 
 @app.get("/register", response_class=HTMLResponse)
-def register(request: Request, success: str = None):
+def register(request: Request, csrf_protect: CsrfProtect = Depends(), success: str = None):
     user = get_optional_user(request)
+    csrf_token = csrf_protect.generate_csrf()
     success_message = None
     
     if success == "registration_complete":
@@ -2535,10 +2595,11 @@ def register(request: Request, success: str = None):
         "request": request, 
         "user": user,
         "success": success_message,
+        "csrf_token": csrf_token,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
 
-@limiter.limit("10/minute")
+@limiter.limit("3/hour")
 @app.post("/register", response_class=HTMLResponse)
 async def register_post(
     request: Request, 
@@ -2740,7 +2801,8 @@ async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depe
     )
     
     return response
-@limiter.limit("30/hour")
+
+@limiter.limit("3/hour")
 @app.post("/forgot-password")
 async def forgot_password_post(
     request: Request,
@@ -3349,29 +3411,6 @@ def get_admin_user(request: Request):
 def get_regular_user(request: Request):
     """Get current user for regular dashboard - NOT for admin routes"""
     return get_current_user(request)
-
-class CsrfSettings(BaseModel):
-    secret_key: str = os.getenv("SECRET_KEY")
-    cookie_name: str = "fastapi-csrf-token"
-    cookie_samesite: str = "lax"
-    cookie_secure: bool = True  # HTTPS only
-    cookie_httponly: bool = True
-    header_name: str = "X-CSRF-Token"
-    header_type: str = "form"
-    max_age: int = 3600  # 1 hour 
-    
-# Load the config using decorator
-@CsrfProtect.load_config
-def get_csrf_config():
-    return CsrfSettings()  
-
-# Exception handler
-@app.exception_handler(CsrfProtectError)
-def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
-    return JSONResponse(
-        status_code=exc.status_code, 
-        content={"detail": "CSRF token validation failed"}
-    )
 
 @app.middleware("http")
 async def ip_ban_middleware(request: Request, call_next):
@@ -4536,16 +4575,18 @@ async def admin_user_activity(
         db.close()
 
 @app.get("/login", response_class=HTMLResponse)
-def login(request: Request):
+def login(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
+    csrf_token = csrf_protect.generate_csrf()
     return templates.TemplateResponse("login.html", {
         "request": request, 
         "user": user,
-        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+        "csrf_token": csrf_token
     })
  
+@limiter.limit("5/minute")
 @app.post("/login")
-@limiter.limit("10/hour")
 async def login_post(  # Made async
     request: Request, 
     username: str = Form(...), 
