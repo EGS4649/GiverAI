@@ -109,6 +109,7 @@
   <h2>API Access</h2>
   <p>Your API Key: <code>{{ user.api_key or 'Not generated' }}</code></p>
   <form method="post" action="/generate-api-key">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button type="submit">Generate New API Key</button>
   </form>
 </div>
@@ -148,6 +149,7 @@
 <div class="account-section">
     <h2>Subscription Management</h2>
     <form method="post" action="/cancel-subscription">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit">Cancel Subscription</button>
     </form>
 </div>
@@ -157,6 +159,7 @@
       <h2>Delete Account</h2>
       <p>Warning: This will permanently delete your account and all associated data. This action cannot be undone.</p>
       <form method="post" action="/account/delete" onsubmit="return confirm('Are you sure you want to permanently delete your account? This cannot be undone.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit">Delete My Account</button>
       </form>
     </div>
