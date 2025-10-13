@@ -57,19 +57,17 @@
 </div>
 {% endif %}
     
-    <form method="post" action="/login">
-      <label>Username:</label><br />
-      <input type="text" name="username" placeholder="Enter your username" required /><br />
-      <label>Password:</label><br />
-      <input type="password" name="password" placeholder="Enter your password" required /><br />
-       <div class="g-recaptcha" 
-           data-sitekey="{{ recaptcha_site_key }}"
-           style="margin: 20px 0;"></div>
-      <button type="submit">Login</button>
-    </form>
+<form method="post" action="/login">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label>Username:</label><br />
+  <input type="text" name="username" placeholder="Enter your username" required /><br />
+  <label>Password:</label><br />
+  <input type="password" name="password" placeholder="Enter your password" required /><br />
+  <button type="submit">Login</button>
+</form>
     
     <hr />
-    <!-- ADD THESE FORGOT LINKS -->
+    <!-- FORGOT LINKS -->
     <div class="forgot-links" style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
         <p>Having trouble signing in?</p>
         <a href="/forgot-password" class="forgot-link">Forgot Password or Username?</a>
