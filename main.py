@@ -4575,7 +4575,7 @@ async def admin_user_activity(
         db.close()
 
 @app.get("/login", response_class=HTMLResponse)
-def login(request: Request, csrf_protect: CsrfProtect = Depends()):
+async def login(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
     csrf_token = csrf_protect.generate_csrf()
     return templates.TemplateResponse("login.html", {
