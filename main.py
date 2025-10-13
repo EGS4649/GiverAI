@@ -4689,13 +4689,37 @@ async def login(request: Request, csrf_protect: CsrfProtect = Depends()):
  
 @limiter.limit("5/minute")
 @app.post("/login")
-async def login_post(  # Made async
+async def login_post(
     request: Request, 
     username: str = Form(...), 
     password: str = Form(...),
+    csrf_token: str = Form(...),
     csrf_protect: CsrfProtect = Depends(),
 ):
-    await csrf_protect.validate_csrf(request)
+    # Manual CSRF validation
+    cookie_token = request.cookies.get("fastapi-csrf-token")
+
+    if not cookie_token or cookie_token != csrf_token:
+        csrf_response = csrf_protect.generate_csrf()
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        
+        response = templates.TemplateResponse("login.html", {
+            "request": request,
+            "user": None,
+            "error": "Invalid CSRF token. Please refresh and try again.",
+            "csrf_token": new_csrf_token
+        })
+        response.set_cookie(
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+        return response  # YOU FORGOT THIS!
+
     db = SessionLocal()
     try:
         # Get real client IP
@@ -4712,11 +4736,27 @@ async def login_post(  # Made async
             if user_record.account_locked_until > datetime.utcnow():
                 time_remaining = user_record.account_locked_until - datetime.utcnow()
                 hours_remaining = int(time_remaining.total_seconds() / 3600) + 1
-                return templates.TemplateResponse("login.html", {
+                
+                # Generate new CSRF token for error response
+                csrf_response = csrf_protect.generate_csrf()
+                new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+                
+                response = templates.TemplateResponse("login.html", {
                     "request": request,
                     "user": None,
                     "error": f"Account temporarily locked. Try again in {hours_remaining} hour(s).",
+                    "csrf_token": new_csrf_token
                 })
+                response.set_cookie(
+                    key="fastapi-csrf-token",
+                    value=new_csrf_token,
+                    max_age=3600,
+                    path="/",
+                    secure=True,
+                    httponly=True,
+                    samesite="lax"
+                )
+                return response
             else:
                 # Lock period has expired, clear it
                 user_record.account_locked_until = None
@@ -4727,7 +4767,7 @@ async def login_post(  # Made async
         user = authenticate_user(db, username, password)
         
         if user:  # successful login
-            user.last_known_ip = client_ip  # Store REAL IP
+            user.last_known_ip = client_ip
             user.last_login = datetime.utcnow()
             db.commit()
             
@@ -4737,56 +4777,124 @@ async def login_post(  # Made async
                 user_record.failed_login_attempts = (user_record.failed_login_attempts or 0) + 1
                 user_record.last_failed_login = datetime.utcnow()
                 
-                # Lock account after 4 failed attempts (you mentioned 4+)
+                # Lock account after 4 failed attempts
                 if user_record.failed_login_attempts >= 4:
                     user_record.account_locked_until = datetime.utcnow() + timedelta(hours=24)
                     db.commit()
                     
-                    # FIXED: Send email notification about locked account
                     try:
                         await email_service.send_account_locked_email(user_record.email, 24)
                         print(f"✅ Account locked email sent to {user_record.email}")
                     except Exception as e:
                         print(f"❌ Failed to send account locked email: {e}")
-                        import traceback
-                        traceback.print_exc()
                     
-                    return templates.TemplateResponse("login.html", {
+                    csrf_response = csrf_protect.generate_csrf()
+                    new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+                    
+                    response = templates.TemplateResponse("login.html", {
                         "request": request,
                         "user": None,
-                        "error": "Account locked due to multiple failed login attempts. Check your email for recovery instructions."
+                        "error": "Account locked due to multiple failed login attempts. Check your email for recovery instructions.",
+                        "csrf_token": new_csrf_token
                     })
+                    response.set_cookie(
+                        key="fastapi-csrf-token",
+                        value=new_csrf_token,
+                        max_age=3600,
+                        path="/",
+                        secure=True,
+                        httponly=True,
+                        samesite="lax"
+                    )
+                    return response
                 else:
                     attempts_left = 4 - user_record.failed_login_attempts
                     db.commit()
-                    return templates.TemplateResponse("login.html", {
+                    
+                    csrf_response = csrf_protect.generate_csrf()
+                    new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+                    
+                    response = templates.TemplateResponse("login.html", {
                         "request": request,
                         "user": None,
-                        "error": f"Invalid credentials. {attempts_left} attempt(s) remaining before account lock."
+                        "error": f"Invalid credentials. {attempts_left} attempt(s) remaining before account lock.",
+                        "csrf_token": new_csrf_token
                     })
+                    response.set_cookie(
+                        key="fastapi-csrf-token",
+                        value=new_csrf_token,
+                        max_age=3600,
+                        path="/",
+                        secure=True,
+                        httponly=True,
+                        samesite="lax"
+                    )
+                    return response
             else:
-                # Username/email doesn't exist - don't reveal this info
-                return templates.TemplateResponse("login.html", {
+                # Username/email doesn't exist
+                csrf_response = csrf_protect.generate_csrf()
+                new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+                
+                response = templates.TemplateResponse("login.html", {
                     "request": request,
                     "user": None,
-                    "error": "Invalid credentials"
+                    "error": "Invalid credentials",
+                    "csrf_token": new_csrf_token
                 })
+                response.set_cookie(
+                    key="fastapi-csrf-token",
+                    value=new_csrf_token,
+                    max_age=3600,
+                    path="/",
+                    secure=True,
+                    httponly=True,
+                    samesite="lax"
+                )
+                return response
         
         # Check if account is suspended
         if user.is_suspended:
-            return templates.TemplateResponse("login.html", {
+            csrf_response = csrf_protect.generate_csrf()
+            new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+            
+            response = templates.TemplateResponse("login.html", {
                 "request": request,
                 "user": None,
-                "error": f"Account suspended: {user.suspension_reason or 'Please contact support'}"
+                "error": f"Account suspended: {user.suspension_reason or 'Please contact support'}",
+                "csrf_token": new_csrf_token
             })
+            response.set_cookie(
+                key="fastapi-csrf-token",
+                value=new_csrf_token,
+                max_age=3600,
+                path="/",
+                secure=True,
+                httponly=True,
+                samesite="lax"
+            )
+            return response
         
         # Check if email is verified
         if not user.is_active:
-            return templates.TemplateResponse("login.html", {
+            csrf_response = csrf_protect.generate_csrf()
+            new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+            
+            response = templates.TemplateResponse("login.html", {
                 "request": request, 
                 "user": None,
-                "error": "Please verify your email before logging in"
+                "error": "Please verify your email before logging in",
+                "csrf_token": new_csrf_token
             })
+            response.set_cookie(
+                key="fastapi-csrf-token",
+                value=new_csrf_token,
+                max_age=3600,
+                path="/",
+                secure=True,
+                httponly=True,
+                samesite="lax"
+            )
+            return response
         
         # Successful login - reset failed attempts
         user.failed_login_attempts = 0
@@ -4800,7 +4908,6 @@ async def login_post(  # Made async
             expires_delta=timedelta(days=2)
         )
         
-        # Log successful login
         print(f"✅ Successful login for user: {user.username} at {datetime.utcnow()}")
         
         response = RedirectResponse("/dashboard", status_code=302)
@@ -4812,7 +4919,6 @@ async def login_post(  # Made async
             samesite='strict',
             max_age=2*24*3600,
             domain=".giverai.me"
-
         )
         return response
         
@@ -4820,11 +4926,27 @@ async def login_post(  # Made async
         print(f"Login error: {str(e)}")
         import traceback
         traceback.print_exc()
-        return templates.TemplateResponse("login.html", {
+        
+        # Generate CSRF token for exception case
+        csrf_response = csrf_protect.generate_csrf()
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        
+        response = templates.TemplateResponse("login.html", {
             "request": request,
             "user": None, 
-            "error": "Invalid credentials"
+            "error": "Invalid credentials",
+            "csrf_token": new_csrf_token
         })
+        response.set_cookie(
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+        return response
     finally:
         db.close()
 
