@@ -6080,7 +6080,7 @@ def complete_onboarding_get(request: Request, user: User = Depends(get_current_u
     return templates.TemplateResponse("onboarding.html", {"request": request, "user": user})
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def user_dashboard(  # <- Changed from admin_dashboard
+def user_dashboard( 
     request: Request,
     success: str = None,
     error: str = None,
