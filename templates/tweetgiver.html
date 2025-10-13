@@ -47,6 +47,7 @@
     </div>
     
     <form method="post" action="/tweetgiver">
+       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label>Your job/niche:</label><br />
       <input type="text" name="job" placeholder="e.g., Digital Marketing Expert, Fitness Coach, Tech Entrepreneur" required /><br />
       <label>Your goal for today's tweets:</label><br />
