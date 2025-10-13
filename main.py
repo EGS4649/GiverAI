@@ -5492,16 +5492,18 @@ async def remove_team_member(
         db.close()
 
 @app.get("/tweetgiver", response_class=HTMLResponse)
-def tweetgiver(request: Request):
+def tweetgiver(request: Request,csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
+    csrf_token = csrf_protect.generate_csrf()
     if user:
         return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse("tweetgiver.html", {"request": request, "tweets": None, "user": user})
 
 @app.post("/tweetgiver", response_class=HTMLResponse)
 @limiter.limit("60/hour")  
-async def generate_tweetgiver(request: Request):
+async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = None
+    await csrf_protect.validate_csrf(request)
     try: 
         user = get_current_user(request)
         # If user is logged in, redirect to dashboard for generation
