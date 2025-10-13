@@ -6131,6 +6131,7 @@ async def user_dashboard(  # <- Changed from admin_dashboard
 @app.post("/dashboard", response_class=HTMLResponse)
 async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
     db = SessionLocal()
+    
     await csrf_protect.validate_csrf(request)
     try:
         user = get_current_user(request)
