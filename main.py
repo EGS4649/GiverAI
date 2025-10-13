@@ -5010,7 +5010,6 @@ async def logout():
 def contact_page(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
     csrf_response = csrf_protect.generate_csrf()
-    
     # Extract token from tuple
     csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
     
@@ -5384,16 +5383,19 @@ def update_database_for_suspension_appeals():
         print(f"❌ Error updating database for suspension appeals: {e}")
 
 # Account Management Routes
+
 @app.get("/account", response_class=HTMLResponse)
 async def account(request: Request, user: User = Depends(get_current_user), csrf_protect: CsrfProtect = Depends()):
-    csrf_token = csrf_protect.generate_csrf() 
-
+    csrf_response = csrf_protect.generate_csrf()
+    # Extract token from tuple - THIS WAS MISSING!
+    csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+    
     response = templates.TemplateResponse("account.html", {
         "request": request,
         "user": user,
         "csrf_token": csrf_token
     })
-
+    
     # Set the CSRF cookie
     response.set_cookie(
         key="fastapi-csrf-token",
@@ -6335,7 +6337,7 @@ def complete_onboarding_get(request: Request, user: User = Depends(get_current_u
     return templates.TemplateResponse("onboarding.html", {"request": request, "user": user})
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def user_dashboard( 
+def user_dashboard(
     request: Request,
     success: str = None,
     error: str = None,
@@ -6343,11 +6345,11 @@ def user_dashboard(
     db: Session = Depends(get_db),
     csrf_protect: CsrfProtect = Depends()
 ):
+    """User dashboard - For regular users (NOT admin)"""
     csrf_response = csrf_protect.generate_csrf()
     # Extract token from tuple
     csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
-
-    """User dashboard - For regular users (NOT admin)"""
+    
     current_user = apply_plan_features(current_user)
     
     # Get user's usage for today
@@ -6372,19 +6374,20 @@ def user_dashboard(
         GeneratedTweet.user_id == current_user.id
     ).order_by(GeneratedTweet.generated_at.desc()).limit(10).all()
     
-    response = templates.TemplateResponse("dashboard.html", {  # <- Use regular dashboard.html (NOT admin/dashboard.html)
+    response = templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": current_user,
         "features": current_user.features,
         "tweets_left": tweets_left,
         "tweets_used": tweets_used,
         "recent_tweets": recent_tweets,
-        "tweets": [],  # Empty initially, populated by POST
+        "tweets": [],
         "success": success,
         "error": error,
-        "csrf_token": csrf_token
+        "csrf_token": csrf_token,
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")  # Add this if dashboard has forms
     })
-
+    
     # Set the CSRF cookie
     response.set_cookie(
         key="fastapi-csrf-token",
@@ -6397,7 +6400,6 @@ def user_dashboard(
     )
     
     return response
-
 
 @limiter.limit("30/hour")
 @app.post("/dashboard", response_class=HTMLResponse)
