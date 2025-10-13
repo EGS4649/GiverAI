@@ -125,6 +125,7 @@
     <div class="account-section">
       <h2>Change Password</h2>
       <form method="post" action="/account/change_password">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <label>Current Password:</label>
         <input type="password" name="current_password" required><br>
         <label>New Password:</label>
@@ -136,6 +137,7 @@
     <div class="account-section">
       <h2>Change Email</h2>
       <form method="post" action="/account/change_email">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <label>New Email:</label>
         <input type="email" name="new_email" required><br>
         <button type="submit">Update Email</button>
