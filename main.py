@@ -2585,19 +2585,35 @@ async def favicon():
 @app.get("/register", response_class=HTMLResponse)
 def register(request: Request, csrf_protect: CsrfProtect = Depends(), success: str = None):
     user = get_optional_user(request)
-    csrf_token = csrf_protect.generate_csrf()
-    success_message = None
+    csrf_response = csrf_protect.generate_csrf()
     
+    # Extract token from tuple
+    csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+    
+    success_message = None
     if success == "registration_complete":
         success_message = "Registration successful! Please check your email to verify your account."
     
-    return templates.TemplateResponse("register.html", {
+    response = templates.TemplateResponse("register.html", {
         "request": request, 
         "user": user,
         "success": success_message,
         "csrf_token": csrf_token,
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
+    
+    # SET THE COOKIE
+    response.set_cookie(
+        key="fastapi-csrf-token",
+        value=csrf_token,
+        max_age=3600,
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="lax"
+    )
+    
+    return response
 
 @limiter.limit("3/hour")
 @app.post("/register", response_class=HTMLResponse)
@@ -2606,13 +2622,39 @@ async def register_post(
     username: str = Form(...), 
     email: str = Form(...), 
     password: str = Form(...),
+    csrf_token: str = Form(...),
     csrf_protect: CsrfProtect = Depends(),  # Add CSRF protection
     g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
 ):
-    # Sanitize inputs immediately after receiving them
+    # Sanitize inputs
     username = sanitize_input(username)
     email = sanitize_input(email)
-    await csrf_protect.validate_csrf(request)  # Add CSRF validation
+    
+    # Manual CSRF validation
+    cookie_token = request.cookies.get("fastapi-csrf-token")
+    
+    if not cookie_token or cookie_token != csrf_token:
+        csrf_response = csrf_protect.generate_csrf()
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        
+        response = templates.TemplateResponse("register.html", {
+            "request": request,
+            "user": None,
+            "error": "Invalid CSRF token. Please refresh and try again.",
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+            "csrf_token": new_csrf_token
+        })
+        response.set_cookie(
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+        return response
+    
     db = SessionLocal()
     try:
         print(f"Starting registration for username: {username}")
@@ -2624,43 +2666,82 @@ async def register_post(
         # Verify reCAPTCHA first
         if not verify_recaptcha(g_recaptcha_response):
             print("❌ reCAPTCHA verification failed")
-            return templates.TemplateResponse("register.html", {
+            csrf_response = csrf_protect.generate_csrf()
+            new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+            
+            response = templates.TemplateResponse("register.html", {
                 "request": request, 
                 "user": None,
                 "error": "Please complete the reCAPTCHA verification",
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+                "csrf_token": new_csrf_token
             })
+            response.set_cookie(
+                key="fastapi-csrf-token",
+                value=new_csrf_token,
+                max_age=3600,
+                path="/",
+                secure=True,
+                httponly=True,
+                samesite="lax"
+            )
+            return response
         
         print("✅ reCAPTCHA verified successfully")
         
-        # Check username exists using ORM
+        # Check username exists
         existing_username = db.query(User).filter(User.username == username).first()
         if existing_username:
             print(f"Username {username} already exists")
-            return templates.TemplateResponse("register.html", {
+            csrf_response = csrf_protect.generate_csrf()
+            new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+            
+            response = templates.TemplateResponse("register.html", {
                 "request": request, 
                 "user": None,
                 "error": "Username already exists",
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+                "csrf_token": new_csrf_token
             })
+            response.set_cookie(
+                key="fastapi-csrf-token",
+                value=new_csrf_token,
+                max_age=3600,
+                path="/",
+                secure=True,
+                httponly=True,
+                samesite="lax"
+            )
+            return response
         
-        # Check email exists using ORM
+        # Check email exists
         existing_email = db.query(User).filter(User.email == email).first()
         if existing_email:
             print(f"Email {email} already registered")
-            return templates.TemplateResponse("register.html", {
+            csrf_response = csrf_protect.generate_csrf()
+            new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+            
+            response = templates.TemplateResponse("register.html", {
                 "request": request, 
                 "user": None,
                 "error": "Email already registered",
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+                "csrf_token": new_csrf_token
             })
+            response.set_cookie(
+                key="fastapi-csrf-token",
+                value=new_csrf_token,
+                max_age=3600,
+                path="/",
+                secure=True,
+                httponly=True,
+                samesite="lax"
+            )
+            return response
         
-        # Hash the password
-        print("Hashing password...")
+        # Hash password and create user
         hashed_password = hash_password(password)
-        print(f"Password hashed successfully, type: {type(hashed_password)}")
         
-        # Create user using ORM
         new_user = User(
             username=username,
             email=email,
@@ -2668,26 +2749,23 @@ async def register_post(
             plan="free",
             is_active=False,
             created_at=datetime.utcnow(),
-            registration_ip=client_ip  # Store registration IP for security
+            registration_ip=client_ip
         )
         
         db.add(new_user)
-        db.flush()  # This assigns the ID without committing
+        db.flush()
         user_id = new_user.id
         db.commit()
         
-        # Create email verification record
+        # Create verification and send emails
         verification = create_verification_record(user_id, db)
         
-        # Send verification email
-        if new_user:
-            try:
-                await email_service.send_verification_email(new_user, verification.token)
-                print("✅ Verification email sent successfully")
-            except Exception as e:
-                print(f"❌ Failed to send verification email: {str(e)}")
+        try:
+            await email_service.send_verification_email(new_user, verification.token)
+            print("✅ Verification email sent successfully")
+        except Exception as e:
+            print(f"❌ Failed to send verification email: {str(e)}")
         
-        # Also send welcome email
         try:
             await email_service.send_welcome_email(new_user)
             print("✅ Welcome email sent successfully")
@@ -2696,7 +2774,6 @@ async def register_post(
         
         print(f"User registered successfully with ID: {user_id}")
         
-        # Return success template instead of redirect
         return templates.TemplateResponse("register_success.html", {
             "request": request,
             "user": None,
@@ -2706,17 +2783,30 @@ async def register_post(
         
     except Exception as e:
         db.rollback()
-        error_msg = str(e)
-        print(f"Registration error: {error_msg}")
+        print(f"Registration error: {str(e)}")
         import traceback
         traceback.print_exc()
         
-        return templates.TemplateResponse("register.html", {
+        csrf_response = csrf_protect.generate_csrf()
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        
+        response = templates.TemplateResponse("register.html", {
             "request": request,
             "user": None,
             "error": "Registration failed. Please try again.",
-            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+            "csrf_token": new_csrf_token
         })
+        response.set_cookie(
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+        return response
     finally:
         db.close()
 
@@ -2741,8 +2831,6 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     return response
-
-
 
 @app.middleware("http")
 async def logo_cache_middleware(request: Request, call_next):
@@ -4577,12 +4665,27 @@ async def admin_user_activity(
 @app.get("/login", response_class=HTMLResponse)
 async def login(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
-    csrf_token = csrf_protect.generate_csrf()
-    return templates.TemplateResponse("login.html", {
+    csrf_response = csrf_protect.generate_csrf()
+
+    # Extract token from tuple
+    csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+    response = templates.TemplateResponse("login.html", {
         "request": request, 
         "user": user,
         "csrf_token": csrf_token
     })
+    # Set the CSRF cookie
+    response.set_cookie(
+        key="fastapi-csrf-token",
+        value=csrf_token,
+        max_age=3600,
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="lax"
+    )
+    
+    return response
  
 @limiter.limit("5/minute")
 @app.post("/login")
@@ -4776,7 +4879,7 @@ async def unlock_account_request(
         db.close
         
 @app.get("/logout")
-def logout():
+async def logout():
     response = RedirectResponse("/", status_code=302)
     response.delete_cookie("access_token")
     return response
@@ -4784,13 +4887,30 @@ def logout():
 @app.get("/contact", response_class=HTMLResponse)
 def contact_page(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
-    csrf_token = csrf_protect.generate_csrf()
-    return templates.TemplateResponse("contact.html", {
-        "request": request, 
+    csrf_response = csrf_protect.generate_csrf()
+    
+    # Extract token from tuple
+    csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+    
+    response = templates.TemplateResponse("contact.html", {
+        "request": request,
         "user": user,
         "form_data": {},
         "csrf_token": csrf_token
     })
+    
+    # Set the CSRF cookie
+    response.set_cookie(
+        key="fastapi-csrf-token",
+        value=csrf_token,
+        max_age=3600,
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="lax"
+    )
+    
+    return response
 
 @limiter.limit("10/minute")   
 @app.post("/contact", response_class=HTMLResponse)
@@ -5146,11 +5266,24 @@ def update_database_for_suspension_appeals():
 async def account(request: Request, user: User = Depends(get_current_user), csrf_protect: CsrfProtect = Depends()):
     csrf_token = csrf_protect.generate_csrf() 
 
-    return templates.TemplateResponse("account.html", {
+    response = templates.TemplateResponse("account.html", {
         "request": request,
         "user": user,
         "csrf_token": csrf_token
     })
+
+    # Set the CSRF cookie
+    response.set_cookie(
+        key="fastapi-csrf-token",
+        value=csrf_token,
+        max_age=3600,
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="lax"
+    )
+    
+    return response
 
 # Fix history route
 @app.get("/history", response_class=HTMLResponse)
@@ -6088,7 +6221,10 @@ def user_dashboard(
     db: Session = Depends(get_db),
     csrf_protect: CsrfProtect = Depends()
 ):
-    csrf_token = csrf_protect.generate_csrf()
+    csrf_response = csrf_protect.generate_csrf()
+    # Extract token from tuple
+    csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+
     """User dashboard - For regular users (NOT admin)"""
     current_user = apply_plan_features(current_user)
     
@@ -6114,7 +6250,7 @@ def user_dashboard(
         GeneratedTweet.user_id == current_user.id
     ).order_by(GeneratedTweet.generated_at.desc()).limit(10).all()
     
-    return templates.TemplateResponse("dashboard.html", {  # <- Use regular dashboard.html (NOT admin/dashboard.html)
+    response = templates.TemplateResponse("dashboard.html", {  # <- Use regular dashboard.html (NOT admin/dashboard.html)
         "request": request,
         "user": current_user,
         "features": current_user.features,
@@ -6126,6 +6262,20 @@ def user_dashboard(
         "error": error,
         "csrf_token": csrf_token
     })
+
+    # Set the CSRF cookie
+    response.set_cookie(
+        key="fastapi-csrf-token",
+        value=csrf_token,
+        max_age=3600,
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="lax"
+    )
+    
+    return response
+
 
 @limiter.limit("30/hour")
 @app.post("/dashboard", response_class=HTMLResponse)
