@@ -5497,7 +5497,7 @@ def tweetgiver(request: Request,csrf_protect: CsrfProtect = Depends()):
     csrf_token = csrf_protect.generate_csrf()
     if user:
         return RedirectResponse("/dashboard", status_code=302)
-    return templates.TemplateResponse("tweetgiver.html", {"request": request, "tweets": None, "user": user})
+    return templates.TemplateResponse("tweetgiver.html", {"request": request, "tweets": None, "user": user,"csrf_token": csrf_token})
 
 @app.post("/tweetgiver", response_class=HTMLResponse)
 @limiter.limit("60/hour")  
