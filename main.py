@@ -5747,7 +5747,7 @@ async def remove_team_member(
         return RedirectResponse("/team?error=Member+not+found", status_code=302)
     finally:
         db.close()
-        
+
 @app.get("/tweetgiver", response_class=HTMLResponse)
 async def tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
@@ -5781,34 +5781,109 @@ async def tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     return response
 
 @app.post("/tweetgiver", response_class=HTMLResponse)
-@limiter.limit("60/hour")  
+@limiter.limit("60/hour")
 async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = None
-    await csrf_protect.validate_csrf(request)
-    try: 
+    
+    # Get form data first
+    form = await request.form()
+    csrf_token = form.get("csrf_token")
+    
+    # Manual CSRF validation
+    cookie_token = request.cookies.get("fastapi-csrf-token")
+    
+    if not cookie_token or cookie_token != csrf_token:
+        csrf_response = csrf_protect.generate_csrf()
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        
+        response = templates.TemplateResponse("tweetgiver.html", {
+            "request": request,
+            "tweets": None,
+            "user": None,
+            "error": "Invalid CSRF token. Please refresh and try again.",
+            "csrf_token": new_csrf_token,
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
+        response.set_cookie(
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+        return response
+    
+    try:
         user = get_current_user(request)
         # If user is logged in, redirect to dashboard for generation
         return RedirectResponse("/dashboard", status_code=302)
-    except: 
+    except:
         pass  # Allow non-authenticated users to generate once
-        
-    # Check if user has already used the playground (stored in session/cookie)
+    
+    # Check if user has already used the playground
     playground_used = request.cookies.get("playground_used", "false")
     if playground_used == "true":
-        # Redirect to registration if they've already used their one free try
         return RedirectResponse("/register", status_code=302)
-        
-    form = await request.form()
+    
     job = sanitize_input(form.get("job"))
     goal = sanitize_input(form.get("goal"))
     
-    # Generate tweets for non-authenticated users (no usage tracking)
+    # Verify reCAPTCHA
+    g_recaptcha_response = form.get("g-recaptcha-response", "")
+    if not verify_recaptcha(g_recaptcha_response):
+        csrf_response = csrf_protect.generate_csrf()
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        
+        response = templates.TemplateResponse("tweetgiver.html", {
+            "request": request,
+            "tweets": None,
+            "user": None,
+            "error": "Please complete the reCAPTCHA verification",
+            "csrf_token": new_csrf_token,
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
+        response.set_cookie(
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+        return response
+    
+    # Generate tweets
     prompt = f"As a {job}, suggest 5 engaging tweets to achieve: {goal}."
     tweets = await get_ai_tweets(prompt, 5)
     
-    response = templates.TemplateResponse("tweetgiver.html", {"request": request, "tweets": tweets, "user": user})
+    csrf_response = csrf_protect.generate_csrf()
+    new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+    
+    response = templates.TemplateResponse("tweetgiver.html", {
+        "request": request,
+        "tweets": tweets,
+        "user": user,
+        "csrf_token": new_csrf_token,
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+    })
+    
     # Set cookie to mark playground as used
-    response.set_cookie(key="playground_used", value="true", max_age=86400)  # 24 hours
+    response.set_cookie(key="playground_used", value="true", max_age=86400)
+    
+    # Set CSRF cookie
+    response.set_cookie(
+        key="fastapi-csrf-token",
+        value=new_csrf_token,
+        max_age=3600,
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="lax"
+    )
+    
     return response
 
 @app.get("/pricing", response_class=HTMLResponse)
