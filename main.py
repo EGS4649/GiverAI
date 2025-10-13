@@ -5492,7 +5492,7 @@ async def remove_team_member(
         db.close()
 
 @app.get("/tweetgiver", response_class=HTMLResponse)
-def tweetgiver(request: Request,csrf_protect: CsrfProtect = Depends()):
+async def tweetgiver(request: Request,csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
     csrf_token = csrf_protect.generate_csrf()
     if user:
@@ -6131,7 +6131,7 @@ async def user_dashboard(  # <- Changed from admin_dashboard
 @app.post("/dashboard", response_class=HTMLResponse)
 async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
     db = SessionLocal()
-    
+
     await csrf_protect.validate_csrf(request)
     try:
         user = get_current_user(request)
