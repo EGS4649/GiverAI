@@ -5747,14 +5747,38 @@ async def remove_team_member(
         return RedirectResponse("/team?error=Member+not+found", status_code=302)
     finally:
         db.close()
-
+        
 @app.get("/tweetgiver", response_class=HTMLResponse)
-async def tweetgiver(request: Request,csrf_protect: CsrfProtect = Depends()):
+async def tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
-    csrf_token = csrf_protect.generate_csrf()
+    
     if user:
         return RedirectResponse("/dashboard", status_code=302)
-    return templates.TemplateResponse("tweetgiver.html", {"request": request, "tweets": None, "user": user,"csrf_token": csrf_token})
+    
+    csrf_response = csrf_protect.generate_csrf()
+    # Extract token from tuple
+    csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+    
+    response = templates.TemplateResponse("tweetgiver.html", {
+        "request": request,
+        "tweets": None,
+        "user": user,
+        "csrf_token": csrf_token,
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+    })
+    
+    # Set the CSRF cookie
+    response.set_cookie(
+        key="fastapi-csrf-token",
+        value=csrf_token,
+        max_age=3600,
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="lax"
+    )
+    
+    return response
 
 @app.post("/tweetgiver", response_class=HTMLResponse)
 @limiter.limit("60/hour")  
