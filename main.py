@@ -4581,7 +4581,6 @@ def login(request: Request, csrf_protect: CsrfProtect = Depends()):
     return templates.TemplateResponse("login.html", {
         "request": request, 
         "user": user,
-        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
         "csrf_token": csrf_token
     })
  
@@ -4592,7 +4591,6 @@ async def login_post(  # Made async
     username: str = Form(...), 
     password: str = Form(...),
     csrf_protect: CsrfProtect = Depends(),
-    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
 ):
     csrf_protect.validate_csrf(request)
     db = SessionLocal()
@@ -4600,18 +4598,6 @@ async def login_post(  # Made async
         # Get real client IP
         client_ip = get_real_client_ip(request)
         print(f"🔐 Login attempt from IP: {client_ip}")
-
-        # Verify reCAPTCHA first
-        if not verify_recaptcha(g_recaptcha_response):
-            print("❌ reCAPTCHA verification failed for login")
-            return templates.TemplateResponse("login.html", {
-                "request": request, 
-                "user": None,
-                "error": "Please complete the reCAPTCHA verification",
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
-            })
-        
-        print("✅ reCAPTCHA verified successfully for login")
         
         # Get user record first (for failed attempt tracking)
         user_record = db.query(User).filter(
@@ -4627,7 +4613,6 @@ async def login_post(  # Made async
                     "request": request,
                     "user": None,
                     "error": f"Account temporarily locked. Try again in {hours_remaining} hour(s).",
-                    "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
                 })
             else:
                 # Lock period has expired, clear it
@@ -4666,8 +4651,7 @@ async def login_post(  # Made async
                     return templates.TemplateResponse("login.html", {
                         "request": request,
                         "user": None,
-                        "error": "Account locked due to multiple failed login attempts. Check your email for recovery instructions.",
-                        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                        "error": "Account locked due to multiple failed login attempts. Check your email for recovery instructions."
                     })
                 else:
                     attempts_left = 4 - user_record.failed_login_attempts
@@ -4675,16 +4659,14 @@ async def login_post(  # Made async
                     return templates.TemplateResponse("login.html", {
                         "request": request,
                         "user": None,
-                        "error": f"Invalid credentials. {attempts_left} attempt(s) remaining before account lock.",
-                        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                        "error": f"Invalid credentials. {attempts_left} attempt(s) remaining before account lock."
                     })
             else:
                 # Username/email doesn't exist - don't reveal this info
                 return templates.TemplateResponse("login.html", {
                     "request": request,
                     "user": None,
-                    "error": "Invalid credentials",
-                    "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                    "error": "Invalid credentials"
                 })
         
         # Check if account is suspended
@@ -4692,8 +4674,7 @@ async def login_post(  # Made async
             return templates.TemplateResponse("login.html", {
                 "request": request,
                 "user": None,
-                "error": f"Account suspended: {user.suspension_reason or 'Please contact support'}",
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                "error": f"Account suspended: {user.suspension_reason or 'Please contact support'}"
             })
         
         # Check if email is verified
@@ -4701,8 +4682,7 @@ async def login_post(  # Made async
             return templates.TemplateResponse("login.html", {
                 "request": request, 
                 "user": None,
-                "error": "Please verify your email before logging in",
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+                "error": "Please verify your email before logging in"
             })
         
         # Successful login - reset failed attempts
@@ -4740,8 +4720,7 @@ async def login_post(  # Made async
         return templates.TemplateResponse("login.html", {
             "request": request,
             "user": None, 
-            "error": "Invalid credentials",
-            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            "error": "Invalid credentials"
         })
     finally:
         db.close()
