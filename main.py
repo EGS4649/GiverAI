@@ -4592,7 +4592,7 @@ async def login_post(  # Made async
     password: str = Form(...),
     csrf_protect: CsrfProtect = Depends(),
 ):
-    csrf_protect.validate_csrf(request)
+    await csrf_protect.validate_csrf(request)
     db = SessionLocal()
     try:
         # Get real client IP
@@ -4782,17 +4782,20 @@ def logout():
     return response
 
 @app.get("/contact", response_class=HTMLResponse)
-def contact_page(request: Request):
+def contact_page(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
+    csrf_token = csrf_protect.generate_csrf()
     return templates.TemplateResponse("contact.html", {
         "request": request, 
         "user": user,
-        "form_data": {}
+        "form_data": {},
+        "csrf_token": csrf_token
     })
 
 @limiter.limit("10/minute")   
 @app.post("/contact", response_class=HTMLResponse)
-async def handle_contact_form(request: Request):
+async def handle_contact_form(request: Request,csrf_protect: CsrfProtect = Depends()):
+    await csrf_protect.validate_csrf(request)
     user = get_optional_user(request)
     form_data = {}
     
@@ -6080,8 +6083,10 @@ async def user_dashboard(  # <- Changed from admin_dashboard
     success: str = None,
     error: str = None,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    csrf_protect: CsrfProtect = Depends()
 ):
+    csrf_token = csrf_protect.generate_csrf()
     """User dashboard - For regular users (NOT admin)"""
     current_user = apply_plan_features(current_user)
     
@@ -6116,12 +6121,14 @@ async def user_dashboard(  # <- Changed from admin_dashboard
         "recent_tweets": recent_tweets,
         "tweets": [],  # Empty initially, populated by POST
         "success": success,
-        "error": error
+        "error": error,
+        "csrf_token": csrf_token
     })
 
 @limiter.limit("30/hour")
 @app.post("/dashboard", response_class=HTMLResponse)
-async def generate(request: Request):
+async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
+    await csrf_protect.validate_csrf(request)
     db = SessionLocal()
     try:
         user = get_current_user(request)
