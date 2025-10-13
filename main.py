@@ -6504,18 +6504,89 @@ def user_dashboard(
 @app.post("/dashboard", response_class=HTMLResponse)
 async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
     db = SessionLocal()
+    
+    # Get form data first
+    form = await request.form()
+    csrf_token = form.get("csrf_token")
+    
+    # Manual CSRF validation
+    cookie_token = request.cookies.get("fastapi-csrf-token")
+    
+    if not cookie_token or cookie_token != csrf_token:
+        csrf_response = csrf_protect.generate_csrf()
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        
+        try:
+            user = get_current_user(request)
+        except:
+            user = None
+        
+        response = templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "user": user,
+            "features": user.features if user else {},
+            "tweets_left": 0,
+            "tweets": [],
+            "error": "Invalid CSRF token. Please refresh and try again.",
+            "csrf_token": new_csrf_token,
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
+        response.set_cookie(
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+        return response
 
-    await csrf_protect.validate_csrf(request)
     try:
         user = get_current_user(request)
-        form = await request.form()
+        user = apply_plan_features(user)  # Apply features
+        
         job = form.get("job")
         goal = form.get("goal")
         tweet_count_str = form.get("tweet_count", "1")
+        
         try:
             tweet_count = int(tweet_count_str)
         except ValueError:
-            tweet_count = 1  # fallback to 1 if invalid
+            tweet_count = 1
+
+        # Verify reCAPTCHA
+        g_recaptcha_response = form.get("g-recaptcha-response", "")
+        if not verify_recaptcha(g_recaptcha_response):
+            csrf_response = csrf_protect.generate_csrf()
+            new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+            
+            # Get usage info for error response
+            today = str(date.today())
+            usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
+            tweets_left = "Unlimited" if user.features["daily_limit"] == float('inf') else max(0, user.features["daily_limit"] - (usage.count if usage else 0))
+            
+            response = templates.TemplateResponse("dashboard.html", {
+                "request": request,
+                "user": user,
+                "features": user.features,
+                "tweets_left": tweets_left,
+                "tweets_used": usage.count if usage else 0,
+                "tweets": [],
+                "error": "Please complete the reCAPTCHA verification",
+                "csrf_token": new_csrf_token,
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+            response.set_cookie(
+                key="fastapi-csrf-token",
+                value=new_csrf_token,
+                max_age=3600,
+                path="/",
+                secure=True,
+                httponly=True,
+                samesite="lax"
+            )
+            return response
 
         # Get usage for today
         today = str(date.today())
@@ -6526,24 +6597,44 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
             db.commit()
 
         # Calculate tweets left
-        if user.plan == "free":
-            max_allowed = 15
-            tweets_left = max_allowed - usage.count
+        daily_limit = user.features["daily_limit"]
+        
+        if daily_limit == float('inf'):
+            tweets_left = "Unlimited"
+        else:
+            tweets_left = max(0, daily_limit - usage.count)
+            
             if tweets_left <= 0:
-                return templates.TemplateResponse("dashboard.html", {
+                csrf_response = csrf_protect.generate_csrf()
+                new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+                
+                response = templates.TemplateResponse("dashboard.html", {
                     "request": request,
                     "user": user,
-                    "features": user.features,  # ADDED FEATURES HERE
+                    "features": user.features,
                     "tweets_left": 0,
+                    "tweets_used": usage.count,
                     "tweets": [],
-                    "error": "Daily limit reached! Upgrade for unlimited tweets."
+                    "error": "Daily limit reached! Upgrade for unlimited tweets.",
+                    "csrf_token": new_csrf_token,
+                    "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
                 })
+                response.set_cookie(
+                    key="fastapi-csrf-token",
+                    value=new_csrf_token,
+                    max_age=3600,
+                    path="/",
+                    secure=True,
+                    httponly=True,
+                    samesite="lax"
+                )
+                return response
+            
             if tweet_count > tweets_left:
                 tweet_count = tweets_left
 
         # Build prompt with requested tweet count
         prompt = f"As a {job}, suggest {tweet_count} engaging tweets to achieve: {goal}."
-
         tweets = await get_ai_tweets(prompt, count=tweet_count)
 
         # Save generated tweets to history
@@ -6559,24 +6650,76 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         usage.count += len(tweets)
         db.commit()
 
-        # Calculate remaining tweets for free tier
-        if user.plan == "free":
-            new_tweets_left = max(0, max_allowed - usage.count)
-        else:
+        # Calculate remaining tweets
+        if daily_limit == float('inf'):
             new_tweets_left = "Unlimited"
+        else:
+            new_tweets_left = max(0, daily_limit - usage.count)
 
-        return templates.TemplateResponse("dashboard.html", {
+        csrf_response = csrf_protect.generate_csrf()
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+
+        response = templates.TemplateResponse("dashboard.html", {
             "request": request,
             "user": user,
-            "features": user.features,  # ADDED FEATURES HERE
+            "features": user.features,
             "tweets": tweets,
             "tweets_left": new_tweets_left,
             "tweets_used": usage.count,
             "error": None,
+            "csrf_token": new_csrf_token,
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
+        
+        response.set_cookie(
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+        
+        return response
+        
+    except Exception as e:
+        print(f"Dashboard generation error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        csrf_response = csrf_protect.generate_csrf()
+        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        
+        try:
+            user = get_current_user(request)
+            user = apply_plan_features(user)
+        except:
+            user = None
+        
+        response = templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "user": user,
+            "features": user.features if user else {},
+            "tweets_left": 0,
+            "tweets": [],
+            "error": "An error occurred. Please try again.",
+            "csrf_token": new_csrf_token,
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
+        response.set_cookie(
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+        return response
     finally:
         db.close()
-        
+                
 # Fixed Email Templates with simpler CSS
 EMAIL_TEMPLATES = {
     "welcome": {
