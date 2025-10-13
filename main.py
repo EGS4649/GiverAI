@@ -6128,8 +6128,8 @@ async def user_dashboard(  # <- Changed from admin_dashboard
 @limiter.limit("30/hour")
 @app.post("/dashboard", response_class=HTMLResponse)
 async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
-    await csrf_protect.validate_csrf(request)
     db = SessionLocal()
+    await csrf_protect.validate_csrf(request)
     try:
         user = get_current_user(request)
         form = await request.form()
@@ -6196,7 +6196,7 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
             "tweets": tweets,
             "tweets_left": new_tweets_left,
             "tweets_used": usage.count,
-            "error": None
+            "error": None,
         })
     finally:
         db.close()
