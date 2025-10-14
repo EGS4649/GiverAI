@@ -5001,42 +5001,21 @@ async def unlock_account_request(
             })
     finally:
         db.close
-        
+
 @app.get("/logout")
 async def logout(request: Request):
     """Log user out by clearing all session cookies"""
     print("🚪 Logout called")
     
-    # Create response that redirects to login page (not home)
     response = RedirectResponse(url="/login", status_code=302)
     
-    # Clear ALL auth cookies with explicit parameters
-    response.delete_cookie(
-        key="access_token",
-        path="/",
-        secure=True,
-        httponly=True,
-        samesite="lax"
-    )
-    response.delete_cookie(
-        key="fastapi-csrf-token",
-        path="/",
-        secure=True,
-        httponly=True,
-        samesite="lax"
-    )
-    response.delete_cookie(
-        key="playground_used",
-        path="/",
-        secure=True,
-        httponly=True,
-        samesite="lax"
-    )
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("fastapi-csrf-token", path="/")
+    response.delete_cookie("playground_used", path="/")
     
-    # Add no-cache headers to prevent browser caching
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    response.delete_cookie("access_token")
+    response.delete_cookie("fastapi-csrf-token")
+    response.delete_cookie("playground_used")
     
     print("✅ Cookies cleared, redirecting to /login")
     return response
