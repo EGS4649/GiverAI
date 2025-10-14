@@ -2175,10 +2175,6 @@ def apply_plan_features(user):
 # ---- FastAPI Setup -----
 app = FastAPI()
 
-# Initialize CSRF protection
-csrf_protect = CsrfProtect()
-csrf_protect.init_app(app)
-
 # Add middlewares
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["giverai.me", "www.giverai.me", "localhost"])
@@ -5751,7 +5747,7 @@ async def remove_team_member(
         return RedirectResponse("/team?error=Member+not+found", status_code=302)
     finally:
         db.close()
- 
+
 @app.get("/tweetgiver", response_class=HTMLResponse)
 async def tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
@@ -5786,12 +5782,16 @@ async def tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
 @limiter.limit("60/hour")
 async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = None
+    form = await request.form()
+    
+    print(f"DEBUG: CSRF token from form: {form.get('csrf_token')}")
+    print(f"DEBUG: CSRF cookie: {request.cookies.get('fastapi-csrf-token')}")
     
     try:
-        # Use CsrfProtect's built-in validation
         await csrf_protect.validate_csrf(request)
-    except CsrfProtectError:
-        csrf_token = csrf_protect.generate_csrf()
+        print("DEBUG: CSRF validation passed!")
+    except CsrfProtectError as e:
+        print(f"DEBUG: CSRF validation failed: {e}")
         
         response = templates.TemplateResponse("tweetgiver.html", {
             "request": request,
