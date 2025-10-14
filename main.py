@@ -2175,6 +2175,10 @@ def apply_plan_features(user):
 # ---- FastAPI Setup -----
 app = FastAPI()
 
+# Initialize CSRF protection
+csrf_protect = CsrfProtect()
+csrf_protect.init_app(app)
+
 # Add middlewares
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["giverai.me", "www.giverai.me", "localhost"])
