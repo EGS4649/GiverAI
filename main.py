@@ -5007,13 +5007,13 @@ async def logout(request: Request):
     """Log user out by clearing all session cookies"""
     print("🚪 Logout called")
     
-    response = RedirectResponse(url="/", status_code=302)
+    # Create response that redirects to login page (not home)
+    response = RedirectResponse(url="/login", status_code=302)
     
-    # Clear ALL auth cookies
+    # Clear ALL auth cookies with explicit parameters
     response.delete_cookie(
         key="access_token",
         path="/",
-        domain=None,
         secure=True,
         httponly=True,
         samesite="lax"
@@ -5021,7 +5021,6 @@ async def logout(request: Request):
     response.delete_cookie(
         key="fastapi-csrf-token",
         path="/",
-        domain=None,
         secure=True,
         httponly=True,
         samesite="lax"
@@ -5029,13 +5028,17 @@ async def logout(request: Request):
     response.delete_cookie(
         key="playground_used",
         path="/",
-        domain=None,
         secure=True,
         httponly=True,
         samesite="lax"
     )
     
-    print("✅ All cookies cleared")
+    # Add no-cache headers to prevent browser caching
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    
+    print("✅ Cookies cleared, redirecting to /login")
     return response
 
 @app.get("/contact", response_class=HTMLResponse)
