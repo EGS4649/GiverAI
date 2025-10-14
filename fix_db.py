@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Emergency fix for missing database columns.
-Run this script to add the cancellation columns to your database.
-"""
-
 import os
 import sys
 from sqlalchemy import create_engine, text
