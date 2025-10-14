@@ -6051,6 +6051,7 @@ async def verify_cancellation(stripe_customer_id: str):
                 
                 if user and user.plan == "canceling":
                     user.plan = "free"
+                    user.cancellation_date = subscriptions.current_period_end  # from Stripe
                     db.commit()
                     print(f"Downgraded user {user.id} to free plan")
                     break
