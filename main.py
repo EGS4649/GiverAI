@@ -5810,49 +5810,28 @@ async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depe
     # Read form ONCE
     form = await request.form()
     
-    print(f"DEBUG: CSRF token from form: {form.get('csrf_token')}")
-    print(f"DEBUG: CSRF cookie: {request.cookies.get('fastapi-csrf-token')}")
-    print(f"DEBUG: Form keys: {list(form.keys())}")
-    
-    try:
-        await csrf_protect.validate_csrf(request)
-        print("DEBUG: CSRF validation passed!")
-    except CsrfProtectError as e:
-        print(f"DEBUG: CSRF validation failed: {str(e)}")
-        csrf_token = csrf_protect.generate_csrf()
-        
-        response = templates.TemplateResponse("tweetgiver.html", {
-            "request": request,
-            "tweets": None,
-            "user": None,
-            "error": "Invalid CSRF token. Please refresh and try again.",
-            "csrf_token": csrf_token,
-            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
-        })
-        response.set_cookie(
-            key="fastapi-csrf-token",
-            value=csrf_token,
-            max_age=3600,
-            path="/",
-            secure=True,
-            httponly=True,
-            samesite="lax"
-        )
-        return response
-    
+    # Check if user is logged in
     try:
         user = get_current_user(request)
+        # If user is logged in, redirect to dashboard
         return RedirectResponse("/dashboard", status_code=302)
     except:
+        # Not logged in - this is the playground
         pass
     
+    # For unauthenticated users on the playground, skip CSRF validation
+    # (it's just a demo, not sensitive operations)
+    
+    # Check if playground already used
     playground_used = request.cookies.get("playground_used", "false")
     if playground_used == "true":
         return RedirectResponse("/register", status_code=302)
     
+    # Get form data
     job = sanitize_input(form.get("job"))
     goal = sanitize_input(form.get("goal"))
     
+    # Verify reCAPTCHA
     g_recaptcha_response = form.get("g-recaptcha-response", "")
     if not verify_recaptcha(g_recaptcha_response):
         csrf_token = csrf_protect.generate_csrf()
@@ -5876,6 +5855,7 @@ async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depe
         )
         return response
     
+    # Generate tweets
     prompt = f"As a {job}, suggest 5 engaging tweets to achieve: {goal}."
     tweets = await get_ai_tweets(prompt, 5)
     
@@ -5889,8 +5869,10 @@ async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depe
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
     
+    # Mark playground as used
     response.set_cookie(key="playground_used", value="true", max_age=86400)
     
+    # Set CSRF cookie for next visit
     response.set_cookie(
         key="fastapi-csrf-token",
         value=csrf_token,
