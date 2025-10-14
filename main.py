@@ -5004,20 +5004,30 @@ async def unlock_account_request(
 
 @app.get("/logout")
 async def logout(request: Request):
-    """Log user out by clearing all session cookies"""
+    """Logout - nuke all cookies"""
     print("🚪 Logout called")
     
     response = RedirectResponse(url="/login", status_code=302)
     
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("fastapi-csrf-token", path="/")
-    response.delete_cookie("playground_used", path="/")
+    # Get the domain from the request
+    host = request.headers.get("host", "giverai.me")
     
-    response.delete_cookie("access_token")
-    response.delete_cookie("fastapi-csrf-token")
-    response.delete_cookie("playground_used")
+    # Try every possible combination to delete the cookies
+    for cookie_name in ["access_token", "fastapi-csrf-token", "playground_used"]:
+        # Delete with no parameters
+        response.delete_cookie(cookie_name)
+        # Delete with path
+        response.delete_cookie(cookie_name, path="/")
+        # Delete with domain
+        response.delete_cookie(cookie_name, domain=host)
+        # Delete with domain and path
+        response.delete_cookie(cookie_name, domain=host, path="/")
+        # Delete with all parameters
+        response.delete_cookie(cookie_name, path="/", domain=host, secure=True, httponly=True, samesite="lax")
+        # Delete with max_age=0 (the nuclear option)
+        response.set_cookie(cookie_name, value="", max_age=0, path="/")
     
-    print("✅ Cookies cleared, redirecting to /login")
+    print("✅ All cookies nuked")
     return response
 
 @app.get("/contact", response_class=HTMLResponse)
