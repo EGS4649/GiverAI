@@ -153,6 +153,8 @@ class User(Base):
     last_known_ip = Column(String, nullable=True)
     registration_ip = Column(String, nullable=True)
     is_ip_banned = Column(Boolean, default=False)
+    cancellation_date = Column(DateTime, nullable=True)
+    cancellation_requested_at = Column(DateTime, nullable=True)
 
     # Security logging
     last_password_change = Column(DateTime, nullable=True)
@@ -5001,9 +5003,11 @@ async def unlock_account_request(
         db.close
         
 @app.get("/logout")
-async def logout():
-    response = RedirectResponse("/", status_code=302)
+async def logout(request: Request):
+    response = RedirectResponse(url="/", status_code=302)
     response.delete_cookie("access_token")
+    response.delete_cookie("fastapi-csrf-token")
+    response.delete_cookie("playground_used")
     return response
 
 @app.get("/contact", response_class=HTMLResponse)
