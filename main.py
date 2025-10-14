@@ -5747,7 +5747,7 @@ async def remove_team_member(
         return RedirectResponse("/team?error=Member+not+found", status_code=302)
     finally:
         db.close()
-
+        
 @app.get("/tweetgiver", response_class=HTMLResponse)
 async def tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
@@ -5755,9 +5755,7 @@ async def tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     if user:
         return RedirectResponse("/dashboard", status_code=302)
     
-    csrf_response = csrf_protect.generate_csrf()
-    # Extract token from tuple
-    csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+    csrf_token = csrf_protect.generate_csrf()
     
     response = templates.TemplateResponse("tweetgiver.html", {
         "request": request,
@@ -5793,8 +5791,7 @@ async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depe
     cookie_token = request.cookies.get("fastapi-csrf-token")
     
     if not cookie_token or cookie_token != csrf_token:
-        csrf_response = csrf_protect.generate_csrf()
-        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        new_csrf_token = csrf_protect.generate_csrf()
         
         response = templates.TemplateResponse("tweetgiver.html", {
             "request": request,
@@ -5833,8 +5830,7 @@ async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depe
     # Verify reCAPTCHA
     g_recaptcha_response = form.get("g-recaptcha-response", "")
     if not verify_recaptcha(g_recaptcha_response):
-        csrf_response = csrf_protect.generate_csrf()
-        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        new_csrf_token = csrf_protect.generate_csrf()
         
         response = templates.TemplateResponse("tweetgiver.html", {
             "request": request,
@@ -5859,8 +5855,7 @@ async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depe
     prompt = f"As a {job}, suggest 5 engaging tweets to achieve: {goal}."
     tweets = await get_ai_tweets(prompt, 5)
     
-    csrf_response = csrf_protect.generate_csrf()
-    new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+    new_csrf_token = csrf_protect.generate_csrf()
     
     response = templates.TemplateResponse("tweetgiver.html", {
         "request": request,
@@ -6719,7 +6714,7 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         return response
     finally:
         db.close()
-                
+
 # Fixed Email Templates with simpler CSS
 EMAIL_TEMPLATES = {
     "welcome": {
