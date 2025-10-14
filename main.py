@@ -5004,10 +5004,38 @@ async def unlock_account_request(
         
 @app.get("/logout")
 async def logout(request: Request):
+    """Log user out by clearing all session cookies"""
+    print("🚪 Logout called")
+    
     response = RedirectResponse(url="/", status_code=302)
-    response.delete_cookie("access_token")
-    response.delete_cookie("fastapi-csrf-token")
-    response.delete_cookie("playground_used")
+    
+    # Clear ALL auth cookies
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        domain=None,
+        secure=True,
+        httponly=True,
+        samesite="lax"
+    )
+    response.delete_cookie(
+        key="fastapi-csrf-token",
+        path="/",
+        domain=None,
+        secure=True,
+        httponly=True,
+        samesite="lax"
+    )
+    response.delete_cookie(
+        key="playground_used",
+        path="/",
+        domain=None,
+        secure=True,
+        httponly=True,
+        samesite="lax"
+    )
+    
+    print("✅ All cookies cleared")
     return response
 
 @app.get("/contact", response_class=HTMLResponse)
