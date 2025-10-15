@@ -5773,6 +5773,7 @@ async def remove_team_member(
         return RedirectResponse("/team?error=Member+not+found", status_code=302)
     finally:
         db.close()
+
 @app.get("/tweetgiver", response_class=HTMLResponse)
 async def tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
@@ -6433,6 +6434,7 @@ async def get_ai_tweets(prompt, count=5):
 @app.get("/complete-onboarding", response_class=HTMLResponse)
 def complete_onboarding_get(request: Request, user: User = Depends(get_current_user)):
     return templates.TemplateResponse("onboarding.html", {"request": request, "user": user})
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def user_dashboard(
     request: Request,
@@ -6487,13 +6489,13 @@ def user_dashboard(
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
     
-    # ✅ Set CSRF cookie with dynamic secure flag
+    # Set CSRF cookie with dynamic secure flag
     response.set_cookie(
         key="fastapi-csrf-token",
         value=csrf_token,
         max_age=3600,
         path="/",
-        secure=IS_PRODUCTION,  # ✅ Only HTTPS in production
+        secure=IS_PRODUCTION,
         httponly=True,
         samesite="lax"
     )
@@ -6506,35 +6508,45 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
     db = SessionLocal()
     
     try:
-        form = await request.form()
-        csrf_token = form.get("csrf_token")
-        cookie_token = request.cookies.get("fastapi-csrf-token")
+        # Get user first
+        user = get_current_user(request)
+        user = apply_plan_features(user)
         
-        # ✅ Validate CSRF - use existing token on failure
-        if not cookie_token or cookie_token != csrf_token:
-            existing_token = cookie_token or csrf_token
+        # Get form data
+        form = await request.form()
+        
+        # ✅ VALIDATE CSRF PROPERLY using the library's method
+        try:
+            await csrf_protect.validate_csrf(form)
+        except Exception as csrf_error:
+            print(f"CSRF validation failed: {csrf_error}")
             
-            try:
-                user = get_current_user(request)
-                user = apply_plan_features(user)
-            except:
-                user = None
+            # Get existing token for reuse
+            existing_token = request.cookies.get("fastapi-csrf-token")
+            
+            # Get usage info
+            today = str(date.today())
+            usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
+            
+            daily_limit = user.features["daily_limit"]
+            if daily_limit == float('inf'):
+                tweets_left = "Unlimited"
+            else:
+                tweets_left = max(0, daily_limit - (usage.count if usage else 0))
             
             return templates.TemplateResponse("dashboard.html", {
                 "request": request,
                 "user": user,
-                "features": user.features if user else {},
-                "tweets_left": 0,
+                "features": user.features,
+                "tweets_left": tweets_left,
+                "tweets_used": usage.count if usage else 0,
                 "tweets": [],
                 "error": "Invalid CSRF token. Please refresh and try again.",
                 "csrf_token": existing_token,
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
 
-        # Get user
-        user = get_current_user(request)
-        user = apply_plan_features(user)
-        
+        # Get form fields
         job = form.get("job")
         goal = form.get("goal")
         tweet_count_str = form.get("tweet_count", "1")
@@ -6551,7 +6563,12 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
             
             today = str(date.today())
             usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
-            tweets_left = "Unlimited" if user.features["daily_limit"] == float('inf') else max(0, user.features["daily_limit"] - (usage.count if usage else 0))
+            
+            daily_limit = user.features["daily_limit"]
+            if daily_limit == float('inf'):
+                tweets_left = "Unlimited"
+            else:
+                tweets_left = max(0, daily_limit - (usage.count if usage else 0))
             
             return templates.TemplateResponse("dashboard.html", {
                 "request": request,
@@ -6573,11 +6590,12 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
             db.add(usage)
             db.commit()
 
-        # ✅ Calculate tweets left - proper unlimited handling
+        # Calculate tweets left - proper unlimited handling
         daily_limit = user.features["daily_limit"]
         
         if daily_limit == float('inf'):
             tweets_left = "Unlimited"
+            # No limit check needed for unlimited plans
         else:
             tweets_left = max(0, daily_limit - usage.count)
             
@@ -6597,6 +6615,7 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
                     "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
                 })
             
+            # Cap tweet count at remaining limit for non-unlimited users
             if tweet_count > tweets_left:
                 tweet_count = tweets_left
 
@@ -6623,7 +6642,7 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         else:
             new_tweets_left = max(0, daily_limit - usage.count)
 
-        # ✅ Use existing token
+        # Use existing token
         existing_token = request.cookies.get("fastapi-csrf-token")
 
         return templates.TemplateResponse("dashboard.html", {
