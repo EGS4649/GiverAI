@@ -7410,8 +7410,38 @@ async def stripe_webhook(request: Request):
         except stripe.error.SignatureVerificationError:
             return JSONResponse(content={"error": "Invalid signature"}, status_code=400)
         
+        # Handle subscription updated (when user cancels)
+        if event["type"] == "customer.subscription.updated":
+            subscription = event["data"]["object"]
+            customer_id = subscription["customer"]
+            cancel_at_period_end = subscription.get("cancel_at_period_end", False)
+            
+            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+            if user:
+                if cancel_at_period_end:
+                    # User canceled - mark as canceling
+                    if user.plan != "canceling":
+                        print(f"🔔 User {user.id} canceled subscription")
+                        user.original_plan = user.plan
+                        user.plan = "canceling"
+                        
+                        # Store cancellation date
+                        period_end = subscription.get("current_period_end")
+                        if period_end:
+                            user.cancellation_date = datetime.fromtimestamp(period_end)
+                        
+                        db.commit()
+                else:
+                    # User reactivated - restore plan
+                    if user.plan == "canceling" and user.original_plan:
+                        print(f"🔄 User {user.id} reactivated subscription")
+                        user.plan = user.original_plan
+                        user.original_plan = None
+                        user.cancellation_date = None
+                        db.commit()
+        
         # Handle subscription deleted/ended event
-        if event["type"] == "customer.subscription.deleted":
+        elif event["type"] == "customer.subscription.deleted":
             subscription = event["data"]["object"]
             customer_id = subscription["customer"]
             
@@ -7433,33 +7463,55 @@ async def stripe_webhook(request: Request):
         # Handle successful payment
         elif event["type"] == "invoice.payment_succeeded":
             invoice = event["data"]["object"]
-            customer_id = invoice["customer"]
-            subscription_id = invoice["subscription"]
+            customer_id = invoice.get("customer")
+            subscription_id = invoice.get("subscription")
             
-            # Get subscription details to determine plan
-            subscription = stripe.Subscription.retrieve(subscription_id)
-            price_id = subscription["items"]["data"][0]["price"]["id"]
+            if not customer_id or not subscription_id:
+                print("⚠️ Missing customer_id or subscription_id in invoice")
+                return JSONResponse(content={"status": "success"}, status_code=200)
             
-            # Update user's plan based on price_id
-            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
-            if user:
-                # Map price_id to plan name
-                creator_monthly = os.getenv("STRIPE_CREATOR_PRICE_MONTHLY")
-                creator_yearly = os.getenv("STRIPE_CREATOR_PRICE_YEARLY")
+            try:
+                # Get subscription details to determine plan
+                subscription = stripe.Subscription.retrieve(subscription_id)
                 
-                if price_id == creator_monthly:
-                    user.plan = "creator_monthly"
-                elif price_id == creator_yearly:
-                    user.plan = "creator_yearly"
+                # Safely get price_id
+                if not subscription.get("items") or not subscription["items"].get("data"):
+                    print("⚠️ No items in subscription")
+                    return JSONResponse(content={"status": "success"}, status_code=200)
                 
-                # Clear cancellation status if they were canceling
-                if user.plan == "canceling":
-                    user.plan = user.original_plan or "creator_monthly"
-                    user.original_plan = None
-                    user.cancellation_date = None
+                price_id = subscription["items"]["data"][0]["price"]["id"]
                 
-                db.commit()
-                print(f"✅ Updated user {user.id} to plan: {user.plan}")
+                # Update user's plan based on price_id
+                user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+                if user:
+                    # Map price_id to plan name
+                    creator_monthly = os.getenv("STRIPE_CREATOR_PRICE_MONTHLY")
+                    creator_yearly = os.getenv("STRIPE_CREATOR_PRICE_YEARLY")
+                    
+                    if price_id == creator_monthly:
+                        user.plan = "creator_monthly"
+                        print(f"✅ Updated user {user.id} to creator_monthly")
+                    elif price_id == creator_yearly:
+                        user.plan = "creator_yearly"
+                        print(f"✅ Updated user {user.id} to creator_yearly")
+                    else:
+                        print(f"⚠️ Unknown price_id: {price_id}")
+                    
+                    # Clear cancellation status if they were canceling
+                    if user.original_plan and user.plan != "canceling":
+                        user.original_plan = None
+                        user.cancellation_date = None
+                    
+                    db.commit()
+                else:
+                    print(f"⚠️ User not found for customer_id: {customer_id}")
+                    
+            except stripe.error.StripeError as e:
+                print(f"⚠️ Stripe error retrieving subscription: {str(e)}")
+            except Exception as e:
+                print(f"⚠️ Error processing payment: {str(e)}")
+                import traceback
+                traceback.print_exc()
         
         return JSONResponse(content={"status": "success"}, status_code=200)
         
@@ -7468,6 +7520,120 @@ async def stripe_webhook(request: Request):
         import traceback
         traceback.print_exc()
         return JSONResponse(content={"error": str(e)}, status_code=400)
+    finally:
+        db.close()
+
+
+@app.post("/cancel-subscription")
+async def cancel_subscription(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user)
+):
+    db = SessionLocal()
+    try:
+        db_user = db.query(User).filter(User.id == user.id).first()
+        
+        # Store the original plan BEFORE marking as canceling
+        if db_user.plan != "canceling" and db_user.plan != "free":
+            db_user.original_plan = db_user.plan
+            print(f"📋 Storing original plan: {db_user.plan}")
+        
+        # Get active subscriptions
+        try:
+            subscriptions = stripe.Subscription.list(
+                customer=user.stripe_customer_id,
+                status="active"
+            )
+        except stripe.error.StripeError as e:
+            return RedirectResponse(
+                f"/account?error=Stripe+API+Error%3A+{str(e).replace(' ', '+')}",
+                status_code=302
+            )
+
+        if not subscriptions.data:
+            return RedirectResponse(
+                "/account?error=No+active+subscription+found",
+                status_code=302
+            )
+
+        subscription = subscriptions.data[0]
+        
+        # ✅ CANCEL THE SUBSCRIPTION AT PERIOD END
+        try:
+            stripe.Subscription.modify(
+                subscription.id,
+                cancel_at_period_end=True
+            )
+            print(f"✅ Subscription {subscription.id} set to cancel at period end")
+        except stripe.error.StripeError as e:
+            return RedirectResponse(
+                f"/account?error=Failed+to+cancel+subscription%3A+{str(e).replace(' ', '+')}",
+                status_code=302
+            )
+        
+        # Get cancellation date from the subscription
+        cancellation_date = None
+        try:
+            period_end = None
+            
+            if hasattr(subscription, 'current_period_end'):
+                period_end = subscription.current_period_end
+            elif 'current_period_end' in subscription:
+                period_end = subscription['current_period_end']
+            elif hasattr(subscription, 'get'):
+                period_end = subscription.get('current_period_end')
+            
+            if period_end:
+                cancellation_date = datetime.fromtimestamp(period_end)
+                print(f"📅 Cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+            else:
+                print("⚠️ Could not find current_period_end in subscription")
+                cancellation_date = datetime.now() + timedelta(days=30)
+                print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+            
+        except Exception as e:
+            print(f"⚠️ Could not get cancellation date: {str(e)}")
+            cancellation_date = datetime.now() + timedelta(days=30)
+            print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
+        
+        # Store cancellation date and mark as canceling
+        db_user.cancellation_date = cancellation_date
+        db_user.plan = "canceling"
+        db.commit()
+        
+        # Send cancellation email
+        try:
+            plan_for_email = db_user.original_plan if db_user.original_plan else "free"
+            email_service.send_subscription_cancellation_email(
+                db_user, 
+                plan_for_email, 
+                cancellation_date
+            )
+            print("✅ Cancellation email sent")
+        except Exception as e:
+            print(f"❌ Failed to send cancellation email: {str(e)}")
+
+        return RedirectResponse(
+            "/account?success=Subscription+will+cancel+at+period+end",
+            status_code=302
+        )
+            
+    except stripe.error.StripeError as e:
+        db.rollback()
+        return RedirectResponse(
+            f"/account?error=Cancellation+failed%3A+{str(e).replace(' ', '+')}",
+            status_code=302
+        )
+    except Exception as e:
+        db.rollback()
+        print(f"❌ System error during cancellation: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return RedirectResponse(
+            f"/account?error=System+error%3A+{str(e).replace(' ', '+')}",
+            status_code=302
+        )
     finally:
         db.close()
 
