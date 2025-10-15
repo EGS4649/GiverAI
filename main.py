@@ -7392,8 +7392,8 @@ def complete_onboarding_post(request: Request,
         return RedirectResponse("/dashboard", status_code=302)
     finally:
         db.close()
-        
-@app.post("/webhook")
+
+@app.post("/stripe-webhook")
 async def stripe_webhook(request: Request):
     db = SessionLocal()
     try:
