@@ -5942,10 +5942,6 @@ async def cancel_subscription(
             db_user.original_plan = db_user.plan  # Save the actual plan
             print(f"📋 Storing original plan: {db_user.plan}")
         
-        # Now mark as canceling
-        db_user.plan = "canceling"
-        db.commit()
-
         # Get active subscriptions
         try:
             subscriptions = stripe.Subscription.list(
@@ -5964,10 +5960,24 @@ async def cancel_subscription(
                 status_code=302
             )
 
+        subscription = subscriptions.data[0]
+        
+        # ✅ CANCEL THE SUBSCRIPTION AT PERIOD END (NOT IMMEDIATELY)
+        try:
+            stripe.Subscription.modify(
+                subscription.id,
+                cancel_at_period_end=True
+            )
+            print(f"✅ Subscription {subscription.id} set to cancel at period end")
+        except stripe.error.StripeError as e:
+            return RedirectResponse(
+                f"/account?error=Failed+to+cancel+subscription%3A+{str(e).replace(' ', '+')}",
+                status_code=302
+            )
+        
         # Get cancellation date from the subscription
         cancellation_date = None
         try:
-            subscription = subscriptions.data[0]
             # Try multiple ways to access the period end
             period_end = None
             
@@ -5992,6 +6002,11 @@ async def cancel_subscription(
             cancellation_date = datetime.now() + timedelta(days=30)
             print(f"📅 Using fallback cancellation date: {cancellation_date.strftime('%Y-%m-%d')}")
         
+        # ✅ Store cancellation date in database
+        db_user.cancellation_date = cancellation_date
+        db_user.plan = "canceling"
+        db.commit()
+        
         # Send cancellation email
         try:
             # Use the original plan for the email, not "canceling"
@@ -6005,12 +6020,9 @@ async def cancel_subscription(
         except Exception as e:
             print(f"❌ Failed to send cancellation email: {str(e)}")
         
-        # Add verification task
-        background_tasks.add_task(
-            verify_cancellation,
-            user.stripe_customer_id
-        )
-
+        # ✅ Don't add background task - use Stripe webhook instead
+        # The webhook will handle the actual downgrade when subscription ends
+        
         return RedirectResponse(
             "/account?success=Subscription+will+cancel+at+period+end",
             status_code=302
@@ -7380,89 +7392,81 @@ def complete_onboarding_post(request: Request,
         return RedirectResponse("/dashboard", status_code=302)
     finally:
         db.close()
-
-@app.post("/stripe-webhook")
+        
+@app.post("/webhook")
 async def stripe_webhook(request: Request):
-    payload = await request.body()
-    sig_header = request.headers.get('stripe-signature')
-    
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, STRIPE_WEBHOOK_SECRET
-        )
-    except (ValueError, stripe.error.SignatureVerificationError):
-        raise HTTPException(status_code=400, detail="Invalid signature")
-    
     db = SessionLocal()
-
     try:
-        if event['type'] == 'invoice.payment_succeeded':
-            invoice = event['data']['object']
-            customer_id = invoice['customer']
-            subscription_id = invoice['subscription']
+        payload = await request.body()
+        sig_header = request.headers.get("stripe-signature")
+        
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, os.getenv("STRIPE_WEBHOOK_SECRET")
+            )
+        except ValueError:
+            return JSONResponse(content={"error": "Invalid payload"}, status_code=400)
+        except stripe.error.SignatureVerificationError:
+            return JSONResponse(content={"error": "Invalid signature"}, status_code=400)
+        
+        # Handle subscription deleted/ended event
+        if event["type"] == "customer.subscription.deleted":
+            subscription = event["data"]["object"]
+            customer_id = subscription["customer"]
             
-            # Get the subscription details to find the next billing date
-            subscription = stripe.Subscription.retrieve(subscription_id)
-            
-            # Find user by customer ID
+            # Find user and downgrade to free
             user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
             if user:
-                old_plan = user.plan
-                
-                # Determine new plan from subscription
-                new_plan = get_plan_from_price_id(subscription.items.data[0].price.id)
-                
-                # Update user's plan
-                user.plan = new_plan
+                print(f"🔽 Downgrading user {user.id} to free plan")
+                user.plan = "free"
+                user.original_plan = None
+                user.cancellation_date = None
                 db.commit()
                 
-                # Get the actual next billing date from Stripe
-                next_billing_timestamp = subscription.current_period_end
-                next_billing_date = datetime.fromtimestamp(next_billing_timestamp)
-                
-                # Get the amount from the subscription
-                amount = subscription.items.data[0].price.unit_amount / 100  # Convert from cents
-                
-                # Send upgrade email with actual billing date
+                # Send downgrade confirmation email
                 try:
-                    email_service.send_subscription_upgrade_email(
-                        user=user,
-                        old_plan=old_plan,
-                        new_plan=new_plan,
-                        amount=amount,
-                        next_billing_date=next_billing_date  # This is now the actual date
-                    )
-                    print(f"✅ Upgrade email sent to {user.email}")
+                    email_service.send_downgrade_confirmation_email(user)
                 except Exception as e:
-                    print(f"❌ Failed to send upgrade email: {str(e)}")
-
-        if event['type'] == 'checkout.session.completed':
-            session = event['data']['object']
-            user_id = int(session['metadata']['user_id'])
-            new_plan = session['metadata']['plan']
-            user = db.query(User).filter(User.id == user_id).first()
-
+                    print(f"Failed to send downgrade email: {str(e)}")
+        
+        # Handle successful payment
+        elif event["type"] == "invoice.payment_succeeded":
+            invoice = event["data"]["object"]
+            customer_id = invoice["customer"]
+            subscription_id = invoice["subscription"]
+            
+            # Get subscription details to determine plan
+            subscription = stripe.Subscription.retrieve(subscription_id)
+            price_id = subscription["items"]["data"][0]["price"]["id"]
+            
+            # Update user's plan based on price_id
+            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
             if user:
-                # Store original plan if this is their first upgrade
-                if not user.original_plan and user.plan == 'free':
-                    user.original_plan = user.plan  # Store current plan as original
-
-                # Update to new plan
-                old_plan = user.plan
-                user.plan = new_plan
+                # Map price_id to plan name
+                creator_monthly = os.getenv("STRIPE_CREATOR_PRICE_MONTHLY")
+                creator_yearly = os.getenv("STRIPE_CREATOR_PRICE_YEARLY")
+                
+                if price_id == creator_monthly:
+                    user.plan = "creator_monthly"
+                elif price_id == creator_yearly:
+                    user.plan = "creator_yearly"
+                
+                # Clear cancellation status if they were canceling
+                if user.plan == "canceling":
+                    user.plan = user.original_plan or "creator_monthly"
+                    user.original_plan = None
+                    user.cancellation_date = None
+                
                 db.commit()
-
-                try:
-                    await email_service.send_subscription_upgrade_email(
-                        user, old_plan, new_plan,
-                        get_plan_price(new_plan),
-                        datetime.utcnow() + timedelta(days=30)  # Next billing date
-                    )
-                    print(f"✅ Upgrade email sent to {user.email}")
-                except Exception as e:
-                    print(f"Failed to send upgrade email: {e}")
-
-        return {"status": "success"}
+                print(f"✅ Updated user {user.id} to plan: {user.plan}")
+        
+        return JSONResponse(content={"status": "success"}, status_code=200)
+        
+    except Exception as e:
+        print(f"Webhook error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(content={"error": str(e)}, status_code=400)
     finally:
         db.close()
 
