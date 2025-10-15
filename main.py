@@ -5771,70 +5771,82 @@ async def remove_team_member(
         return RedirectResponse("/team?error=Member+not+found", status_code=302)
     finally:
         db.close()
-
 @app.get("/tweetgiver", response_class=HTMLResponse)
 async def tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
     user = get_optional_user(request)
-    
     if user:
         return RedirectResponse("/dashboard", status_code=302)
     
-    csrf_token = csrf_protect.generate_csrf()
+    # Generate CSRF tokens using the library
+    csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
     
     response = templates.TemplateResponse("tweetgiver.html", {
         "request": request,
         "tweets": None,
         "user": user,
-        "csrf_token": csrf_token,
+        "csrf_token": csrf_token,  # Send unsigned token to template
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
     
-    # Set the CSRF cookie
-    response.set_cookie(
-        key="fastapi-csrf-token",
-        value=csrf_token,
-        max_age=3600,
-        path="/",
-        secure=True,
-        httponly=True,
-        samesite="lax"
-    )
+    # Use the library's method to set the cookie (with signed token)
+    csrf_protect.set_csrf_cookie(signed_token, response)
     
     return response
 
+
 @app.post("/tweetgiver", response_class=HTMLResponse)
 @limiter.limit("60/hour")
-async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
+async def generate_tweetgiver(
+    request: Request, 
+    csrf_protect: CsrfProtect = Depends(),
+    job: str = Form(...),
+    goal: str = Form(...),
+    csrf_token: str = Form(...)  # Get CSRF token from form
+):
     user = None
-    
-    # Read form ONCE
-    form = await request.form()
     
     # Check if user is logged in
     try:
         user = get_current_user(request)
-        # If user is logged in, redirect to dashboard
         return RedirectResponse("/dashboard", status_code=302)
     except:
-        # Not logged in - this is the playground
         pass
     
-    # For unauthenticated users on the playground, skip CSRF validation
-    # (it's just a demo, not sensitive operations)
+    # VALIDATE CSRF TOKEN FIRST (before any other operations)
+    try:
+        await csrf_protect.validate_csrf(request)
+    except Exception as e:
+        print(f"CSRF validation failed: {e}")
+        # Generate new tokens for the error response
+        new_csrf_token, new_signed_token = csrf_protect.generate_csrf_tokens()
+        
+        response = templates.TemplateResponse("tweetgiver.html", {
+            "request": request,
+            "tweets": None,
+            "user": None,
+            "error": "Invalid CSRF token. Please refresh and try again.",
+            "csrf_token": new_csrf_token,
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        })
+        csrf_protect.set_csrf_cookie(new_signed_token, response)
+        return response
     
     # Check if playground already used
     playground_used = request.cookies.get("playground_used", "false")
     if playground_used == "true":
         return RedirectResponse("/register", status_code=302)
     
-    # Get form data
-    job = sanitize_input(form.get("job"))
-    goal = sanitize_input(form.get("goal"))
+    # Sanitize inputs
+    job = sanitize_input(job)
+    goal = sanitize_input(goal)
+    
+    # Get reCAPTCHA from form
+    form = await request.form()
+    g_recaptcha_response = form.get("g-recaptcha-response", "")
     
     # Verify reCAPTCHA
-    g_recaptcha_response = form.get("g-recaptcha-response", "")
     if not verify_recaptcha(g_recaptcha_response):
-        csrf_token = csrf_protect.generate_csrf()
+        csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
         
         response = templates.TemplateResponse("tweetgiver.html", {
             "request": request,
@@ -5844,22 +5856,15 @@ async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depe
             "csrf_token": csrf_token,
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
-        response.set_cookie(
-            key="fastapi-csrf-token",
-            value=csrf_token,
-            max_age=3600,
-            path="/",
-            secure=True,
-            httponly=True,
-            samesite="lax"
-        )
+        csrf_protect.set_csrf_cookie(signed_token, response)
         return response
     
     # Generate tweets
     prompt = f"As a {job}, suggest 5 engaging tweets to achieve: {goal}."
     tweets = await get_ai_tweets(prompt, 5)
     
-    csrf_token = csrf_protect.generate_csrf()
+    # Generate new CSRF tokens for the response
+    csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
     
     response = templates.TemplateResponse("tweetgiver.html", {
         "request": request,
@@ -5873,15 +5878,7 @@ async def generate_tweetgiver(request: Request, csrf_protect: CsrfProtect = Depe
     response.set_cookie(key="playground_used", value="true", max_age=86400)
     
     # Set CSRF cookie for next visit
-    response.set_cookie(
-        key="fastapi-csrf-token",
-        value=csrf_token,
-        max_age=3600,
-        path="/",
-        secure=True,
-        httponly=True,
-        samesite="lax"
-    )
+    csrf_protect.set_csrf_cookie(signed_token, response)
     
     return response
 
