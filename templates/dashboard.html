@@ -215,6 +215,7 @@
       {% endif %}
       
       <form method="post" action="/dashboard">
+         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <label>Your job/niche:</label><br />
         <input type="text" name="job" placeholder="e.g., Digital Marketing Expert, Fitness Coach, Tech Entrepreneur" required {% if tweets_left == 0 %}disabled{% endif %} /><br />
         <label>Your goal for today's tweets:</label><br />
