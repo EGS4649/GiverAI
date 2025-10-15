@@ -7449,9 +7449,13 @@ async def stripe_webhook(request: Request):
             user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
             if user:
                 print(f"🔽 Downgrading user {user.id} to free plan")
-                user.plan = "free"
-                user.original_plan = None
-                user.cancellation_date = None
+                
+                user.cancellation_date = datetime.fromtimestamp(period_end)
+                period_end = subscription.get("current_period_end")
+
+                if period_end:  
+                    user.plan = "free"
+                    user.original_plan = None
                 db.commit()
                 
                 # Send downgrade confirmation email
