@@ -6515,11 +6515,49 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         # Get form data
         form = await request.form()
         
-        # ✅ VALIDATE CSRF PROPERLY using the library's method
-        try:
-            await csrf_protect.validate_csrf(form)
-        except Exception as csrf_error:
-            print(f"CSRF validation failed: {csrf_error}")
+        # ✅ VALIDATE CSRF MANUALLY (more reliable)
+        csrf_token_from_form = form.get("csrf_token")
+        csrf_token_from_cookie = request.cookies.get("fastapi-csrf-token")
+        
+        print(f"Form CSRF token: {csrf_token_from_form}")
+        print(f"Cookie CSRF token: {csrf_token_from_cookie}")
+        
+        if not csrf_token_from_cookie or not csrf_token_from_form:
+            print("CSRF validation failed: Missing token")
+            
+        if not csrf_token_from_cookie or not csrf_token_from_form:
+            print("CSRF validation failed: Missing token")
+            
+            existing_token = csrf_token_from_cookie or csrf_token_from_form or csrf_protect.generate_csrf()
+            if isinstance(existing_token, tuple):
+                existing_token = existing_token[0]
+            
+            # Get usage info
+            today = str(date.today())
+            usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
+            
+            daily_limit = user.features["daily_limit"]
+            if daily_limit == float('inf'):
+                tweets_left = "Unlimited"
+            else:
+                tweets_left = max(0, daily_limit - (usage.count if usage else 0))
+            
+            return templates.TemplateResponse("dashboard.html", {
+                "request": request,
+                "user": user,
+                "features": user.features,
+                "tweets_left": tweets_left,
+                "tweets_used": usage.count if usage else 0,
+                "tweets": [],
+                "error": "Invalid CSRF token. Please refresh and try again.",
+                "csrf_token": existing_token,
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+            })
+        
+        if csrf_token_from_cookie != csrf_token_from_form:
+            print(f"CSRF validation failed: Token mismatch")
+            print(f"Expected: {csrf_token_from_cookie}")
+            print(f"Got: {csrf_token_from_form}")
             
             # Get existing token for reuse
             existing_token = request.cookies.get("fastapi-csrf-token")
