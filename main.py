@@ -6043,6 +6043,7 @@ async def cancel_subscription(
             f"/account?error=System+error%3A+{str(e).replace(' ', '+')}",
             status_code=302
         )
+    
     finally:
         db.close()
 
@@ -7450,12 +7451,13 @@ async def stripe_webhook(request: Request):
             if user:
                 print(f"🔽 Downgrading user {user.id} to free plan")
                 
-                user.cancellation_date = datetime.fromtimestamp(period_end)
+                # Get the period end FIRST, then use it
                 period_end = subscription.get("current_period_end")
-
-                if period_end:  
-                    user.plan = "free"
-                    user.original_plan = None
+                if period_end:
+                    user.cancellation_date = datetime.fromtimestamp(period_end)
+                
+                user.plan = "free"
+                user.original_plan = None
                 db.commit()
                 
                 # Send downgrade confirmation email
@@ -7517,6 +7519,27 @@ async def stripe_webhook(request: Request):
                 import traceback
                 traceback.print_exc()
         
+        # Handle failed payment
+        elif event["type"] == "invoice.payment_failed":
+            invoice = event["data"]["object"]
+            customer_id = invoice.get("customer")
+            
+            if not customer_id:
+                print("⚠️ Missing customer_id in failed invoice")
+                return JSONResponse(content={"status": "success"}, status_code=200)
+            
+            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+            if user:
+                print(f"⚠️ Payment failed for user {user.id}")
+                
+                # Send payment failed email
+                try:
+                    email_service.send_payment_failed_email(user)
+                except Exception as e:
+                    print(f"Failed to send payment failed email: {str(e)}")
+            else:
+                print(f"⚠️ User not found for customer_id: {customer_id}")
+        
         return JSONResponse(content={"status": "success"}, status_code=200)
         
     except Exception as e:
@@ -7526,7 +7549,6 @@ async def stripe_webhook(request: Request):
         return JSONResponse(content={"error": str(e)}, status_code=400)
     finally:
         db.close()
-
 
 @app.post("/cancel-subscription")
 async def cancel_subscription(
