@@ -303,8 +303,7 @@ class EmailService:
         except Exception as e:
             print(f"⛔ Failed to send email: {str(e)}")
             return False
-
-    
+        
     async def send_password_reset_email(self, user, reset_token, ip_address="Unknown"):
         """Send password reset email"""
         reset_url = f"https://giverai.me/reset-password?token={reset_token}"
@@ -410,6 +409,9 @@ class EmailService:
             "Account Security Alert - GiverAI",
             html_body
         )
+    async def send_downgrade_confirmation_email(self, user):
+        pass
+        """Send downgrade confirmation email"""
 
     async def send_verification_email(self, user, verification_token):
         """Send verification email with simple template"""
@@ -2038,6 +2040,13 @@ def authenticate_user(db, username: str, password: str):
     return user
 
 def get_plan_features(plan_name):
+    # Normalize plan names (handle monthly/yearly variants)
+    base_plan = plan_name
+    if plan_name in ["creator_monthly", "creator_yearly"]:
+        base_plan = "creator"
+    elif plan_name in ["small_team_monthly", "small_team_yearly"]:
+        base_plan = "small_team"
+
     features = {
         "free": {
             "daily_limit": 15,
@@ -7452,15 +7461,10 @@ async def stripe_webhook(request: Request):
             if user:
                 print(f"🔽 Downgrading user {user.id} to free plan")
                 
-                # Get the period end FIRST, then use it
-                period_end = subscription.get("current_period_end")
-                
-                if period_end:
-                    user.cancellation_date = datetime.fromtimestamp(period_end)
-                    user.plan = "free"
-                    user.cancellation_date = None
-                    user.cancel_at_period_end = False
-                    user.original_plan = None
+                user.plan = "free"
+                user.cancellation_date = None
+                user.cancel_at_period_end = False
+                user.original_plan = None
 
                 db.commit()
                 
