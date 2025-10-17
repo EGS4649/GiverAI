@@ -6004,7 +6004,7 @@ async def cancel_subscription(
         
         # ✅ Store cancellation date in database
         db_user.cancellation_date = cancellation_date
-        db_user.plan = "canceling"
+        db_user.cancel_at_period_end = True
         db.commit()
         
         # Send cancellation email
@@ -7625,7 +7625,7 @@ async def cancel_subscription(
         
         # Store cancellation date and mark as canceling
         db_user.cancellation_date = cancellation_date
-        db_user.plan = "canceling"
+        db_user.cancel_at_period_end = True
         db.commit()
         
         # Send cancellation email
