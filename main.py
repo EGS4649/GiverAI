@@ -157,6 +157,7 @@ class User(Base):
     is_ip_banned = Column(Boolean, default=False)
     cancellation_date = Column(DateTime, nullable=True)
     cancellation_requested_at = Column(DateTime, nullable=True)
+    cancel_at_period_end = Column(Boolean, default=False)
 
     # Security logging
     last_password_change = Column(DateTime, nullable=True)
@@ -7421,10 +7422,10 @@ async def stripe_webhook(request: Request):
             if user:
                 if cancel_at_period_end:
                     # User canceled - mark as canceling
-                    if user.plan != "canceling":
+                    if not user.cancel_at_period_end:
                         print(f"🔔 User {user.id} canceled subscription")
                         user.original_plan = user.plan
-                        user.plan = "canceling"
+                        user.cancel_at_period_end = True
                         
                         # Store cancellation date
                         period_end = subscription.get("current_period_end")
@@ -7453,11 +7454,14 @@ async def stripe_webhook(request: Request):
                 
                 # Get the period end FIRST, then use it
                 period_end = subscription.get("current_period_end")
+                
                 if period_end:
                     user.cancellation_date = datetime.fromtimestamp(period_end)
-                
-                user.plan = "free"
-                user.original_plan = None
+                    user.plan = "free"
+                    user.cancellation_date = None
+                    user.cancel_at_period_end = False
+                    user.original_plan = None
+
                 db.commit()
                 
                 # Send downgrade confirmation email
