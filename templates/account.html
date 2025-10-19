@@ -145,13 +145,19 @@
       </form>
     </div>
 
-     {% if user.plan != 'free' %}
+    {% if user.plan != 'free' and user.plan != 'canceling' %}
 <div class="account-section">
     <h2>Subscription Management</h2>
-    <form method="post" action="/cancel-subscription">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit">Cancel Subscription</button>
-    </form>
+    <p>Current Plan: <strong>{{ user.plan.replace('_', ' ').title() }}</strong></p>
+    
+    {% if billing_portal_url %}
+    <a href="{{ billing_portal_url }}" class="btn btn-primary" target="_blank">
+        Manage Billing & Invoices
+    </a>
+    <p class="text-muted small">View invoices, update payment method, or cancel subscription in Stripe's secure portal</p>
+    {% else %}
+    <p class="text-muted">Billing portal unavailable. Contact support if needed.</p>
+    {% endif %}
 </div>
 {% endif %}
     
