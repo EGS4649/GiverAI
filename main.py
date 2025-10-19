@@ -2113,11 +2113,14 @@ def get_plan_features(plan_name):
     }
     return features.get(plan_name, features["free"])
 
-def get_current_user(request: Request, allow_suspended: bool = False):
+def get_current_user(request: Request):
+    
+    db = SessionLocal()
     token = request.cookies.get("access_token")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
     )
     
     if not token:
@@ -2131,35 +2134,11 @@ def get_current_user(request: Request, allow_suspended: bool = False):
     except JWTError:
         raise credentials_exception
     
-    db = SessionLocal()
-    try:
-        user = get_user(db, username)
-        if user is None:
-            raise credentials_exception
-        
-        if not allow_suspended:
-            if user.is_suspended:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Account suspended: {user.suspension_reason or 'Contact support'}"
-                )
-            
-            if user.account_locked_until and user.account_locked_until > datetime.utcnow():
-                raise HTTPException(
-                    status_code=423,
-                    detail="Account temporarily locked"
-                )
-        
-        # ✅ ALWAYS attach features to prevent dashboard errors
-        user.features = get_plan_features(user.plan)
-        
-        # ✅ Ensure all expected attributes exist
-        if not hasattr(user, 'plan'):
-            user.plan = 'free'
-        
-        return user
-    finally:
-        db.close()
+    user = db.query(User).filter(User.username == username).first()
+    if user is None:
+        raise credentials_exception
+    
+    return user
 
 async def get_current_user_or_none(request: Request) -> Optional[User]:
     """Get current user without raising exception if not authenticated"""
@@ -2227,6 +2206,17 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
         status_code=429,
         content={"detail": "Too many requests. Please try again later."}
     )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code == 401:
+        # Redirect to login for authentication errors
+        return RedirectResponse(
+            url=f"/login?error=Please+log+in+first&redirect={request.url.path}",
+            status_code=303
+        )
+    # Let other HTTP exceptions pass through
+    raise exc
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
