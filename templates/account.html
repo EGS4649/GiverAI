@@ -127,16 +127,6 @@
         {{ success }}
       </div>
     {% endif %}
-
-    {% if user.features.api_access %}
-    <div class="account-section">
-      <h2>API Access</h2>
-      <p>Your API Key: <code>{{ user.api_key or 'Not generated' }}</code></p>
-      <form method="post" action="/generate-api-key">
-        <button type="submit">Generate New API Key</button>
-      </form>
-    </div>
-    {% endif %}
     
     <div class="account-section">
       <h2>Account Information</h2>
