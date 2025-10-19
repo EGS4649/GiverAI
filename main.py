@@ -3600,14 +3600,13 @@ async def ip_tracking_middleware(request: Request, call_next):
 @app.get("/admin")
 async def admin_dashboard(
     request: Request,
+    user: User = Depends(get_admin_user),
     success: str = Query(None),
     error: str = Query(None),
     db: Session = Depends(get_db)
 ):
     """Admin dashboard page"""
     try:
-        # Check if user is admin
-        user = get_optional_user(request)
         if not user or not is_admin_user(user):
             raise HTTPException(status_code=404, detail="Page not found")
         
