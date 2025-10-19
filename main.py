@@ -4810,7 +4810,7 @@ async def login_post(
             value=access_token,
             httponly=True,
              secure=IS_PRODUCTION,  
-            samesite='strict',
+            samesite='lax',
             max_age=2*24*3600,
             domain=".giverai.me"
         )
