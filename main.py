@@ -2159,9 +2159,15 @@ async def get_current_user_or_none(request: Request) -> Optional[User]:
         return None
     
 def get_optional_user(request: Request, allow_suspended: bool = False):
-    """Get optional user (returns None if not authenticated), optionally allowing suspended users"""
+    """Get optional user (returns None if not authenticated)"""
     try:
-        return get_current_user(request, allow_suspended=allow_suspended)
+        user = get_current_user_or_none(request)
+        
+        # If user exists but is suspended and we don't allow suspended users
+        if user and not allow_suspended and getattr(user, 'is_suspended', False):
+            return None
+            
+        return user
     except Exception:
         return None
    
