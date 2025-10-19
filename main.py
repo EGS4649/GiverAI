@@ -2161,6 +2161,24 @@ def get_current_user(request: Request, allow_suspended: bool = False):
     finally:
         db.close()
 
+async def get_current_user_or_none(request: Request) -> Optional[User]:
+    """Get current user without raising exception if not authenticated"""
+    db = SessionLocal()
+    try:
+        token = request.cookies.get("access_token")
+        if not token:
+            return None
+        
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+        
+        user = db.query(User).filter(User.username == username).first()
+        return user
+    except (JWTError, Exception):
+        return None
+    
 def get_optional_user(request: Request, allow_suspended: bool = False):
     """Get optional user (returns None if not authenticated), optionally allowing suspended users"""
     try:
@@ -5273,24 +5291,45 @@ def update_database_for_suspension_appeals():
 
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
-async def account(request: Request, user: User = Depends(get_current_user)):
-    # Get Stripe billing portal URL for paid users
-    billing_portal_url = None
-    if user.stripe_customer_id and user.plan not in ["free", "canceling"]:
-        try:
-            session = stripe.billing_portal.Session.create(
-                customer=user.stripe_customer_id,
-                return_url=str(request.url_for('account'))
+async def account(request: Request):
+    """Account page with graceful handling of Stripe returns"""
+    try:
+        # Try to get current user, but handle if they're not authenticated
+        user = await get_current_user_or_none(request)
+        
+        if not user:
+            # User session expired or wasn't preserved through Stripe redirect
+            return RedirectResponse(
+                url="/login?error=Session+expired.+Please+log+in+again&redirect=/account",
+                status_code=303
             )
-            billing_portal_url = session.url
-        except Exception as e:
-            print(f"Failed to create billing portal session: {e}")
+        
+        # Get Stripe billing portal URL for paid users
+        billing_portal_url = None
+        if user.stripe_customer_id and user.plan not in ["free", "canceling"]:
+            try:
+                session = stripe.billing_portal.Session.create(
+                    customer=user.stripe_customer_id,
+                    return_url=str(request.url_for('account'))
+                )
+                billing_portal_url = session.url
+            except Exception as e:
+                print(f"Failed to create billing portal session: {e}")
+        
+        return templates.TemplateResponse("account.html", {
+            "request": request,
+            "user": user,
+            "billing_portal_url": billing_portal_url
+        })
     
-    return templates.TemplateResponse("account.html", {
-        "request": request,
-        "user": user,
-        "billing_portal_url": billing_portal_url
-    })
+    except Exception as e:
+        print(f"Unexpected error on account page: {e}")
+        import traceback
+        traceback.print_exc()
+        return RedirectResponse(
+            url="/?error=Something+went+wrong",
+            status_code=303
+        )
 
 # Fix history route
 @app.get("/history", response_class=HTMLResponse)
