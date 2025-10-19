@@ -5045,36 +5045,23 @@ async def logout(request: Request):
     return response
 
 @app.get("/contact", response_class=HTMLResponse)
-def contact_page(request: Request, csrf_protect: CsrfProtect = Depends()):
+def contact_page(request: Request):  # ← Removed csrf_protect parameter
     user = get_optional_user(request)
-    csrf_response = csrf_protect.generate_csrf()
-    # Extract token from tuple
-    csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+    # csrf_response = csrf_protect.generate_csrf()  ← COMMENT OUT
+    # csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response  ← COMMENT OUT
     
-    response = templates.TemplateResponse("contact.html", {
+    return templates.TemplateResponse("contact.html", {  # ← Changed to simple return
         "request": request,
         "user": user,
-        "form_data": {},
-        "csrf_token": csrf_token
+        "form_data": {}
+        # "csrf_token": csrf_token  ← COMMENT OUT (remove from dict)
     })
-    
-    # Set the CSRF cookie
-    response.set_cookie(
-        key="fastapi-csrf-token",
-        value=csrf_token,
-        max_age=3600,
-        path="/",
-        secure=True,
-        httponly=True,
-        samesite="lax"
-    )
-    
-    return response
+    # response.set_cookie(...)  ← COMMENT OUT entire cookie section
 
-@limiter.limit("10/minute")   
+@limiter.limit("10/minute")
 @app.post("/contact", response_class=HTMLResponse)
-async def handle_contact_form(request: Request,csrf_protect: CsrfProtect = Depends()):
-    await csrf_protect.validate_csrf(request)
+async def handle_contact_form(request: Request):  # ← Removed csrf_protect parameter
+    # await csrf_protect.validate_csrf(request)  ← COMMENT OUT
     user = get_optional_user(request)
     form_data = {}
     
@@ -5090,14 +5077,14 @@ async def handle_contact_form(request: Request,csrf_protect: CsrfProtect = Depen
         # Validation
         if not all([form_data["name"], form_data["email"], form_data["subject"], form_data["message"]]):
             raise ValueError("All required fields must be filled out")
-            
+        
         if len(form_data["message"]) < 10:
             raise ValueError("Please provide a more detailed message")
-            
+        
         user_info = None
         if user:
             user_info = f"Username: {user.username} | Plan: {user.plan.replace('_', ' ').title()} | Member since: {user.created_at.strftime('%Y-%m-%d')}"
-            
+        
         # Send emails
         support_sent = email_service.send_contact_form_notification(
             form_data["name"], form_data["email"], form_data["subject"], form_data["message"], user_info
@@ -5111,7 +5098,7 @@ async def handle_contact_form(request: Request,csrf_protect: CsrfProtect = Depen
             return templates.TemplateResponse("contact.html", {
                 "request": request,
                 "user": user,
-                "form_data": {},  # Clear form on success
+                "form_data": {},
                 "success": "Thank you! Your message has been sent successfully. We'll get back to you within 24 hours."
             })
         else:
@@ -5121,7 +5108,7 @@ async def handle_contact_form(request: Request,csrf_protect: CsrfProtect = Depen
         return templates.TemplateResponse("contact.html", {
             "request": request,
             "user": user,
-            "form_data": form_data,  # Preserve form data on error
+            "form_data": form_data,
             "error": str(e)
         })
     except Exception as e:
