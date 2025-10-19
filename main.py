@@ -7249,6 +7249,18 @@ async def stripe_webhook(request: Request):
                             user.cancellation_date = datetime.fromtimestamp(period_end)
                         
                         db.commit()
+
+                try:
+                    plan_for_email = user.original_plan if user.original_plan else user.plan
+                    email_service.send_subscription_cancellation_email(
+                        user, 
+                        plan_for_email, 
+                        user.cancellation_date
+                    )
+                    print(f"✅ Cancellation email sent to {user.email}")
+                except Exception as e:
+                    print(f"❌ Failed to send cancellation email: {str(e)}")
+
                 else:
                     # User reactivated - restore plan
                     if user.plan == "canceling" and user.original_plan:
