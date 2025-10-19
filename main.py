@@ -4679,28 +4679,12 @@ async def admin_user_activity(
         db.close()
 
 @app.get("/login", response_class=HTMLResponse)
-async def login(request: Request, csrf_protect: CsrfProtect = Depends()):
+async def login(request: Request):
     user = get_optional_user(request)
-    csrf_response = csrf_protect.generate_csrf()
-
-    # Extract token from tuple
-    csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
     response = templates.TemplateResponse("login.html", {
         "request": request, 
-        "user": user,
-        "csrf_token": csrf_token
+        "user": user
     })
-    # Set the CSRF cookie
-    response.set_cookie(
-        key="fastapi-csrf-token",
-        value=csrf_token,
-        max_age=3600,
-        path="/",
-        secure=True,
-        httponly=True,
-        samesite="lax"
-    )
-    
     return response
  
 @limiter.limit("5/minute")
@@ -4709,33 +4693,7 @@ async def login_post(
     request: Request, 
     username: str = Form(...), 
     password: str = Form(...),
-    csrf_token: str = Form(...),
-    csrf_protect: CsrfProtect = Depends(),
 ):
-    # Manual CSRF validation
-    cookie_token = request.cookies.get("fastapi-csrf-token")
-
-    if not cookie_token or cookie_token != csrf_token:
-        csrf_response = csrf_protect.generate_csrf()
-        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
-        
-        response = templates.TemplateResponse("login.html", {
-            "request": request,
-            "user": None,
-            "error": "Invalid CSRF token. Please refresh and try again.",
-            "csrf_token": new_csrf_token
-        })
-        response.set_cookie(
-            key="fastapi-csrf-token",
-            value=new_csrf_token,
-            max_age=3600,
-            path="/",
-            secure=True,
-            httponly=True,
-            samesite="lax"
-        )
-        return response  # YOU FORGOT THIS!
-
     db = SessionLocal()
     try:
         # Get real client IP
@@ -4752,26 +4710,11 @@ async def login_post(
             if user_record.account_locked_until > datetime.utcnow():
                 time_remaining = user_record.account_locked_until - datetime.utcnow()
                 hours_remaining = int(time_remaining.total_seconds() / 3600) + 1
-                
-                # Generate new CSRF token for error response
-                csrf_response = csrf_protect.generate_csrf()
-                new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
-                
                 response = templates.TemplateResponse("login.html", {
                     "request": request,
                     "user": None,
                     "error": f"Account temporarily locked. Try again in {hours_remaining} hour(s).",
-                    "csrf_token": new_csrf_token
                 })
-                response.set_cookie(
-                    key="fastapi-csrf-token",
-                    value=new_csrf_token,
-                    max_age=3600,
-                    path="/",
-                    secure=True,
-                    httponly=True,
-                    samesite="lax"
-                )
                 return response
             else:
                 # Lock period has expired, clear it
@@ -4804,112 +4747,47 @@ async def login_post(
                     except Exception as e:
                         print(f"❌ Failed to send account locked email: {e}")
                     
-                    csrf_response = csrf_protect.generate_csrf()
-                    new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
-                    
                     response = templates.TemplateResponse("login.html", {
                         "request": request,
                         "user": None,
-                        "error": "Account locked due to multiple failed login attempts. Check your email for recovery instructions.",
-                        "csrf_token": new_csrf_token
+                        "error": "Account locked due to multiple failed login attempts. Check your email for recovery instructions."
                     })
-                    response.set_cookie(
-                        key="fastapi-csrf-token",
-                        value=new_csrf_token,
-                        max_age=3600,
-                        path="/",
-                        secure=True,
-                        httponly=True,
-                        samesite="lax"
-                    )
                     return response
                 else:
                     attempts_left = 4 - user_record.failed_login_attempts
                     db.commit()
                     
-                    csrf_response = csrf_protect.generate_csrf()
-                    new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
-                    
                     response = templates.TemplateResponse("login.html", {
                         "request": request,
                         "user": None,
-                        "error": f"Invalid credentials. {attempts_left} attempt(s) remaining before account lock.",
-                        "csrf_token": new_csrf_token
+                        "error": f"Invalid credentials. {attempts_left} attempt(s) remaining before account lock."
                     })
-                    response.set_cookie(
-                        key="fastapi-csrf-token",
-                        value=new_csrf_token,
-                        max_age=3600,
-                        path="/",
-                        secure=True,
-                        httponly=True,
-                        samesite="lax"
-                    )
                     return response
             else:
                 # Username/email doesn't exist
-                csrf_response = csrf_protect.generate_csrf()
-                new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
-                
                 response = templates.TemplateResponse("login.html", {
                     "request": request,
                     "user": None,
                     "error": "Invalid credentials",
-                    "csrf_token": new_csrf_token
                 })
-                response.set_cookie(
-                    key="fastapi-csrf-token",
-                    value=new_csrf_token,
-                    max_age=3600,
-                    path="/",
-                    secure=True,
-                    httponly=True,
-                    samesite="lax"
-                )
                 return response
         
         # Check if account is suspended
         if user.is_suspended:
-            csrf_response = csrf_protect.generate_csrf()
-            new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
-            
             response = templates.TemplateResponse("login.html", {
                 "request": request,
                 "user": None,
-                "error": f"Account suspended: {user.suspension_reason or 'Please contact support'}",
-                "csrf_token": new_csrf_token
+                "error": f"Account suspended: {user.suspension_reason or 'Please contact support'}"
             })
-            response.set_cookie(
-                key="fastapi-csrf-token",
-                value=new_csrf_token,
-                max_age=3600,
-                path="/",
-                secure=True,
-                httponly=True,
-                samesite="lax"
-            )
             return response
         
         # Check if email is verified
         if not user.is_active:
-            csrf_response = csrf_protect.generate_csrf()
-            new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
-            
             response = templates.TemplateResponse("login.html", {
                 "request": request, 
                 "user": None,
-                "error": "Please verify your email before logging in",
-                "csrf_token": new_csrf_token
+                "error": "Please verify your email before logging in"
             })
-            response.set_cookie(
-                key="fastapi-csrf-token",
-                value=new_csrf_token,
-                max_age=3600,
-                path="/",
-                secure=True,
-                httponly=True,
-                samesite="lax"
-            )
             return response
         
         # Successful login - reset failed attempts
@@ -4943,25 +4821,11 @@ async def login_post(
         import traceback
         traceback.print_exc()
         
-        # Generate CSRF token for exception case
-        csrf_response = csrf_protect.generate_csrf()
-        new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
-        
         response = templates.TemplateResponse("login.html", {
             "request": request,
             "user": None, 
-            "error": "Invalid credentials",
-            "csrf_token": new_csrf_token
+            "error": "Invalid credentials"
         })
-        response.set_cookie(
-            key="fastapi-csrf-token",
-            value=new_csrf_token,
-            max_age=3600,
-            path="/",
-            secure=True,
-            httponly=True,
-            samesite="lax"
-        )
         return response
     finally:
         db.close()
@@ -5779,9 +5643,18 @@ def tweetgiver(request: Request):
 
 @app.post("/tweetgiver", response_class=HTMLResponse)
 async def generate_tweetgiver(request: Request):
-    user = get_optional_user(request)  # Allow both logged in and out
+    user = get_optional_user(request)
     
-    # Don't check playground_used cookie anymore - just let them try once
+    # If logged in, redirect to dashboard
+    if user:
+        return RedirectResponse("/dashboard", status_code=302)
+    
+    # Check playground usage count
+    playground_count = int(request.cookies.get("playground_count", "0"))
+    
+    if playground_count >= 5:
+        # Redirect to registration after 5 tweets
+        return RedirectResponse("/register?message=You've reached the free limit! Sign up for unlimited tweets.", status_code=302)
     
     form = await request.form()
     job = form.get("job", "").strip()
@@ -5792,18 +5665,34 @@ async def generate_tweetgiver(request: Request):
             "request": request, 
             "tweets": None, 
             "user": user,
-            "error": "Please fill in both fields"
+            "error": "Please fill in both fields",
+            "tweets_remaining": 5 - playground_count
         })
     
     # Generate single tweet for playground
-    prompt = f"As a {job}, suggest 5 engaging tweets to achieve: {goal}."
-    tweets = await get_ai_tweets(prompt, 5)
+    prompt = f"As a {job}, suggest 1 engaging tweet to achieve: {goal}."
+    tweets = await get_ai_tweets(prompt, 1)
     
-    return templates.TemplateResponse("tweetgiver.html", {
+    # Increment counter
+    new_count = playground_count + 1
+    
+    response = templates.TemplateResponse("tweetgiver.html", {
         "request": request, 
         "tweets": tweets, 
-        "user": user
+        "user": user,
+        "tweets_remaining": 5 - new_count,
+        "show_signup_prompt": new_count >= 3  # Show after 3 tweets
     })
+    
+    # Update cookie
+    response.set_cookie(
+        key="playground_count",
+        value=str(new_count),
+        max_age=86400,  # 24 hours
+        httponly=True
+    )
+    
+    return response
 
 @app.get("/pricing", response_class=HTMLResponse)
 def pricing(request: Request):
