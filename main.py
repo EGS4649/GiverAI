@@ -2009,8 +2009,10 @@ def get_user(db, username: str):
         return db.query(User).options(defer(User.hashed_password)).filter(User.username == username).first()
     except ProgrammingError as e:
         if "column users.is_admin does not exist" in str(e):
-            migrate_database()
-            return db.query(User).options(defer(User.hashed_password)).filter(User.username == username).first()
+           raise HTTPException(
+                status_code=500, 
+                detail="Database schema out of date. Please contact support."
+            )
         raise
 
 def authenticate_user(db, username: str, password: str):
@@ -5419,31 +5421,25 @@ def update_database_for_suspension_appeals():
         print(f"❌ Error updating database for suspension appeals: {e}")
 
 # Account Management Routes
-
 @app.get("/account", response_class=HTMLResponse)
-async def account(request: Request, user: User = Depends(get_current_user), csrf_protect: CsrfProtect = Depends()):
-    csrf_response = csrf_protect.generate_csrf()
-    # Extract token from tuple - THIS WAS MISSING!
-    csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+async def account(request: Request, user: User = Depends(get_current_user)):
+    # Get Stripe billing portal URL for paid users
+    billing_portal_url = None
+    if user.stripe_customer_id and user.plan not in ["free", "canceling"]:
+        try:
+            session = stripe.billing_portal.Session.create(
+                customer=user.stripe_customer_id,
+                return_url=str(request.url_for('account'))
+            )
+            billing_portal_url = session.url
+        except Exception as e:
+            print(f"Failed to create billing portal session: {e}")
     
-    response = templates.TemplateResponse("account.html", {
+    return templates.TemplateResponse("account.html", {
         "request": request,
         "user": user,
-        "csrf_token": csrf_token
+        "billing_portal_url": billing_portal_url
     })
-    
-    # Set the CSRF cookie
-    response.set_cookie(
-        key="fastapi-csrf-token",
-        value=csrf_token,
-        max_age=3600,
-        path="/",
-        secure=True,
-        httponly=True,
-        samesite="lax"
-    )
-    
-    return response
 
 # Fix history route
 @app.get("/history", response_class=HTMLResponse)
@@ -5785,115 +5781,42 @@ async def remove_team_member(
         db.close()
 
 @app.get("/tweetgiver", response_class=HTMLResponse)
-async def tweetgiver(request: Request, csrf_protect: CsrfProtect = Depends()):
+def tweetgiver(request: Request):
     user = get_optional_user(request)
-    if user:
-        return RedirectResponse("/dashboard", status_code=302)
-    
-    # Generate CSRF tokens using the library
-    csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
-    
-    response = templates.TemplateResponse("tweetgiver.html", {
-        "request": request,
-        "tweets": None,
-        "user": user,
-        "csrf_token": csrf_token,  # Send unsigned token to template
-        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+    # Don't redirect logged-in users anymore - let them use playground too
+    return templates.TemplateResponse("tweetgiver.html", {
+        "request": request, 
+        "tweets": None, 
+        "user": user
     })
-    
-    # Use the library's method to set the cookie (with signed token)
-    csrf_protect.set_csrf_cookie(signed_token, response)
-    
-    return response
-
 
 @app.post("/tweetgiver", response_class=HTMLResponse)
-@limiter.limit("60/hour")
-async def generate_tweetgiver(
-    request: Request, 
-    csrf_protect: CsrfProtect = Depends(),
-    job: str = Form(...),
-    goal: str = Form(...),
-    csrf_token: str = Form(...)  # Get CSRF token from form
-):
-    user = None
+async def generate_tweetgiver(request: Request):
+    user = get_optional_user(request)  # Allow both logged in and out
     
-    # Check if user is logged in
-    try:
-        user = get_current_user(request)
-        return RedirectResponse("/dashboard", status_code=302)
-    except:
-        pass
+    # Don't check playground_used cookie anymore - just let them try once
     
-    # VALIDATE CSRF TOKEN FIRST (before any other operations)
-    try:
-        await csrf_protect.validate_csrf(request)
-    except Exception as e:
-        print(f"CSRF validation failed: {e}")
-        # Generate new tokens for the error response
-        new_csrf_token, new_signed_token = csrf_protect.generate_csrf_tokens()
-        
-        response = templates.TemplateResponse("tweetgiver.html", {
-            "request": request,
-            "tweets": None,
-            "user": None,
-            "error": "Invalid CSRF token. Please refresh and try again.",
-            "csrf_token": new_csrf_token,
-            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
-        })
-        csrf_protect.set_csrf_cookie(new_signed_token, response)
-        return response
-    
-    # Check if playground already used
-    playground_used = request.cookies.get("playground_used", "false")
-    if playground_used == "true":
-        return RedirectResponse("/register", status_code=302)
-    
-    # Sanitize inputs
-    job = sanitize_input(job)
-    goal = sanitize_input(goal)
-    
-    # Get reCAPTCHA from form
     form = await request.form()
-    g_recaptcha_response = form.get("g-recaptcha-response", "")
+    job = form.get("job", "").strip()
+    goal = form.get("goal", "").strip()
     
-    # Verify reCAPTCHA
-    if not verify_recaptcha(g_recaptcha_response):
-        csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
-        
-        response = templates.TemplateResponse("tweetgiver.html", {
-            "request": request,
-            "tweets": None,
-            "user": None,
-            "error": "Please complete the reCAPTCHA verification",
-            "csrf_token": csrf_token,
-            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+    if not job or not goal:
+        return templates.TemplateResponse("tweetgiver.html", {
+            "request": request, 
+            "tweets": None, 
+            "user": user,
+            "error": "Please fill in both fields"
         })
-        csrf_protect.set_csrf_cookie(signed_token, response)
-        return response
     
-    # Generate tweets
-    prompt = f"As a {job}, suggest 5 engaging tweets to achieve: {goal}."
-    tweets = await get_ai_tweets(prompt, 5)
+    # Generate single tweet for playground
+    prompt = f"As a {job}, suggest 1 engaging tweet to achieve: {goal}."
+    tweets = await get_ai_tweets(prompt, 1)
     
-    # Generate new CSRF tokens for the response
-    csrf_token, signed_token = csrf_protect.generate_csrf_tokens()
-    
-    response = templates.TemplateResponse("tweetgiver.html", {
-        "request": request,
-        "tweets": tweets,
-        "user": user,
-        "csrf_token": csrf_token,
-        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+    return templates.TemplateResponse("tweetgiver.html", {
+        "request": request, 
+        "tweets": tweets, 
+        "user": user
     })
-    
-    # Mark playground as used
-    response.set_cookie(key="playground_used", value="true", max_age=86400)
-    
-    # Set CSRF cookie for next visit
-    csrf_protect.set_csrf_cookie(signed_token, response)
-    
-    return response
 
 @app.get("/pricing", response_class=HTMLResponse)
 def pricing(request: Request):
