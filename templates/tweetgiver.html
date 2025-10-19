@@ -69,7 +69,13 @@
       </ul>
       
       <!-- Popup for non-authenticated users -->
-      {% if not user %}
+     {% if not user %}
+    <div class="playground-limit-notice">
+    <p>Free playground tweets remaining: <strong>{{ tweets_remaining or 5 }}</strong>/5</p>
+    {% if show_signup_prompt %}
+    <p class="signup-prompt">Like what you see? <a href="/register">Sign up for unlimited tweets!</a></p>
+    {% endif %}
+      </div>
       <div id="signupPopup" style="
         position: fixed;
         top: 0;
