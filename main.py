@@ -5796,8 +5796,8 @@ async def generate_tweetgiver(request: Request):
         })
     
     # Generate single tweet for playground
-    prompt = f"As a {job}, suggest 1 engaging tweet to achieve: {goal}."
-    tweets = await get_ai_tweets(prompt, 1)
+    prompt = f"As a {job}, suggest 5 engaging tweets to achieve: {goal}."
+    tweets = await get_ai_tweets(prompt, 5)
     
     return templates.TemplateResponse("tweetgiver.html", {
         "request": request, 
