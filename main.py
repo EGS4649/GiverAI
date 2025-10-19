@@ -5538,21 +5538,35 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         db.delete(db_user)
         db.commit()
         
-        response = RedirectResponse("/", status_code=302)
-        response.delete_cookie("access_token")
+         # Create redirect response
+        response = RedirectResponse(
+            "/?success=Account+deleted+successfully", 
+            status_code=303  # ✅ Use 303 for POST-redirect-GET
+        )
+        
+        # Clear the access token cookie properly
+        response.delete_cookie(
+            key="access_token",
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+        )
+        
         return response
         
     except Exception as e:
         db.rollback()
-        print(f"Error deleting account: {str(e)}")
-        # Return user to account page with error
-        db_user = apply_plan_features(db_user)
-        return templates.TemplateResponse("account.html", {
-            "request": request,
-            "user": db_user,
-            "error": "Failed to delete account. Please try again or contact support."
-        })
+        print(f"❌ Error deleting account: {str(e)}")
+        import traceback
+        traceback.print_exc()
         
+        # Redirect to account page with error instead of rendering template
+        # (safer because user object might be in bad state)
+        return RedirectResponse(
+            "/account?error=Failed+to+delete+account", 
+            status_code=303
+        )
     finally:
         db.close()
         
