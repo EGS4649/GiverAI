@@ -2595,7 +2595,21 @@ def log_user_activity(
 
 # ---- ROUTES ----
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
+def root_redirect(request: Request):
+    access_token = request.cookies.get("access_token")
+    if access_token:
+        try:
+            payload = jwt.decode(access_token, SECRET_KEY, algorithms=["HS256"])
+            return RedirectResponse(url="/dashboard")
+        except:
+            pass
+    return RedirectResponse(url="/home")
+
+@app.get("/home")
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request, "user": None})
+    
 @app.head("/")  
 
 def index(request: Request):
