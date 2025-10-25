@@ -4915,59 +4915,13 @@ async def unlock_account_request(
             })
     finally:
         db.close
-        
+
 @app.get("/logout")
-
-def logout():
-
-    html_content = """
-
-    <!DOCTYPE html>
-
-    <html>
-
-    <head>
-
-        <title>Logging out...</title>
-
-        <script>
-
-            // Delete cookies via JavaScript as backup
-
-            document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
-            document.cookie = "playground_count=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
-            // Redirect after cookies cleared
-
-            setTimeout(() => {
-
-                window.location.href = "/";
-
-            }, 100);
-
-        </script>
-
-    </head>
-
-    <body>
-
-        <p>Logging out...</p>
-
-    </body>
-
-    </html>
-
-    """
-
-    response = HTMLResponse(content=html_content)
-
+def logout(request: Request):
+    response = templates.TemplateResponse("logout.html", {"request": request})
     response.delete_cookie("access_token", path="/")
-
     response.delete_cookie("playground_count", path="/")
-
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-
     return response
 
 
