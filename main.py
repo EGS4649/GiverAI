@@ -4917,27 +4917,59 @@ async def unlock_account_request(
         db.close
         
 @app.get("/logout")
+
 def logout():
-    response = RedirectResponse("/", status_code=302)
-    
-    # Delete with same settings as when it was set
-    response.delete_cookie(
-        key="access_token",
-        path="/",
-        domain=None
-    )
-    response.delete_cookie(
-        key="playground_count",
-        path="/",
-        domain=None  
-    )
-    
-    # Prevent caching
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    
+
+    html_content = """
+
+    <!DOCTYPE html>
+
+    <html>
+
+    <head>
+
+        <title>Logging out...</title>
+
+        <script>
+
+            // Delete cookies via JavaScript as backup
+
+            document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+            document.cookie = "playground_count=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+            // Redirect after cookies cleared
+
+            setTimeout(() => {
+
+                window.location.href = "/";
+
+            }, 100);
+
+        </script>
+
+    </head>
+
+    <body>
+
+        <p>Logging out...</p>
+
+    </body>
+
+    </html>
+
+    """
+
+    response = HTMLResponse(content=html_content)
+
+    response.delete_cookie("access_token", path="/")
+
+    response.delete_cookie("playground_count", path="/")
+
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+
     return response
+
 
 @app.get("/contact", response_class=HTMLResponse)
 def contact_page(request: Request):  # ← Removed csrf_protect parameter
