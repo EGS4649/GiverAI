@@ -6,21 +6,32 @@
   <title>Logout - Giver.ai</title>
   <link rel="stylesheet" href="/static/style.css">
   <script>
-    // Delete cookies via JavaScript
+    // Aggressively clear ALL cookies
+    document.cookie.split(";").forEach(function(c) { 
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+    });
+    
+    // Also explicitly clear the specific cookies
     document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     document.cookie = "playground_count=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     
-    // Redirect after a brief moment
+    // Clear session storage and local storage too (just in case)
+    if (typeof(Storage) !== "undefined") {
+      sessionStorage.clear();
+      localStorage.clear();
+    }
+    
+    // Redirect to /home (NOT /) to avoid the root redirect middleware
     setTimeout(() => {
-      window.location.href = "/";
-    }, 2000);
+      window.location.replace("/home");  // Using replace to prevent back button issues
+    }, 1500);
   </script>
 </head>
 <body>
   <!-- Navigation Bar -->
   <nav class="navbar" style="align-items: center; min-height: 60px;">
     <div class="brand" style="display: flex; align-items: center; gap: 12px;">
-      <a href="/" style="color: white; text-decoration: none; display: flex; align-items: center; gap: 12px;">
+      <a href="/home" style="color: white; text-decoration: none; display: flex; align-items: center; gap: 12px;">
         <img src="/static/logo.png" alt="Giver.ai Logo" class="brand-logo" style="height: 40px !important; width: auto !important; vertical-align: middle;">
         <span class="brand-text" style="line-height: 1;">Giver.ai</span>
       </a>
@@ -46,7 +57,7 @@
       <div style="font-size: 48px; margin-bottom: 20px;">👋</div>
       <h2 style="margin-bottom: 15px;">Successfully Logged Out</h2>
       <p style="margin-bottom: 20px;">Your session has been ended securely.</p>
-      <p style="color: #666; font-size: 14px;">Redirecting you to the homepage...</p>
+      <p style="color: #fff; font-size: 14px; opacity: 0.9;">Redirecting you to the homepage...</p>
     </div>
 
     <div style="text-align: center; margin-top: 30px;">
