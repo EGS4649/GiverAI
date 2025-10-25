@@ -4918,12 +4918,19 @@ async def unlock_account_request(
 
 @app.get("/logout")
 def logout(request: Request):
+    # Render the logout page with deleted cookies
     response = templates.TemplateResponse("logout.html", {"request": request})
+    
+    # Server-side cookie deletion
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("playground_count", path="/")
+    
+    # Prevent any caching
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    
     return response
-
 
 @app.get("/contact", response_class=HTMLResponse)
 def contact_page(request: Request):  # ← Removed csrf_protect parameter
