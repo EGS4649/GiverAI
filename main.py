@@ -2161,14 +2161,37 @@ async def get_current_user_or_none(request: Request) -> Optional[User]:
 def get_optional_user(request: Request, allow_suspended: bool = False):
     """Get optional user (returns None if not authenticated)"""
     try:
-        user = get_current_user_or_none(request)
-        
-        # If user exists but is suspended and we don't allow suspended users
-        if user and not allow_suspended and getattr(user, 'is_suspended', False):
+        token = request.cookies.get("access_token")
+        if not token:
             return None
             
-        return user
-    except Exception:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+            
+        db = SessionLocal()
+        try:
+            user = get_user(db, username)
+            if user is None:
+                return None
+            
+            # Only apply security checks if not allowing suspended users
+            if not allow_suspended:
+                if user.is_suspended:
+                    return None
+                if user.account_locked_until and user.account_locked_until > datetime.utcnow():
+                    return None
+            
+            user.features = get_plan_features(user.plan)
+            return user
+        finally:
+            db.close()
+            
+    except JWTError:
+        return None
+    except Exception as e:
+        print(f"Error in get_optional_user: {e}")
         return None
    
 def get_suspended_user(request: Request):
@@ -4896,11 +4919,21 @@ async def unlock_account_request(
 @app.get("/logout")
 def logout():
     response = RedirectResponse("/", status_code=302)
-    response.delete_cookie("access_token")
-    response.delete_cookie("playground_count")  # Also clear playground counter
     
-    # Add cache control headers to prevent caching
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    # Delete with same settings as when it was set
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        domain=None
+    )
+    response.delete_cookie(
+        key="playground_count",
+        path="/",
+        domain=None  
+    )
+    
+    # Prevent caching
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     
