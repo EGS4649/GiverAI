@@ -5927,12 +5927,12 @@ async def verify_cancellation(stripe_customer_id: str):
         print(f"Verification failed: {str(e)}")
     finally:
         db.close()
-
 @app.post("/checkout/{plan_type}")
 async def create_checkout_session(request: Request, plan_type: str):
-    try:
-        user = get_current_user(request)
-    except HTTPException:
+    # Use get_optional_user instead of try/except
+    user = get_optional_user(request)
+    
+    if not user:
         return RedirectResponse("/register", status_code=302)
     
     db = SessionLocal()
@@ -5998,7 +5998,7 @@ async def create_checkout_session(request: Request, plan_type: str):
                 db.rollback()
                 print(f"❌ Failed to create Stripe customer: {str(e)}")
                 import traceback
-                traceback.print_exc()  # This will show the full error
+                traceback.print_exc()
                 return templates.TemplateResponse("pricing.html", {
                     "request": request,
                     "error": "Failed to create customer. Please try again.",
@@ -6026,10 +6026,10 @@ async def create_checkout_session(request: Request, plan_type: str):
         return RedirectResponse(checkout_session.url, status_code=303)
         
     except Exception as e:
-        db.rollback()  # Add rollback here too
+        db.rollback()
         print(f"❌ Error creating checkout session: {str(e)}")
         import traceback
-        traceback.print_exc()  # Show full traceback
+        traceback.print_exc()
         return templates.TemplateResponse("pricing.html", {
             "request": request,
             "error": "Error creating checkout session. Please try again.",
