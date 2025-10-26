@@ -5335,9 +5335,6 @@ async def account(request: Request, user: User = Depends(get_current_user)):
 @app.get("/history", response_class=HTMLResponse)
 def tweet_history(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
-    if user.plan not in ["creator_monthly", "creator_yearly"]:
-        raise HTTPException(403, "History is only available for Creator plan")
-
     try:
         days = 90
         cutoff_date = datetime.utcnow() - timedelta(days=days)
@@ -5524,7 +5521,7 @@ async def change_email(
     
     finally:
         db.close()
-        
+
 @app.post("/account/delete")
 async def delete_account(request: Request):
     # ⭐ Manually get and validate user BEFORE deleting
