@@ -364,7 +364,7 @@
                     <label for="email">Email Address *</label>
                     <input type="email" id="email" name="email" required 
                            placeholder="your@email.com" 
-                           value="{{ form_data.get('email', user.email if user else '') if form_data else '' }}"
+                           value="{{ form_data.get('email') if form_data else (user.email or '') }}"
                            {% if user %}readonly style="background: rgba(0, 0, 0, 0.3); color: #adc2ff;"{% endif %}>
                 </div>
                 
