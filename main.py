@@ -2265,6 +2265,16 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY")
 )
 
+# Add to your startup
+print("✓ STRIPE_SECRET_KEY:", "SET" if os.getenv("STRIPE_SECRET_KEY") else "MISSING")
+print("✓ DATABASE_URL:", "SET" if os.getenv("DATABASE_URL") else "MISSING")
+print("✓ SMTP configured:", "YES" if all([
+    os.getenv("SMTP_SERVER"),
+    os.getenv("SMTP_USERNAME"),
+    os.getenv("SMTP_PASSWORD")
+]) else "NO")
+print("✓ OPENROUTER_API_KEY:", "SET" if os.getenv("OPENROUTER_API_KEY") else "MISSING")
+
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc: HTTPException):
     """Custom 404 page handler"""
