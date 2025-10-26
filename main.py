@@ -5524,7 +5524,7 @@ async def change_email(
     
     finally:
         db.close()
-
+        
 @app.post("/account/delete")
 async def delete_account(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
@@ -5550,7 +5550,7 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         except Exception as e:
             print(f"⚠ Failed to send goodbye email: {str(e)}")
         
-        # Delete all foreign key references first (IN ORDER)
+        # Delete all foreign key references first
         db.query(Usage).filter(Usage.user_id == user.id).delete()
         db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).delete()
         db.query(TeamMember).filter(TeamMember.user_id == user.id).delete()
@@ -5562,13 +5562,28 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         db.delete(db_user)
         db.commit()
         
-        # Create redirect response
-        response = RedirectResponse(
-            "/?success=Account+deleted+successfully",
-            status_code=303
-        )
+        # ⭐ Return HTML response that clears cookie AND redirects via JavaScript
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta http-equiv="refresh" content="0;url=/?success=Account+deleted+successfully">
+        </head>
+        <body>
+            <p>Account deleted. Redirecting...</p>
+            <script>
+                // Clear any client-side stored data
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = '/?success=Account+deleted+successfully';
+            </script>
+        </body>
+        </html>
+        """
         
-        # Clear the access token cookie properly
+        response = HTMLResponse(content=html_content, status_code=200)
+        
+        # Clear the access token cookie
         response.delete_cookie(
             key="access_token",
             path="/",
