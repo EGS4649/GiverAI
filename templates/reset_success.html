@@ -1,54 +1,229 @@
-<!-- reset_success.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Password Reset Successful - GiverAI</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-
+    <title>Password Reset Successful - Giver.ai</title>
+    <link rel="stylesheet" href="/static/style.css">
     <!-- Optional: Auto redirect back to login after 8 seconds -->
     <meta http-equiv="refresh" content="8;url=/login">
+    <style>
+        .success-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .success-card {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(0, 255, 136, 0.5);
+            border-radius: 15px;
+            padding: 50px 40px;
+            margin-top: 50px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.2);
+        }
+
+        .success-icon-wrapper {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 30px;
+            background: rgba(0, 255, 136, 0.2);
+            border: 3px solid #00ff88;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 15px rgba(0, 255, 136, 0);
+            }
+        }
+
+        .success-icon {
+            font-size: 3em;
+            color: #00ff88;
+        }
+
+        .success-title {
+            color: #00ff88;
+            font-size: 2em;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .success-message {
+            color: #adc2ff;
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin: 20px 0 30px;
+        }
+
+        .login-button {
+            display: inline-block;
+            background: linear-gradient(45deg, #00ffff, #00ff88);
+            color: #000;
+            padding: 15px 40px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .login-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(0, 255, 255, 0.4);
+        }
+
+        .redirect-notice {
+            color: #adc2ff;
+            font-size: 0.85em;
+            margin-top: 30px;
+            font-style: italic;
+        }
+
+        .countdown {
+            color: #00ffff;
+            font-weight: bold;
+        }
+
+        .feature-hints {
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .feature-hints h3 {
+            color: #00ffff;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .feature-hints ul {
+            list-style: none;
+            padding: 0;
+            color: #adc2ff;
+        }
+
+        .feature-hints li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+        }
+
+        .feature-hints li:last-child {
+            border-bottom: none;
+        }
+
+        .feature-hints li::before {
+            content: "✨ ";
+            color: #00ffff;
+            margin-right: 8px;
+        }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <a href="/" class="text-2xl font-bold text-indigo-600">GiverAI</a>
-                </div>
-            </div>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar" style="align-items: center; min-height: 60px;">
+        <div class="brand" style="display: flex; align-items: center; gap: 12px;">
+            <a href="/" style="color: white; text-decoration: none; display: flex; align-items: center; gap: 12px;">
+                <img src="/static/logo.png" alt="Giver.ai Logo" class="brand-logo" style="height: 40px !important; width: auto !important; vertical-align: middle;">
+                <span class="brand-text" style="line-height: 1;">Giver.ai</span>
+            </a>
         </div>
+        <ul class="nav-links" style="align-items: center;">
+            <li class="dropdown">
+                <a href="#" class="dropbtn">Features ▼</a>
+                <div class="dropdown-content">
+                    <a href="/tweetgiver">TweetGiver</a>
+                    <a href="#">More Soon...</a>
+                </div>
+            </li>
+            <li><a href="/login">Login</a></li>
+            <li><a href="/register">Register</a></li>
+        </ul>
     </nav>
 
-    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-md w-full bg-white shadow rounded-lg p-8 space-y-6 text-center">
-            <div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-green-100">
-                <i class="fas fa-check text-green-600 text-3xl"></i>
+    <main class="success-container">
+        <div class="success-card">
+            <div class="success-icon-wrapper">
+                <div class="success-icon">✓</div>
             </div>
 
-            <h2 class="mt-6 text-2xl font-extrabold text-gray-900">
-                Password Reset Successful
-            </h2>
-            <p class="mt-2 text-sm text-gray-600">
-                Your password has been updated. You can now log in with your new credentials.
+            <h1 class="success-title">Password Reset Successful</h1>
+            
+            <p class="success-message">
+                Your password has been updated successfully! 🎉<br>
+                You can now log in with your new credentials.
             </p>
 
-            <div class="mt-6">
-                <a href="/login" class="group relative w-full inline-flex justify-center py-3 px-5 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
-                        <i class="fas fa-sign-in-alt group-hover:text-indigo-300 text-indigo-500"></i>
-                    </span>
-                    Go to Login
-                </a>
+            <a href="/login" class="login-button">Go to Login</a>
+
+            <p class="redirect-notice">
+                You will be redirected automatically in <span class="countdown">8</span> seconds...
+            </p>
+
+            <div class="feature-hints">
+                <h3>Ready to Get Started?</h3>
+                <ul>
+                    <li>Generate AI-powered tweets instantly</li>
+                    <li>Customize content for your niche</li>
+                    <li>Track your daily tweet usage</li>
+                    <li>Upgrade for unlimited access</li>
+                </ul>
             </div>
-
-            <p class="text-xs text-gray-400 mt-4">
-                You will be redirected automatically in a few seconds...
-            </p>
         </div>
-    </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-left">
+                <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+            </div>
+            <div class="footer-links">
+                <a href="/tweetgiver">TweetGiver</a> |
+                <a href="/pricing">Pricing</a> |
+                <a href="/privacy">Privacy Policy</a> |
+                <a href="/terms">Terms of Service</a> |
+                <a href="/contact">Contact</a>
+            </div>
+            <div class="footer-right">
+                &copy; Copyright Giver.ai
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Countdown timer
+        let seconds = 8;
+        const countdownElement = document.querySelector('.countdown');
+        
+        const countdownInterval = setInterval(() => {
+            seconds--;
+            if (countdownElement) {
+                countdownElement.textContent = seconds;
+            }
+            if (seconds <= 0) {
+                clearInterval(countdownInterval);
+            }
+        }, 1000);
+    </script>
 </body>
 </html>
