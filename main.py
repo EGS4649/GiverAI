@@ -2275,13 +2275,6 @@ print("✓ SMTP configured:", "YES" if all([
 ]) else "NO")
 print("✓ OPENROUTER_API_KEY:", "SET" if os.getenv("OPENROUTER_API_KEY") else "MISSING")
 
-#epic ping check 
-# Try hitting an endpoint 101 times rapidly
-for i in range(101):
-    response = requests.post("https://giverai.me/tweetgiver", ...)
-    if i > 100:
-        assert response.status_code == 429  # Too Many Requests
-        
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc: HTTPException):
     """Custom 404 page handler"""
