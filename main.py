@@ -5522,20 +5522,34 @@ async def change_email(
     
     finally:
         db.close()
-
+        
 @app.post("/account/delete")
 async def delete_account(request: Request):
-    # ⭐ Manually get and validate user BEFORE deleting
+    print("🔥 DELETE ACCOUNT ENDPOINT CALLED")
+    
+    # ⭐ Get token - it might have "Bearer " prefix
     token = request.cookies.get("access_token")
+    print(f"📝 Raw token from cookie: {token[:50] if token else 'None'}...")
+    
     if not token:
+        print("❌ No token found in cookies")
         return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ Remove "Bearer " prefix if it exists
+    if token.startswith("Bearer "):
+        token = token[7:]
+        print("✂️ Removed Bearer prefix")
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
+        print(f"✅ Token decoded successfully, email: {email}")
+        
         if not email:
+            print("❌ No email in token payload")
             return RedirectResponse("/login", status_code=303)
-    except JWTError:
+    except JWTError as e:
+        print(f"❌ JWT decode error: {str(e)}")
         return RedirectResponse("/login", status_code=303)
     
     db = SessionLocal()
@@ -5543,8 +5557,10 @@ async def delete_account(request: Request):
         # Get user by email from token
         user = db.query(User).filter(User.email == email).first()
         if not user:
+            print(f"❌ No user found with email: {email}")
             return RedirectResponse("/login", status_code=303)
         
+        print(f"✅ Found user: {user.id} - {user.email}")
         user_id = user.id
         
         # Calculate stats for goodbye email
@@ -5567,6 +5583,7 @@ async def delete_account(request: Request):
             print(f"⚠ Failed to send goodbye email: {str(e)}")
         
         # Delete all foreign key references first
+        print("🗑️ Deleting user data...")
         db.query(Usage).filter(Usage.user_id == user_id).delete()
         db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user_id).delete()
         db.query(TeamMember).filter(TeamMember.user_id == user_id).delete()
@@ -5577,6 +5594,7 @@ async def delete_account(request: Request):
         # Now delete the user record
         db.delete(user)
         db.commit()
+        print("✅ User deleted successfully")
         
         # ⭐ Return template response with cleared cookie
         response = templates.TemplateResponse(
@@ -5593,6 +5611,7 @@ async def delete_account(request: Request):
             samesite="lax"
         )
         
+        print("✅ Returning success response with cleared cookie")
         return response
         
     except Exception as e:
