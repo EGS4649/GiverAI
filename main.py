@@ -2266,6 +2266,7 @@ client = OpenAI(
 )
 
 # Add to your startup
+print("Hello!!")
 print("✓ STRIPE_SECRET_KEY:", "SET" if os.getenv("STRIPE_SECRET_KEY") else "MISSING")
 print("✓ DATABASE_URL:", "SET" if os.getenv("DATABASE_URL") else "MISSING")
 print("✓ SMTP configured:", "YES" if all([
