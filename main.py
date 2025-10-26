@@ -5524,7 +5524,7 @@ async def change_email(
     
     finally:
         db.close()
-        
+
 @app.post("/account/delete")
 async def delete_account(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
@@ -5562,28 +5562,13 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         db.delete(db_user)
         db.commit()
         
-        # ⭐ Return HTML response that clears cookie AND redirects via JavaScript
-        html_content = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta http-equiv="refresh" content="0;url=/?success=Account+deleted+successfully">
-        </head>
-        <body>
-            <p>Account deleted. Redirecting...</p>
-            <script>
-                // Clear any client-side stored data
-                localStorage.clear();
-                sessionStorage.clear();
-                window.location.href = '/?success=Account+deleted+successfully';
-            </script>
-        </body>
-        </html>
-        """
+        # ⭐ Use templates.TemplateResponse with cookie clearing
+        response = templates.TemplateResponse(
+            "account_deleted.html",  # Create this simple template
+            {"request": request}
+        )
         
-        response = HTMLResponse(content=html_content, status_code=200)
-        
-        # Clear the access token cookie
+        # Clear the cookie
         response.delete_cookie(
             key="access_token",
             path="/",
