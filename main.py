@@ -2276,14 +2276,6 @@ print("✓ SMTP configured:", "YES" if all([
 ]) else "NO")
 print("✓ OPENROUTER_API_KEY:", "SET" if os.getenv("OPENROUTER_API_KEY") else "MISSING")
 
-@app.get("/sitemap.xml")
-async def sitemap():
-    return FileResponse("static/sitemap.xml", media_type="application/xml")
-
-@app.get("/robots.txt")
-async def robots():
-    return FileResponse("static/robots.txt", media_type="text/plain")
-
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc: HTTPException):
     """Custom 404 page handler"""
