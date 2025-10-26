@@ -5524,7 +5524,7 @@ async def change_email(
     
     finally:
         db.close()
-        
+
 @app.post("/account/delete")
 async def delete_account(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
@@ -5557,16 +5557,6 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         db.query(EmailVerification).filter(EmailVerification.user_id == user.id).delete()
         db.query(EmailChangeRequest).filter(EmailChangeRequest.user_id == user.id).delete()
         db.query(PasswordReset).filter(PasswordReset.user_id == user.id).delete()
-        
-        # Cancel Stripe subscription if exists
-        if db_user.stripe_subscription_id:
-            try:
-                stripe.Subscription.delete(db_user.stripe_subscription_id)
-                print(f"✅ Cancelled Stripe subscription: {db_user.stripe_subscription_id}")
-            except stripe.error.InvalidRequestError as e:
-                print(f"⚠ Stripe subscription already cancelled or not found: {str(e)}")
-            except Exception as e:
-                print(f"⚠ Failed to cancel Stripe subscription: {str(e)}")
         
         # Now delete the user record
         db.delete(db_user)
