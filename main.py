@@ -2659,8 +2659,8 @@ async def favicon():
         # Return 404 if favicon doesn't exist
         raise HTTPException(status_code=404, detail="Favicon not found")
 
-@limiter.limit("3/minute") 
 @app.get("/register", response_class=HTMLResponse)
+@limiter.limit("10/minute") 
 def register(request: Request, csrf_protect: CsrfProtect = Depends(), success: str = None):
     user = get_optional_user(request)
     csrf_response = csrf_protect.generate_csrf()
@@ -2693,8 +2693,8 @@ def register(request: Request, csrf_protect: CsrfProtect = Depends(), success: s
     
     return response
 
-@limiter.limit("3/hour")
 @app.post("/register", response_class=HTMLResponse)
+@limiter.limit("20/hour")
 async def register_post(
     request: Request, 
     username: str = Form(...), 
@@ -2968,8 +2968,8 @@ async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depe
     
     return response
 
-@limiter.limit("3/hour")
 @app.post("/forgot-password")
+@limiter.limit("20/hour")
 async def forgot_password_post(
     request: Request,
     reset_type: str = Form(...),
@@ -3104,8 +3104,8 @@ def resend_verification_get(request: Request):
         "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
 
-@limiter.limit("30/hour")
 @app.post("/resend-verification")
+@limiter.limit("30/hour")
 async def resend_verification_post(
     request: Request,
     email_or_username: str = Form(...),
@@ -3198,9 +3198,9 @@ async def resend_verification_post(
     finally:
         db.close()
 
-@limiter.limit("30/hour")
 # Also add a quick resend route for already logged-in users who aren't verified
 @app.post("/quick-resend-verification")
+@limiter.limit("30/hour")
 async def quick_resend_verification(request: Request):
     """Quick resend for logged-in users (if they somehow bypassed verification)"""
     try:
@@ -3274,8 +3274,8 @@ def reset_password_get(request: Request, token: str = Query(None)):
     finally:
         db.close()
 
-@limiter.limit("30/hour")
 @app.post("/reset-password")
+@limiter.limit("30/hour")
 def reset_password_post(
     request: Request,
     token: str = Form(...),
@@ -3737,8 +3737,6 @@ def admin_dashboard_updated(
         "active_ip_bans": active_ip_bans
     })
 
-@limiter.limit("4/hour")
-# API endpoint to get users data
 @app.get("/admin/api/users")
 def get_users_admin_api(
     request: Request,
@@ -3902,7 +3900,6 @@ def ban_ip_page(request: Request, admin: User = Depends(get_admin_user)):
     finally:
         db.close()
 
-@limiter.limit("1/hour")
 @app.post("/admin/ban-ip")
 async def ban_ip_address(
     request: Request,
@@ -3973,7 +3970,6 @@ async def ban_ip_address(
             "admin": admin
         })
 
-@limiter.limit("1/hour")
 @app.post("/admin/unban-ip")
 async def unban_ip_address(
     request: Request,
@@ -4096,7 +4092,6 @@ def is_valid_public_ip(ip_str: str) -> bool:
         print(f"❌ Invalid IP format: {ip_str}")
         return False
     
-@limiter.limit("1/hour")
 @app.post("/admin/suspend-user")
 async def suspend_user_enhanced(
     request: Request,
@@ -4159,7 +4154,7 @@ async def suspend_user_enhanced(
             "message": f"Error: {str(e)}"
         }, status_code=500)
 
-@limiter.limit("1/hour")
+
 @app.post("/admin/unsuspend-user")
 async def unsuspend_user_enhanced(
     request: Request,
@@ -4229,7 +4224,7 @@ def view_suspension_appeals(
         "appeals": appeals
     })
 
-@limiter.limit("1/hour")
+
 # Process suspension appeal
 @app.post("/admin/process-appeal")
 async def process_suspension_appeal(
@@ -4394,7 +4389,6 @@ async def suspension_redirect_middleware(request: Request, call_next):
     
     return await call_next(request)
 
-@limiter.limit("1/hour")
 # Updated force password reset endpoint
 @app.post("/admin/force-password-reset")
 async def force_password_reset_endpoint(
@@ -4749,8 +4743,8 @@ async def login(request: Request):
     })
     return response
  
-@limiter.limit("5/minute")
 @app.post("/login")
+@limiter.limit("5/minute")
 async def login_post(
     request: Request, 
     username: str = Form(...), 
@@ -4972,8 +4966,8 @@ def contact_page(request: Request):  # ← Removed csrf_protect parameter
     })
     # response.set_cookie(...)  ← COMMENT OUT entire cookie section
 
-@limiter.limit("10/minute")
 @app.post("/contact", response_class=HTMLResponse)
+@limiter.limit("10/minute")
 async def handle_contact_form(request: Request):  # ← Removed csrf_protect parameter
     # await csrf_protect.validate_csrf(request)  ← COMMENT OUT
     user = get_optional_user(request)
@@ -6383,8 +6377,8 @@ def user_dashboard(
     
     return response
 
-@limiter.limit("30/hour")
 @app.post("/dashboard", response_class=HTMLResponse)
+@limiter.limit("30/hour")
 async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
     db = SessionLocal()
     
