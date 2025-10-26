@@ -1,11 +1,165 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Verification Failed</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Failed - Giver.ai</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .verification-container {
+            max-width: 600px;
+            margin: 100px auto;
+            padding: 20px;
+        }
+        
+        .verification-section {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 68, 68, 0.3);
+            border-radius: 15px;
+            padding: 50px;
+            text-align: center;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .error-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ff4444, #ff0066);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            font-size: 3em;
+            animation: scaleIn 0.5s ease-out 0.2s both;
+        }
+        
+        @keyframes scaleIn {
+            from { transform: scale(0) rotate(-180deg); }
+            to { transform: scale(1) rotate(0deg); }
+        }
+        
+        .verification-section h1 {
+            color: #ff4444;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+        
+        .verification-section p {
+            color: #adc2ff;
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .error-message {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #ff6b6b;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            color: #000;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 255, 255, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            color: #00ffff;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(0, 255, 255, 0.2);
+            border-color: rgba(0, 255, 255, 0.6);
+        }
+    </style>
 </head>
 <body>
-    <h1>Email Verification Failed</h1>
-    <p>{{ error }}</p>
-    <p>Please try again or <a href="/support">contact support</a>.</p>
+    <!-- Navigation Bar -->
+    <nav class="navbar" style="align-items: center; min-height: 60px;">
+        <div class="brand" style="display: flex; align-items: center; gap: 12px;">
+            <a href="/" style="color: white; text-decoration: none; display: flex; align-items: center; gap: 12px;">
+                <img src="/static/logo.png" alt="Giver.ai Logo" class="brand-logo" style="height: 40px !important; width: auto !important; vertical-align: middle;">
+                <span class="brand-text" style="line-height: 1;">Giver.ai</span>
+            </a>
+        </div>
+        <ul class="nav-links" style="align-items: center;">
+            <li><a href="/">Home</a></li>
+            <li><a href="/login">Login</a></li>
+            <li><a href="/register">Register</a></li>
+        </ul>
+    </nav>
+
+    <main class="verification-container">
+        <div class="verification-section">
+            <div class="error-icon">✗</div>
+            <h1>Email Verification Failed</h1>
+            <div class="error-message">
+                {{ error }}
+            </div>
+            <p>Don't worry! This can happen for a few reasons:</p>
+            <ul style="color: #adc2ff; text-align: left; display: inline-block; margin: 20px 0;">
+                <li>The verification link may have expired</li>
+                <li>The link may have already been used</li>
+                <li>There might have been a technical issue</li>
+            </ul>
+            
+            <div class="action-buttons">
+                <a href="/contact" class="btn btn-primary">Contact Support</a>
+                <a href="/login" class="btn btn-secondary">Back to Login</a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-left">
+                <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
+            </div>
+            <div class="footer-links">
+                <a href="/tweetgiver">TweetGiver</a> |
+                <a href="/pricing">Pricing</a> |
+                <a href="/privacy">Privacy Policy</a> |
+                <a href="/terms">Terms of Service</a> |
+                <a href="/contact">Contact</a>
+            </div>
+            <div class="footer-right">
+                &copy; Copyright Giver.ai
+            </div>
+        </div>
+    </footer>
 </body>
 </html>

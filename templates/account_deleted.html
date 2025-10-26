@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Account Deleted - Giver.ai</title>
     <link rel="stylesheet" href="/static/style.css">
-    <meta http-equiv="refresh" content="3;url=/">
+    <meta http-equiv="refresh" content="3;url=/pricing">
     <style>
         .deleted-container {
             max-width: 600px;
@@ -103,9 +103,9 @@
             <h1>Account Deleted Successfully</h1>
             <p>Your account and all associated data have been permanently deleted from our system.</p>
             <p>We're sorry to see you go! If you change your mind, you can always create a new account.</p>
-            <p class="countdown">Redirecting to homepage in <span id="countdown">3</span> seconds...</p>
+            <p class="countdown">Redirecting in <span id="countdown">3</span> seconds...</p>
             <p style="margin-top: 30px;">
-                <a href="/">Click here if not redirected automatically →</a>
+                <a href="/pricing">Click here if not redirected automatically →</a>
             </p>
         </div>
     </main>
@@ -129,26 +129,27 @@
         </div>
     </footer>
 
-    <script>
-        // Countdown timer
-        let seconds = 3;
-        const countdownEl = document.getElementById('countdown');
-        
-        const timer = setInterval(() => {
-            seconds--;
-            countdownEl.textContent = seconds;
-            if (seconds <= 0) {
-                clearInterval(timer);
-            }
-        }, 1000);
-        
-        // Clear any client-side stored data
-        try {
-            localStorage.clear();
-            sessionStorage.clear();
-        } catch(e) {
-            console.log('Storage cleanup skipped');
+   <script>
+    // Countdown timer
+    let seconds = 3;
+    const countdownEl = document.getElementById('countdown');
+    
+    const timer = setInterval(() => {
+        seconds--;
+        countdownEl.textContent = seconds;
+        if (seconds <= 0) {
+            clearInterval(timer);
+            window.location.href = '/pricing';  // Add this line
         }
-    </script>
+    }, 1000);
+    
+    // Clear any client-side stored data
+    try {
+        localStorage.clear();
+        sessionStorage.clear();
+    } catch(e) {
+        console.log('Storage cleanup skipped');
+    }
+</script>
 </body>
 </html>
