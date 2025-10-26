@@ -5524,6 +5524,7 @@ async def change_email(
     
     finally:
         db.close()
+        
 @app.post("/account/delete")
 async def delete_account(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
@@ -5556,9 +5557,6 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         db.query(EmailVerification).filter(EmailVerification.user_id == user.id).delete()
         db.query(EmailChangeRequest).filter(EmailChangeRequest.user_id == user.id).delete()
         db.query(PasswordReset).filter(PasswordReset.user_id == user.id).delete()
-        
-        # ⭐ ADD THIS - Delete sessions (this was missing!)
-        db.execute("DELETE FROM sessions WHERE user_id = :user_id", {"user_id": user.id})
         
         # Cancel Stripe subscription if exists
         if db_user.stripe_subscription_id:
