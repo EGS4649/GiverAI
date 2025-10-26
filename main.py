@@ -5524,47 +5524,65 @@ async def change_email(
     
     finally:
         db.close()
-
+        
 @app.post("/account/delete")
-async def delete_account(request: Request, user: User = Depends(get_current_user)):
+async def delete_account(request: Request):
+    # ⭐ Manually get and validate user BEFORE deleting
+    token = request.cookies.get("access_token")
+    if not token:
+        return RedirectResponse("/login", status_code=303)
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            return RedirectResponse("/login", status_code=303)
+    except JWTError:
+        return RedirectResponse("/login", status_code=303)
+    
     db = SessionLocal()
     try:
-        db_user = db.query(User).filter(User.id == user.id).first()
+        # Get user by email from token
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            return RedirectResponse("/login", status_code=303)
+        
+        user_id = user.id
         
         # Calculate stats for goodbye email
-        total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).count()
-        days_active = (datetime.utcnow() - db_user.created_at).days
+        total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user_id).count()
+        days_active = (datetime.utcnow() - user.created_at).days
         
         # Determine which plan to show in the email
-        if db_user.plan == "canceling":
-            plan_for_email = db_user.original_plan if db_user.original_plan else "free"
+        if user.plan == "canceling":
+            plan_for_email = user.original_plan if user.original_plan else "free"
         else:
-            plan_for_email = db_user.plan
+            plan_for_email = user.plan
         
         print(f"📧 Using plan for goodbye email: {plan_for_email}")
         
         # Send goodbye email before deleting
         try:
-            email_service.send_goodbye_email(db_user, total_tweets, days_active, plan_for_email)
+            email_service.send_goodbye_email(user, total_tweets, days_active, plan_for_email)
             print("✅ Goodbye email sent")
         except Exception as e:
             print(f"⚠ Failed to send goodbye email: {str(e)}")
         
         # Delete all foreign key references first
-        db.query(Usage).filter(Usage.user_id == user.id).delete()
-        db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).delete()
-        db.query(TeamMember).filter(TeamMember.user_id == user.id).delete()
-        db.query(EmailVerification).filter(EmailVerification.user_id == user.id).delete()
-        db.query(EmailChangeRequest).filter(EmailChangeRequest.user_id == user.id).delete()
-        db.query(PasswordReset).filter(PasswordReset.user_id == user.id).delete()
+        db.query(Usage).filter(Usage.user_id == user_id).delete()
+        db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user_id).delete()
+        db.query(TeamMember).filter(TeamMember.user_id == user_id).delete()
+        db.query(EmailVerification).filter(EmailVerification.user_id == user_id).delete()
+        db.query(EmailChangeRequest).filter(EmailChangeRequest.user_id == user_id).delete()
+        db.query(PasswordReset).filter(PasswordReset.user_id == user_id).delete()
         
         # Now delete the user record
-        db.delete(db_user)
+        db.delete(user)
         db.commit()
         
-        # ⭐ Use templates.TemplateResponse with cookie clearing
+        # ⭐ Return template response with cleared cookie
         response = templates.TemplateResponse(
-            "account_deleted.html",  # Create this simple template
+            "account_deleted.html",
             {"request": request}
         )
         
