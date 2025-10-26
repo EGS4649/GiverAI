@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 User-agent: *
 Allow: /
 Disallow: /admin/
@@ -5,3 +6,6 @@ Disallow: /account/
 Disallow: /dashboard/
 
 Sitemap: https://giverai.me/sitemap.xml
+=======
+
+>>>>>>> 27f09441500aed858d49b71f8b161053911e9e21
