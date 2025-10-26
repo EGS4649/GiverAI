@@ -5335,8 +5335,11 @@ async def account(request: Request, user: User = Depends(get_current_user)):
 @app.get("/history", response_class=HTMLResponse)
 def tweet_history(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
+    if user.plan not in ["creator_monthly", "creator_yearly"]:
+        raise HTTPException(403, "History is only available for Creator plan")
+
     try:
-        days = 90 if user.unlimited_tweets else 7
+        days = 90
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
         tweets = db.query(GeneratedTweet).filter(
@@ -5555,7 +5558,7 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         db.query(PasswordReset).filter(PasswordReset.user_id == user.id).delete()
         
         # ⭐ ADD THIS - Delete sessions (this was missing!)
-        db.query(Session).filter(Session.user_id == user.id).delete()
+        db.execute("DELETE FROM sessions WHERE user_id = :user_id", {"user_id": user.id})
         
         # Cancel Stripe subscription if exists
         if db_user.stripe_subscription_id:
@@ -7321,7 +7324,7 @@ async def stripe_webhook(request: Request):
                             print(f"🔄 User {user.id} reactivated subscription")
                         user.plan = user.original_plan
                         if user.original_plan:
-                            user.plan = user.original_plane
+                            user.plan = user.original_plan
                         user.cancel_at_period_end = False
                         user.cancellation_date = None
                         db.commit()
