@@ -5336,8 +5336,7 @@ async def account(request: Request, user: User = Depends(get_current_user)):
 def tweet_history(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
     try:
-        # Use user.features instead of get_plan_features()
-        days = user.features["history_days"]
+        days = 90 if user.unlimited_tweets else 7
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
         tweets = db.query(GeneratedTweet).filter(
@@ -5522,7 +5521,6 @@ async def change_email(
     
     finally:
         db.close()
-
 @app.post("/account/delete")
 async def delete_account(request: Request, user: User = Depends(get_current_user)):
     db = SessionLocal()
@@ -5532,13 +5530,11 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         # Calculate stats for goodbye email
         total_tweets = db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).count()
         days_active = (datetime.utcnow() - db_user.created_at).days
-
+        
         # Determine which plan to show in the email
         if db_user.plan == "canceling":
-            # Use the original_plan if user was in canceling state
             plan_for_email = db_user.original_plan if db_user.original_plan else "free"
         else:
-            # Use current plan if not canceling
             plan_for_email = db_user.plan
         
         print(f"📧 Using plan for goodbye email: {plan_for_email}")
@@ -5550,23 +5546,35 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         except Exception as e:
             print(f"⚠ Failed to send goodbye email: {str(e)}")
         
-        # Delete user and their data in the correct order (child records first)
-        # Delete all foreign key references first
+        # Delete all foreign key references first (IN ORDER)
         db.query(Usage).filter(Usage.user_id == user.id).delete()
         db.query(GeneratedTweet).filter(GeneratedTweet.user_id == user.id).delete()
         db.query(TeamMember).filter(TeamMember.user_id == user.id).delete()
         db.query(EmailVerification).filter(EmailVerification.user_id == user.id).delete()
-        db.query(EmailChangeRequest).filter(EmailChangeRequest.user_id == user.id).delete()  # ADD THIS LINE
+        db.query(EmailChangeRequest).filter(EmailChangeRequest.user_id == user.id).delete()
         db.query(PasswordReset).filter(PasswordReset.user_id == user.id).delete()
+        
+        # ⭐ ADD THIS - Delete sessions (this was missing!)
+        db.query(Session).filter(Session.user_id == user.id).delete()
+        
+        # Cancel Stripe subscription if exists
+        if db_user.stripe_subscription_id:
+            try:
+                stripe.Subscription.delete(db_user.stripe_subscription_id)
+                print(f"✅ Cancelled Stripe subscription: {db_user.stripe_subscription_id}")
+            except stripe.error.InvalidRequestError as e:
+                print(f"⚠ Stripe subscription already cancelled or not found: {str(e)}")
+            except Exception as e:
+                print(f"⚠ Failed to cancel Stripe subscription: {str(e)}")
         
         # Now delete the user record
         db.delete(db_user)
         db.commit()
         
-         # Create redirect response
+        # Create redirect response
         response = RedirectResponse(
-            "/?success=Account+deleted+successfully", 
-            status_code=303  # ✅ Use 303 for POST-redirect-GET
+            "/?success=Account+deleted+successfully",
+            status_code=303
         )
         
         # Clear the access token cookie properly
@@ -5586,10 +5594,8 @@ async def delete_account(request: Request, user: User = Depends(get_current_user
         import traceback
         traceback.print_exc()
         
-        # Redirect to account page with error instead of rendering template
-        # (safer because user object might be in bad state)
         return RedirectResponse(
-            "/account?error=Failed+to+delete+account", 
+            "/account?error=Failed+to+delete+account",
             status_code=303
         )
     finally:
@@ -7298,23 +7304,25 @@ async def stripe_webhook(request: Request):
                         
                         db.commit()
 
-                try:
-                    plan_for_email = user.original_plan if user.original_plan else user.plan
-                    email_service.send_subscription_cancellation_email(
-                        user, 
-                        plan_for_email, 
-                        user.cancellation_date
-                    )
-                    print(f"✅ Cancellation email sent to {user.email}")
-                except Exception as e:
-                    print(f"❌ Failed to send cancellation email: {str(e)}")
+                        try:
+                            plan_for_email = user.original_plan if user.original_plan else user.plan
+                            email_service.send_subscription_cancellation_email(
+                            user, 
+                            plan_for_email, 
+                            user.cancellation_date
+                        )
+                            print(f"✅ Cancellation email sent to {user.email}")
+                        except Exception as e:
+                            print(f"❌ Failed to send cancellation email: {str(e)}")
 
-                else:
-                    # User reactivated - restore plan
-                    if user.plan == "canceling" and user.original_plan:
-                        print(f"🔄 User {user.id} reactivated subscription")
+                    else:
+                        # User reactivated - restore plan
+                        if user.plan == "canceling" and user.original_plan:
+                            print(f"🔄 User {user.id} reactivated subscription")
                         user.plan = user.original_plan
-                        user.original_plan = None
+                        if user.original_plan:
+                            user.plan = user.original_plane
+                        user.cancel_at_period_end = False
                         user.cancellation_date = None
                         db.commit()
         
