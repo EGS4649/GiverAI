@@ -5522,12 +5522,11 @@ async def change_email(
     
     finally:
         db.close()
-        
+
 @app.post("/account/delete")
 async def delete_account(request: Request):
     print("🔥 DELETE ACCOUNT ENDPOINT CALLED")
     
-    # ⭐ Get token - it might have "Bearer " prefix
     token = request.cookies.get("access_token")
     print(f"📝 Raw token from cookie: {token[:50] if token else 'None'}...")
     
@@ -5535,18 +5534,17 @@ async def delete_account(request: Request):
         print("❌ No token found in cookies")
         return RedirectResponse("/login", status_code=303)
     
-    # ⭐ Remove "Bearer " prefix if it exists
     if token.startswith("Bearer "):
         token = token[7:]
         print("✂️ Removed Bearer prefix")
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-        print(f"✅ Token decoded successfully, email: {email}")
+        identifier = payload.get("sub")  # This is username, not email!
+        print(f"✅ Token decoded successfully, identifier: {identifier}")
         
-        if not email:
-            print("❌ No email in token payload")
+        if not identifier:
+            print("❌ No identifier in token payload")
             return RedirectResponse("/login", status_code=303)
     except JWTError as e:
         print(f"❌ JWT decode error: {str(e)}")
@@ -5554,13 +5552,16 @@ async def delete_account(request: Request):
     
     db = SessionLocal()
     try:
-        # Get user by email from token
-        user = db.query(User).filter(User.email == email).first()
+        # ⭐ Look up by username OR email (try both to be safe)
+        user = db.query(User).filter(
+            (User.username == identifier) | (User.email == identifier)
+        ).first()
+        
         if not user:
-            print(f"❌ No user found with email: {email}")
+            print(f"❌ No user found with identifier: {identifier}")
             return RedirectResponse("/login", status_code=303)
         
-        print(f"✅ Found user: {user.id} - {user.email}")
+        print(f"✅ Found user: {user.id} - {user.email} - {user.username}")
         user_id = user.id
         
         # Calculate stats for goodbye email
@@ -5596,7 +5597,7 @@ async def delete_account(request: Request):
         db.commit()
         print("✅ User deleted successfully")
         
-        # ⭐ Return template response with cleared cookie
+        # Return template response with cleared cookie
         response = templates.TemplateResponse(
             "account_deleted.html",
             {"request": request}
