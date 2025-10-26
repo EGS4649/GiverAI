@@ -5347,6 +5347,7 @@ def tweet_history(request: Request, user: User = Depends(get_current_user)):
         return templates.TemplateResponse("history.html", {
             "request": request,
             "user": user,
+            "history_days": days, 
             "tweets": tweets
         })
     finally:
