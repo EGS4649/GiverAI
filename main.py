@@ -5041,69 +5041,6 @@ def faq_page(request: Request):
         "user": user
     })
 
-@app.get("/suspended", response_class=HTMLResponse)
-def suspended_page_get(request: Request):
-    """Display suspended account page"""
-    # Use the special function that allows suspended users
-    user = get_optional_suspended_user(request)
-    
-    # If no user or user is not suspended, redirect to dashboard/login
-    if not user:
-        return RedirectResponse("/login", status_code=302)
-    
-    if not user.is_suspended:
-        return RedirectResponse("/dashboard", status_code=302)
-    
-    return templates.TemplateResponse("suspended.html", {
-        "request": request,
-        "user": user,
-        "success": None,
-        "error": None,
-        "form_data": None,
-        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
-    })
-def safe_user_data(user):
-    """Safely return user data for templates, handling None values"""
-    if not user:
-        return {
-            'username': 'Unknown',
-            'email': 'Unknown',
-            'plan': 'free',
-            'suspended_at': None,
-            'suspension_reason': None,
-            'is_suspended': False
-        }
-    
-    return {
-        'username': getattr(user, 'username', 'Unknown'),
-        'email': getattr(user, 'email', 'Unknown'),
-        'plan': getattr(user, 'plan', 'free'),
-        'suspended_at': getattr(user, 'suspended_at', None),
-        'suspension_reason': getattr(user, 'suspension_reason', None),
-        'is_suspended': getattr(user, 'is_suspended', False)
-    }
-
-def safe_user_data(user):
-    """Safely return user data for templates, handling None values"""
-    if not user:
-        return {
-            'username': 'Unknown',
-            'email': 'Unknown',
-            'plan': 'free',
-            'suspended_at': None,
-            'suspension_reason': None,
-            'is_suspended': False
-        }
-    
-    return {
-        'username': getattr(user, 'username', 'Unknown'),
-        'email': getattr(user, 'email', 'Unknown'),
-        'plan': getattr(user, 'plan', 'free'),
-        'suspended_at': getattr(user, 'suspended_at', None),
-        'suspension_reason': getattr(user, 'suspension_reason', None),
-        'is_suspended': getattr(user, 'is_suspended', False)
-    }
-
 # Also, update your suspended route to use this helper:
 @app.get("/suspended", response_class=HTMLResponse)
 def suspended_page_get(request: Request):
