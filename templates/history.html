@@ -37,7 +37,7 @@
   <main class="dashboard-container">
     <h1>Your Tweet History</h1>
     <!-- Fixed: Ensure we're using user.features -->
-    <p>Showing last {{ user.features.history_days }} days of generated tweets</p>
+    <p>Showing last {{ history_days }} days of generated tweets</p>
     
     <!-- Fixed: Use user.features -->
     {% if user.features.export %}
