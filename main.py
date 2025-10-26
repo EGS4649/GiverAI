@@ -4314,6 +4314,7 @@ async def approve_appeal(
     appeal.reviewed_at = datetime.utcnow()
     db.commit()
     
+    
     return RedirectResponse("/admin/appeals", status_code=302)
 
 @app.post("/admin/appeals/{appeal_id}/deny")
@@ -5147,10 +5148,12 @@ async def suspended_page_post(request: Request):
         
         db.add(appeal)
         db.commit()
+        db.refresh(appeal)  # Add this
+        print(f"Appeal saved! ID: {appeal.id}, User: {user.username}")  # Add this
         
         # Send appeal notification to admin
         try:
-            await (user, appeal)
+            await send_suspension_appeal_notification(user, appeal)
         except Exception as e:
             print(f"Failed to send suspension appeal notification: {str(e)}")
         
