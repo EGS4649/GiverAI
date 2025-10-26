@@ -5095,11 +5095,14 @@ async def suspended_page_post(request: Request):
             "account_info": form.get("account_info", "").strip()
         }
         
+        print(f"🔍 Starting appeal submission for user: {user.username}")
+        
         # Get reCAPTCHA response
         g_recaptcha_response = form.get("g-recaptcha-response", "")
         
         # Verify reCAPTCHA
         if not verify_recaptcha(g_recaptcha_response):
+            print("❌ reCAPTCHA verification failed")
             return templates.TemplateResponse("suspended.html", {
                 "request": request,
                 "user": user,
@@ -5108,6 +5111,8 @@ async def suspended_page_post(request: Request):
                 "form_data": form_data,
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
+        
+        print("✅ reCAPTCHA verified")
         
         # Validate form data
         if not form_data["name"]:
@@ -5121,6 +5126,8 @@ async def suspended_page_post(request: Request):
         if len(form_data["appeal_message"]) < 50:
             raise ValueError("Please provide a more detailed explanation (minimum 50 characters)")
         
+        print("✅ Form validation passed")
+        
         # Check if user has already submitted an appeal in the last 24 hours
         existing_appeal = db.query(SuspensionAppeal).filter(
             SuspensionAppeal.user_id == user.id,
@@ -5128,6 +5135,7 @@ async def suspended_page_post(request: Request):
         ).first()
         
         if existing_appeal:
+            print(f"❌ Duplicate appeal detected for user {user.username}")
             return templates.TemplateResponse("suspended.html", {
                 "request": request,
                 "user": user,
@@ -5136,6 +5144,8 @@ async def suspended_page_post(request: Request):
                 "form_data": form_data,
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
+        
+        print("✅ No duplicate appeal found")
         
         # Create new suspension appeal
         appeal = SuspensionAppeal(
@@ -5146,22 +5156,30 @@ async def suspended_page_post(request: Request):
             appeal_message=form_data["appeal_message"]
         )
         
+        print(f"📝 Created appeal object for user {user.username}")
+        
         db.add(appeal)
+        print("➕ Added appeal to session")
+        
         db.commit()
-        db.refresh(appeal)  # Add this
-        print(f"Appeal saved! ID: {appeal.id}, User: {user.username}")  # Add this
+        print("💾 Committed to database")
+        
+        db.refresh(appeal)
+        print(f"✅ Appeal saved! ID: {appeal.id}, User: {user.username}, Type: {appeal.appeal_type}")
         
         # Send appeal notification to admin
         try:
             await send_suspension_appeal_notification(user, appeal)
+            print("📧 Admin notification sent")
         except Exception as e:
-            print(f"Failed to send suspension appeal notification: {str(e)}")
+            print(f"⚠️ Failed to send suspension appeal notification: {str(e)}")
         
         # Send confirmation to user
         try:
             await send_appeal_confirmation_email(user, appeal)
+            print("📧 User confirmation sent")
         except Exception as e:
-            print(f"Failed to send appeal confirmation: {str(e)}")
+            print(f"⚠️ Failed to send appeal confirmation: {str(e)}")
         
         # Clear form data on successful submission
         return templates.TemplateResponse("suspended.html", {
@@ -5174,6 +5192,7 @@ async def suspended_page_post(request: Request):
         })
         
     except ValueError as e:
+        print(f"❌ Validation error: {str(e)}")
         return templates.TemplateResponse("suspended.html", {
             "request": request,
             "user": user,
@@ -5183,7 +5202,9 @@ async def suspended_page_post(request: Request):
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
         })
     except Exception as e:
-        print(f"Error processing suspension appeal: {str(e)}")
+        print(f"❌ Error processing suspension appeal: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return templates.TemplateResponse("suspended.html", {
             "request": request,
             "user": user,
