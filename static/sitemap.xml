@@ -21,14 +21,3 @@
     <priority>0.5</priority>
   </url>
 </urlset>
-```
-
-### 🤖 **Googlebot is Already Visiting!**
-```
-66.249.65.67 - "GET /robots.txt" 404
-```
-That's a Google crawler! It's trying to index your site. Once you add robots.txt and sitemap.xml, Google will start indexing properly.
-
-### ⚠️ **Webhook Warning (Minor):**
-```
-⚠ Missing customer_id or subscription_id in invoice
