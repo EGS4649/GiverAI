@@ -2621,16 +2621,20 @@ def root_redirect(request: Request):
 
 @app.get("/home")
 def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "user": None})
+    user = get_optional_user(request)
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "user": user
+    })
     
 @app.head("/")  
-
 def index(request: Request):
     user = get_optional_user(request)
     return templates.TemplateResponse("index.html", {
         "request": request, 
         "user": user
     })
+
 def verify_recaptcha(recaptcha_response):
     """Verify reCAPTCHA response with Google"""
     secret_key = os.getenv("RECAPTCHA_SECRET_KEY")
