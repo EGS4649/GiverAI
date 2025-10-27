@@ -5574,6 +5574,7 @@ async def delete_account(request: Request):
         db.query(EmailVerification).filter(EmailVerification.user_id == user_id).delete()
         db.query(EmailChangeRequest).filter(EmailChangeRequest.user_id == user_id).delete()
         db.query(PasswordReset).filter(PasswordReset.user_id == user_id).delete()
+        db.query(SuspensionAppeal).filter(SuspensionAppeal.user_id == user_id).delete()  # ← ADD THIS LINE
         
         # Now delete the user record
         db.delete(user)
