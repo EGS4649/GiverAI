@@ -3534,16 +3534,38 @@ def verify_email_change(request: Request, token: str = Query(...)):
         # Update user's email
         user.email = new_email
         
+        # 🔥 ADD THIS: Sync email to Stripe if user has a customer ID
+        if user.stripe_customer_id:
+            try:
+                print(f"📧 Syncing email change to Stripe...")
+                print(f"   Customer ID: {user.stripe_customer_id}")
+                print(f"   Old email: {old_email}")
+                print(f"   New email: {new_email}")
+                
+                stripe.Customer.modify(
+                    user.stripe_customer_id,
+                    email=new_email
+                )
+                print("✅ Stripe customer email updated successfully")
+                
+            except stripe.error.StripeError as e:
+                print(f"⚠️ Failed to update Stripe customer email: {str(e)}")
+                # Don't block the email change - log it and continue
+                # User can still contact support if needed
+            except Exception as e:
+                print(f"⚠️ Unexpected error updating Stripe: {str(e)}")
+        else:
+            print("ℹ️ User has no Stripe customer ID - skipping Stripe sync")
+        
         # Mark the change request as verified
         change_request.verified = True
         change_request.verified_at = datetime.utcnow()
-        
         db.commit()
         
         # Send notification to OLD email address
         try:
             email_service.send_email_changed_notification(
-                user, old_email, new_email, ip_address
+                user, old_email, ip_address
             )
             print("✅ Email change notification sent to old address")
         except Exception as e:
