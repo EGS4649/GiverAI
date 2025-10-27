@@ -5330,37 +5330,33 @@ def update_database_for_suspension_appeals():
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
 async def account_page(
-    request: Request, 
-    csrf_protect: CsrfProtect = Depends(),
-    db: Session = Depends(get_db)
+    request: Request,
+    user: User = Depends(get_current_user)  # ← Use the dependency directly
 ):
-    # Get user without requiring authentication
-    user = get_optional_user(request)
+    """Account page with Stripe billing portal"""
     
-    # Redirect to 404 if not authenticated
-    if not user:
-        return templates.TemplateResponse("404.html", {
-            "request": request,
-            "user": None
-        }, status_code=404)
-    
-    """Account page - original version with just better error handling"""
     # Get Stripe billing portal URL for paid users
     billing_portal_url = None
+    billing_error = None
+    
     if user.stripe_customer_id and user.plan not in ["free", "canceling"]:
         try:
+            print(f"Creating billing portal for customer: {user.stripe_customer_id}")
             session = stripe.billing_portal.Session.create(
                 customer=user.stripe_customer_id,
-                return_url=str(request.url_for('account'))
+                return_url="https://giverai.me/account"
             )
             billing_portal_url = session.url
+            print(f"✅ Billing portal URL created: {billing_portal_url}")
         except Exception as e:
-            print(f"Failed to create billing portal session: {e}")
+            print(f"❌ Failed to create billing portal session: {e}")
+            billing_error = str(e)
     
     return templates.TemplateResponse("account.html", {
         "request": request,
         "user": user,
-        "billing_portal_url": billing_portal_url
+        "billing_portal_url": billing_portal_url,
+        "billing_error": billing_error
     })
 
 # Fix history route
