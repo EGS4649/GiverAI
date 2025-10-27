@@ -2614,9 +2614,18 @@ def root_redirect(request: Request):
     if access_token:
         try:
             payload = jwt.decode(access_token, SECRET_KEY, algorithms=["HS256"])
-            return RedirectResponse(url="/dashboard")
+            # Also verify the user actually exists in the database
+            db = SessionLocal()
+            try:
+                username = payload.get("sub")
+                user = db.query(User).filter(User.username == username).first()
+                if user:  # Only redirect to dashboard if user exists
+                    return RedirectResponse(url="/dashboard")
+            finally:
+                db.close()
         except:
-            pass
+            pass  # Token invalid or user doesn't exist, continue to home
+    
     return RedirectResponse(url="/home")
 
 @app.get("/home")
@@ -5631,7 +5640,7 @@ async def delete_account(request: Request):
         response.delete_cookie(
             key="access_token",
             path="/",
-            secure=True,
+            secure=IS_PRODUCTION,
             httponly=True,
             samesite="lax"
         )
