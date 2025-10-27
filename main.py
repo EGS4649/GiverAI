@@ -65,6 +65,8 @@ STRIPE_AGENCY_PRICE_ID = os.getenv("STRIPE_AGENCY_PRICE_ID")
 STRIPE_ENTERPRISE_PRICE_ID = os.getenv("STRIPE_ENTERPRISE_PRICE_ID")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
+MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "false").lower() == "true"
+
 # Configure structured logging
 logging.basicConfig(level=logging.INFO)
 logger = structlog.get_logger()
@@ -2908,6 +2910,21 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self'; frame-src https://www.google.com;"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
+@app.middleware("http")
+async def maintenance_mode_middleware(request: Request, call_next):
+    # Allow admin access during maintenance
+    if MAINTENANCE_MODE:
+        # These paths always work (for you to manage things)
+        allowed_paths = ["/admin", "/login", "/logout", "/static"]
+        
+        if not any(request.url.path.startswith(path) for path in allowed_paths):
+            return templates.TemplateResponse("maintenance.html", {
+                "request": request
+            }, status_code=503)
+    
+    response = await call_next(request)
     return response
 
 @app.middleware("http")
