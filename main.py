@@ -3505,7 +3505,7 @@ def verify_email(request: Request, token: str = Query(...)):
         })
     finally:
         db.close()
-        
+
 @app.get("/verify-email-change")
 def verify_email_change(request: Request, token: str = Query(...)):
     db = SessionLocal()
@@ -5316,7 +5316,21 @@ def update_database_for_suspension_appeals():
 
 # Account Management Routes
 @app.get("/account", response_class=HTMLResponse)
-async def account(request: Request, user: User = Depends(get_current_user)):
+async def account_page(
+    request: Request, 
+    csrf_protect: CsrfProtect = Depends(),
+    db: Session = Depends(get_db)
+):
+    # Get user without requiring authentication
+    user = get_optional_user(request)
+    
+    # Redirect to 404 if not authenticated
+    if not user:
+        return templates.TemplateResponse("404.html", {
+            "request": request,
+            "user": None
+        }, status_code=404)
+    
     """Account page - original version with just better error handling"""
     # Get Stripe billing portal URL for paid users
     billing_portal_url = None
@@ -6355,12 +6369,20 @@ def user_dashboard(
     request: Request,
     success: str = None,
     error: str = None,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     csrf_protect: CsrfProtect = Depends()
 ):
-    """User dashboard - For regular users (NOT admin)"""
+    # Get user without requiring authentication
+    current_user = get_optional_user(request)
     
+    # Redirect to 404 if not authenticated
+    if not current_user:
+        return templates.TemplateResponse("404.html", {
+            "request": request,
+            "user": None
+        }, status_code=404)
+    
+    """User dashboard - For regular users (NOT admin)"""
     # Generate CSRF token ONCE
     csrf_response = csrf_protect.generate_csrf()
     csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
