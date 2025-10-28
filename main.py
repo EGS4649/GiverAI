@@ -5656,7 +5656,84 @@ async def delete_account(request: Request):
         )
     finally:
         db.close()
-        
+
+@app.get("/sitemap.xml")
+async def sitemap():
+    """Serve XML sitemap for search engines"""
+    sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://giverai.me/</loc>
+    <lastmod>2025-01-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://giverai.me/tweetgiver</loc>
+    <lastmod>2025-01-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://giverai.me/pricing</loc>
+    <lastmod>2025-01-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://giverai.me/contact</loc>
+    <lastmod>2025-01-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://giverai.me/login</loc>
+    <lastmod>2025-01-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://giverai.me/register</loc>
+    <lastmod>2025-01-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://giverai.me/faq</loc>
+    <lastmod>2025-01-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://giverai.me/privacy</loc>
+    <lastmod>2025-01-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://giverai.me/terms</loc>
+    <lastmod>2025-01-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>"""
+    
+    return Response(content=sitemap_xml, media_type="application/xml")
+
+@app.get("/robots.txt")
+async def robots():
+    """Serve robots.txt for search engines"""
+    robots_txt = """User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /account
+Disallow: /api
+
+Sitemap: https://giverai.me/sitemap.xml
+"""
+    return Response(content=robots_txt, media_type="text/plain")
+
 @app.get("/export-tweets")
 def export_tweets(user: User = Depends(get_current_user)):
     db = SessionLocal()
