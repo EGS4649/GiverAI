@@ -4441,6 +4441,26 @@ async def suspension_redirect_middleware(request: Request, call_next):
     
     return await call_next(request)
 
+SCANNER_PATHS = [
+    '/wp-', '/wordpress', '/.git', '/.env', 
+    '/admin.php', '/xmlrpc.php', '/wp-content',
+    '/wp-includes', '/wp-admin'
+]
+
+@app.middleware("http")
+async def block_scanner_paths(request: Request, call_next):
+    path = request.url.path.lower()
+    
+    # Block known scanner paths
+    if any(scanner in path for scanner in SCANNER_PATHS):
+        return JSONResponse(
+            status_code=404,
+            content={"detail": "Not found"}
+        )
+    
+    response = await call_next(request)
+    return response
+
 # Updated force password reset endpoint
 @app.post("/admin/force-password-reset")
 async def force_password_reset_endpoint(
