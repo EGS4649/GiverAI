@@ -2630,6 +2630,7 @@ def root_redirect(request: Request):
 
 @app.get("/home")
 def home(request: Request):
+    print("🏠 Welcome home!")
     user = get_optional_user(request)
     return templates.TemplateResponse("index.html", {
         "request": request, 
@@ -2638,6 +2639,7 @@ def home(request: Request):
     
 @app.head("/")  
 def index(request: Request):
+    print("🏠 Welcome to the index!")
     user = get_optional_user(request)
     return templates.TemplateResponse("index.html", {
         "request": request, 
@@ -2677,6 +2679,7 @@ async def favicon():
 @app.get("/register", response_class=HTMLResponse)
 @limiter.limit("10/minute") 
 def register(request: Request, csrf_protect: CsrfProtect = Depends(), success: str = None):
+    print("This user is at the register page!")
     user = get_optional_user(request)
     csrf_response = csrf_protect.generate_csrf()
     
@@ -2969,6 +2972,7 @@ def health_check():
     
 @app.get("/forgot-password", response_class=HTMLResponse)
 async def forgot_password_get(request: Request, csrf_protect: CsrfProtect = Depends()):
+    print("This user forgot their password!")
     """Display the forgot password form"""
     user = get_optional_user(request)
     csrf_response = csrf_protect.generate_csrf()
@@ -3273,6 +3277,7 @@ async def quick_resend_verification(request: Request):
 # Reset Password Form
 @app.get("/reset-password", response_class=HTMLResponse)
 def reset_password_get(request: Request, token: str = Query(None)):
+    print("This user is resetting their password!")
     if not token:
         return templates.TemplateResponse("reset_password_error.html", {
             "request": request,
@@ -3490,6 +3495,7 @@ async def value_error_handler(request: Request, exc: ValueError):
  
 @app.get("/verify-email")
 def verify_email(request: Request, token: str = Query(...)):
+    print("This user is verifying their email!")
     db = SessionLocal()
     try:
         verification = db.query(EmailVerification).filter(
@@ -3711,6 +3717,7 @@ async def admin_dashboard(
     error: str = Query(None),
     db: Session = Depends(get_db)
 ):
+    print("The admin has arrived!")
     """Admin dashboard page"""
     try:
         if not user or not is_admin_user(user):
@@ -4788,6 +4795,7 @@ async def admin_user_activity(
 
 @app.get("/login", response_class=HTMLResponse)
 async def login(request: Request):
+    print("The user is logging in!")
     user = get_optional_user(request)
     response = templates.TemplateResponse("login.html", {
         "request": request, 
@@ -4990,6 +4998,7 @@ async def unlock_account_request(
 
 @app.get("/logout")
 def logout(request: Request):
+    print("The user is logging out!")
     # Render the logout page with deleted cookies
     response = templates.TemplateResponse("logout.html", {"request": request})
     
@@ -5005,7 +5014,8 @@ def logout(request: Request):
     return response
 
 @app.get("/contact", response_class=HTMLResponse)
-def contact_page(request: Request):  # ← Removed csrf_protect parameter
+def contact_page(request: Request):
+    print("The user is looking at the contact page!")
     user = get_optional_user(request)
     # csrf_response = csrf_protect.generate_csrf()  ← COMMENT OUT
     # csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response  ← COMMENT OUT
@@ -5082,6 +5092,7 @@ async def handle_contact_form(request: Request):  # ← Removed csrf_protect par
         
 @app.get("/faq", response_class=HTMLResponse)
 def faq_page(request: Request):
+    print("The user is looking at the faq page!")
     user = get_optional_user(request)
     return templates.TemplateResponse("faq.html", {
         "request": request, 
@@ -5091,6 +5102,7 @@ def faq_page(request: Request):
 # Also, update your suspended route to use this helper:
 @app.get("/suspended", response_class=HTMLResponse)
 def suspended_page_get(request: Request):
+    print("bro got suspended💀")
     """Display suspended account page"""
     # Use the special function that allows suspended users
     user = get_optional_suspended_user(request)
@@ -5333,6 +5345,7 @@ async def account_page(
     request: Request,
     user: User = Depends(get_current_user)  # ← Use the dependency directly
 ):
+    print("the user is looking at their account!")
     """Account page with Stripe billing portal"""
     
     # Get Stripe billing portal URL for paid users
@@ -5362,6 +5375,7 @@ async def account_page(
 # Fix history route
 @app.get("/history", response_class=HTMLResponse)
 def tweet_history(request: Request, user: User = Depends(get_current_user)):
+    print("the user is looking at their history!")
     db = SessionLocal()
     try:
         days = 90
@@ -5888,16 +5902,19 @@ async def generate_tweetgiver(request: Request):
 
 @app.get("/pricing", response_class=HTMLResponse)
 def pricing(request: Request):
+    print("the user is looking at the pricing!")
     user = get_optional_user(request)
     return templates.TemplateResponse("pricing.html", {"request": request, "user": user})
 
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy_policy(request: Request):
+    print("the user is looking at the privacy terms!")
     user = get_optional_user(request)
     return templates.TemplateResponse("privacy.html", {"request": request, "user": user})
 
 @app.get("/terms", response_class=HTMLResponse)
 def terms_of_service(request: Request):
+    print("the user is looking at the overall terms!")
     user = get_optional_user(request)
     return templates.TemplateResponse("terms.html", {"request": request, "user": user})
 
@@ -6458,6 +6475,7 @@ def user_dashboard(
     db: Session = Depends(get_db),
     csrf_protect: CsrfProtect = Depends()
 ):
+    print("the user is looking at the dashboard!")
     # Get user without requiring authentication
     current_user = get_optional_user(request)
     
