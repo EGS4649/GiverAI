@@ -2613,19 +2613,12 @@ def root_redirect(request: Request):
     access_token = request.cookies.get("access_token")
     if access_token:
         try:
+            # Just decode JWT, don't hit database yet
             payload = jwt.decode(access_token, SECRET_KEY, algorithms=["HS256"])
-            # Also verify the user actually exists in the database
-            db = SessionLocal()
-            try:
-                username = payload.get("sub")
-                user = db.query(User).filter(User.username == username).first()
-                if user:  # Only redirect to dashboard if user exists
-                    return RedirectResponse(url="/dashboard")
-            finally:
-                db.close()
+            # Trust the JWT - only verify user exists if they actually access dashboard
+            return RedirectResponse(url="/dashboard")
         except:
-            pass  # Token invalid or user doesn't exist, continue to home
-    
+            pass  # Invalid token, continue to home
     return RedirectResponse(url="/home")
 
 @app.get("/home")
