@@ -113,6 +113,14 @@ engine = create_engine(
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+def get_db_session():
+    """Dependency for getting DB sessions."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 # ----- User & Usage Models -----
 class GeneratedTweet(Base):
     __tablename__ = "generated_tweets"
