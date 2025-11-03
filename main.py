@@ -18,6 +18,7 @@ from pydantic_settings import BaseSettings
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, text, Text
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from email_validator import validate_email, EmailNotValidError
 from sqlalchemy.orm import Session
@@ -91,10 +92,26 @@ except ImportError:
         print("⚠️ Neither zoneinfo nor pytz available. Timestamps will be shown in UTC.")
 
 # ----- DB Setup -----
-DATABASE_URL = os.getenv("DATABASE_URL")  # Should be your Render PostgreSQL URL
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+DATABASE_URL = os.getenv("DATABASE_URL")  # Heroku PostgreSQL URL
 Base = declarative_base()
+
+# Create engine with proper connection pooling
+engine = create_engine(
+    DATABASE_URL,
+    poolclass=QueuePool,
+    pool_size=5,                    # Number of permanent connections
+    max_overflow=10,                # Max connections beyond pool_size
+    pool_pre_ping=True,             # ← THE MOST IMPORTANT ONE - checks connection before using
+    pool_recycle=3600,              # Recycle connections after 1 hour
+    connect_args={
+        "connect_timeout": 10,      # Timeout connecting after 10 seconds
+        "options": "-c statement_timeout=10000"  # Kill queries after 10 seconds
+    },
+    echo=False  # Set to True for SQL debugging
+)
+
+# Create session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # ----- User & Usage Models -----
 class GeneratedTweet(Base):
@@ -2288,7 +2305,7 @@ async def custom_404_handler(request: Request, exc: HTTPException):
     }, status_code=404)
 
 def migrate_database():
-    engine = create_engine(DATABASE_URL)
+    global engine
     inspector = inspect(engine)
     
     # Check and add all missing columns to users table
@@ -2397,7 +2414,8 @@ def migrate_database():
     
 def update_user_model():
     """Add missing columns to users table"""
-    engine = create_engine(DATABASE_URL)
+    global engine
+    inspector = inspect(engine)
     
     missing_columns = {
         'last_login': "ALTER TABLE users ADD COLUMN last_login TIMESTAMP",
@@ -2433,7 +2451,7 @@ def get_db():
 
 def migrate_database_suspension():
     """Add suspension-related database updates"""
-    engine = create_engine(DATABASE_URL)
+    global engine
     inspector = inspect(engine)
     
     # Get list of existing tables
@@ -2479,7 +2497,8 @@ def migrate_database_suspension():
 
 def update_user_table_for_suspension():
     """Add missing suspension-related columns to users table"""
-    engine = create_engine(DATABASE_URL)
+    global engine
+    inspector = inspect(engine)
     
     try:
         with engine.begin() as conn:
