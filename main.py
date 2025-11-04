@@ -6531,39 +6531,56 @@ async def get_ai_tweets(prompt, count=5):
             model="openai/gpt-4o-mini",
             messages=[{
                 "role": "system",
-                "content": """You are a social media copywriter. Generate ONLY the tweets - no introductions, explanations, or extra commentary.
+                "content": """You are a social media copywriter who writes like a real person on Twitter, not a corporate LinkedIn coach.
 
-CRITICAL RULES:
-- Output ONLY the numbered tweets, nothing else
-- NO greetings like "Sure thing!" or "Here you go!"
-- NO explanatory text before or after the tweets
-- NO meta-commentary about the tweets
-- Just pure tweet content, numbered 1-15
+BANNED PHRASES (never use these):
+- "Ever feel stuck..."
+- "The best part about..."
+- "I used to think... Now I know..."
+- "Reflecting on my journey..."
+- "Never underestimate..."
+- "Don't be afraid to..."
+- "Just reminded myself..."
+- "Anyone else find..."
+- "It's amazing what happens when..."
+- Any motivational clichés
 
-Each tweet should:
-- Sound natural and conversational
-- Be under 280 characters
-- Use emojis sparingly (0-2 per tweet)
-- Avoid corporate buzzwords
-- Feel authentic, not salesy
-- Vary in structure (statements, questions, insights)
+WRITE LIKE THIS INSTEAD:
+- Short, punchy sentences
+- Lowercase is fine
+- Actual opinions, not platitudes
+- Specific details, not vague inspiration
+- Occasional dry humor or sarcasm
+- Real problems and solutions
+- Personal anecdotes that are SPECIFIC
+- Questions that aren't rhetorical fluff
 
-Format:
-[tweet content]
-[tweet content]
-[tweet content]"""
+GOOD EXAMPLES:
+"built an AI tweet generator because I was tired of staring at a blank text box for 20 minutes"
+
+"turns out the hardest part of launching isn't the code, it's getting the first 10 people to actually care"
+
+"GiverAI does one thing: helps you not sound like a robot when you tweet. ironic, I know"
+
+BAD EXAMPLES (never do this):
+"Just reminded myself that progress isn't linear! 💪"
+"Ever wonder how successful people stay consistent?"
+"The journey of entrepreneurship teaches us so much!"
+
+Output ONLY numbered tweets (1. 2. 3. etc). No intro, no outro, no commentary."""
             }, {
                 "role": "user",
-                "content": f"{prompt}\n\nGenerate {count} tweets. Output ONLY the numbered tweets with no additional text."
+                "content": f"{prompt}\n\nGenerate {count} tweets. Be specific and real, not inspirational."
             }],
             max_tokens=200 + (count * 80),
-            temperature=0.7,  # Lower temp for more controlled output
+            temperature=0.75,
             timeout=25
         )
         
         content = response.choices[0].message.content.strip()
         
-        # Split and clean tweets
+        # Extract only numbered tweets
+        import re
         lines = content.split('\n')
         tweets = []
         
@@ -6572,28 +6589,20 @@ Format:
             if not line:
                 continue
             
-            # Skip lines that look like commentary (not numbered tweets)
-            if not any(line.startswith(str(i)) or line.startswith(f"{i}.") or line.startswith(f"{i})") 
-                      for i in range(1, 16)):
-                continue
-            
-            # Remove numbering
-            import re
-            cleaned = re.sub(r'^[\[\(]?\d+[\.\)\]:\-\s]+', '', line)
-            
-            # Remove bullet points if present
-            cleaned = cleaned.lstrip('*•-').strip()
-            
-            if cleaned and len(cleaned) > 10:
-                tweets.append(cleaned)
+            # Only process lines that start with a number
+            if re.match(r'^\d+[\.\)]\s', line):
+                # Remove numbering
+                cleaned = re.sub(r'^[\[\(]?\d+[\.\)\]:\-\s]+', '', line)
+                cleaned = cleaned.lstrip('*•-').strip()
+                
+                if cleaned and len(cleaned) > 10:
+                    tweets.append(cleaned)
         
         if len(tweets) < count:
             return tweets if tweets else ["Unable to generate tweets. Please try again."]
         
         return tweets[:count]
         
-    except TimeoutError:
-        return ["Request timed out. Try generating fewer tweets."]
     except Exception as e:
         print(f"OpenAI API error: {str(e)}")
         return ["Error generating tweets. Please try again."]
@@ -6833,13 +6842,15 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         # Generate tweets
         prompt = f"""I'm a {job} trying to {goal}.
 
-        Write {tweet_count} tweets that will:
-        - Resonate with my audience authentically
-        - Showcase expertise without sounding preachy  
-        - Include personal insights or experiences
-        - Feel natural, not salesy
-        - Mix educational, inspirational, and conversational tones
-        Make them feel like a real person wrote them, not a marketing team."""
+        Write {tweet_count} tweets that:
+        - Sound like a real person, not a motivational account
+        - Include specific details or experiences
+        - Avoid generic entrepreneur clichés
+        - Feel authentic and conversational
+        - NO phrases like "just reminded myself" or "the best part about"
+        - Can be casual (lowercase is fine)
+        - Mix insights, observations, and real problems
+        Be direct. Skip the inspirational fluff."""
 
         tweets = await get_ai_tweets(prompt, count=tweet_count)
 
