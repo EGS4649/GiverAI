@@ -3013,7 +3013,7 @@ async def ip_ban_check_middleware(request: Request, call_next):
         db = SessionLocal()
         try:
             client_ip = get_client_ip(request)
-            if check_ip_ban_middleware(client_ip, db):
+            if is_ip_banned(client_ip, db):  # ✅ Call is_ip_banned directly
                 return Response(
                     content="Access denied: IP address is banned",
                     status_code=403
