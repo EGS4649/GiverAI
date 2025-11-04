@@ -1879,7 +1879,7 @@ def unban_ip_address(ip_address: str, db: Session):
 
 
 # Middleware to check IP bans
-async def check_ip_ban_middleware(request: Request, db: Session):
+def check_ip_ban_middleware(request: Request, db: Session):
     """Check if the requesting IP is banned"""
     try:
         client_ip = get_client_ip(request)
