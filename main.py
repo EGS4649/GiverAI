@@ -6484,29 +6484,69 @@ async def checkout_success(request: Request, session_id: str = None):
         "user": current_user,
         "plan": display_name
     })
-        
+
 async def get_ai_tweets(prompt, count=5):
+    """Generate tweets with timeout protection and better performance"""
     try:
+        count = min(count, 15)
+        
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="openai/gpt-4o-mini",
             messages=[{
                 "role": "system",
-                "content": "You are a helpful AI assistant that generates tweets."
-            },{
+                "content": """You are a top social media copywriter. Create authentic, engaging tweets that sound natural and human-written.
+
+Guidelines:
+- Write conversationally, like you're talking to a friend
+- Use varied sentence structures (questions, statements, calls-to-action)
+- Include personality and emotion when appropriate
+- Avoid corporate jargon and buzzwords
+- Use line breaks for readability when it helps
+- Include relevant emojis naturally (1-3 per tweet max)
+- Keep under 280 characters
+- Make each tweet unique in tone and approach
+- Use hooks that stop scrolling (surprising facts, questions, bold statements)
+- DON'T use hashtags unless specifically requested
+- DON'T sound like a robot or marketing copy
+
+Number each tweet 1-{count}."""
+            }, {
                 "role": "user",
-                "content": f"{prompt} Please generate exactly {count} tweets separated by new lines."
+                "content": prompt
             }],
-            max_tokens=500 + (count * 50),  # give more tokens if count increases
+            max_tokens=200 + (count * 80),
+            temperature=0.8,  # Increased for more creative, varied output
+            timeout=25
         )
+        
         content = response.choices[0].message.content
-        # Split on new lines but filter empty lines and numbering (1., 2., ...)
-        tweets = [line.strip() for line in content.split('\n') if line.strip() and not line.strip().rstrip('.').isdigit()]
-        # Trim or pad the number of tweets returned
+        
+        # Split and clean tweets
+        lines = content.split('\n')
+        tweets = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Remove numbering
+            import re
+            cleaned = re.sub(r'^[\[\(]?\d+[\.\)\]:\-\s]+', '', line)
+            
+            if cleaned and len(cleaned) > 10:
+                tweets.append(cleaned)
+        
         if len(tweets) < count:
-            return tweets
+            return tweets if tweets else ["Unable to generate tweets. Please try again."]
+        
         return tweets[:count]
+        
+    except TimeoutError:
+        return [f"Request timed out. Try generating fewer tweets (max 10 at once)."]
     except Exception as e:
-        return [f"Error: {str(e)}. Please check your OpenAI API key."]
+        print(f"OpenAI API error: {str(e)}")
+        return [f"Error generating tweets. Please try again in a moment."]
 
 @app.get("/complete-onboarding", response_class=HTMLResponse)
 def complete_onboarding_get(request: Request, user: User = Depends(get_current_user)):
@@ -6608,9 +6648,6 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         print(f"Form CSRF token: {csrf_token_from_form}")
         print(f"Cookie CSRF token: {csrf_token_from_cookie}")
         
-        if not csrf_token_from_cookie or not csrf_token_from_form:
-            print("CSRF validation failed: Missing token")
-            
         if not csrf_token_from_cookie or not csrf_token_from_form:
             print("CSRF validation failed: Missing token")
             
@@ -6744,7 +6781,16 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
                 tweet_count = tweets_left
 
         # Generate tweets
-        prompt = f"As a {job}, suggest {tweet_count} engaging tweets to achieve: {goal}."
+        prompt = f"""I'm a {job} trying to {goal}.
+
+        Write {tweet_count} tweets that will:
+        - Resonate with my audience authentically
+        - Showcase expertise without sounding preachy  
+        - Include personal insights or experiences
+        - Feel natural, not salesy
+        - Mix educational, inspirational, and conversational tones
+        Make them feel like a real person wrote them, not a marketing team."""
+        
         tweets = await get_ai_tweets(prompt, count=tweet_count)
 
         # Save to history
