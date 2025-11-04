@@ -3005,26 +3005,64 @@ async def logo_cache_middleware(request: Request, call_next):
             response.headers["Cache-Control"] = "public, max-age=86400"
     
     return response
+# TEMPORARILY DISABLED - This was causing database connection exhaustion
+# @app.middleware("http")
+# async def ip_ban_check_middleware(request: Request, call_next):
+#     """Global middleware to check IP bans"""
+#     try:
+#         db = SessionLocal()
+#         try:
+#             client_ip = get_client_ip(request)
+#             if is_ip_banned(client_ip, db):
+#                 return Response(
+#                     content="Access denied: IP address is banned",
+#                     status_code=403
+#                 )
+#         finally:
+#             db.close()
+#     except Exception as e:
+#         print(f"IP ban middleware error: {e}")
+#     
+#     response = await call_next(request)
+#     return response
 
 @app.middleware("http")
 async def ip_ban_check_middleware(request: Request, call_next):
-    """Global middleware to check IP bans"""
+    """Global middleware to check IP bans - cache-first approach"""
+    client_ip = get_client_ip(request)
+    
+    # Quick cache check - NO DATABASE HIT
+    if client_ip in ip_ban_cache:
+        is_banned, timestamp = ip_ban_cache[client_ip]
+        # If cached and recent (within 1 hour), trust the cache
+        if time.time() - timestamp < 3600:
+            if is_banned:
+                return Response(
+                    content="Access denied: IP address is banned",
+                    status_code=403
+                )
+            # Not banned, continue
+            return await call_next(request)
+    
+    # Not in cache or cache expired - check database (with timeout protection)
     try:
         db = SessionLocal()
         try:
-            client_ip = get_client_ip(request)
-            if is_ip_banned(client_ip, db):  # ✅ Call is_ip_banned directly
+            # Quick query with timeout
+            if is_ip_banned(client_ip, db):
                 return Response(
-                    content="Access denied: IP address is banned",
+                    content="Access denied: IP address is banned", 
                     status_code=403
                 )
         finally:
             db.close()
     except Exception as e:
-        # If check fails, log but continue
-        print(f"IP ban middleware error: {e}")
+        # Database error - fail open (allow the request)
+        print(f"⚠️ IP ban check failed, allowing request: {e}")
+        # Cache "not banned" for 5 minutes to avoid repeated failures
+        ip_ban_cache[client_ip] = (False, time.time())
     
-    # Continue with the request
+    # Continue with request
     response = await call_next(request)
     return response
 
@@ -6790,7 +6828,7 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         - Feel natural, not salesy
         - Mix educational, inspirational, and conversational tones
         Make them feel like a real person wrote them, not a marketing team."""
-        
+
         tweets = await get_ai_tweets(prompt, count=tweet_count)
 
         # Save to history
