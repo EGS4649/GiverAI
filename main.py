@@ -6522,7 +6522,6 @@ async def checkout_success(request: Request, session_id: str = None):
         "user": current_user,
         "plan": display_name
     })
-
 async def get_ai_tweets(prompt, count=5):
     """Generate tweets with timeout protection and better performance"""
     try:
@@ -6532,32 +6531,37 @@ async def get_ai_tweets(prompt, count=5):
             model="openai/gpt-4o-mini",
             messages=[{
                 "role": "system",
-                "content": """You are a top social media copywriter. Create authentic, engaging tweets that sound natural and human-written.
+                "content": """You are a social media copywriter. Generate ONLY the tweets - no introductions, explanations, or extra commentary.
 
-Guidelines:
-- Write conversationally, like you're talking to a friend
-- Use varied sentence structures (questions, statements, calls-to-action)
-- Include personality and emotion when appropriate
-- Avoid corporate jargon and buzzwords
-- Use line breaks for readability when it helps
-- Include relevant emojis naturally (1-3 per tweet max)
-- Keep under 280 characters
-- Make each tweet unique in tone and approach
-- Use hooks that stop scrolling (surprising facts, questions, bold statements)
-- DON'T use hashtags unless specifically requested
-- DON'T sound like a robot or marketing copy
+CRITICAL RULES:
+- Output ONLY the numbered tweets, nothing else
+- NO greetings like "Sure thing!" or "Here you go!"
+- NO explanatory text before or after the tweets
+- NO meta-commentary about the tweets
+- Just pure tweet content, numbered 1-15
 
-Number each tweet 1-{count}."""
+Each tweet should:
+- Sound natural and conversational
+- Be under 280 characters
+- Use emojis sparingly (0-2 per tweet)
+- Avoid corporate buzzwords
+- Feel authentic, not salesy
+- Vary in structure (statements, questions, insights)
+
+Format:
+[tweet content]
+[tweet content]
+[tweet content]"""
             }, {
                 "role": "user",
-                "content": prompt
+                "content": f"{prompt}\n\nGenerate {count} tweets. Output ONLY the numbered tweets with no additional text."
             }],
             max_tokens=200 + (count * 80),
-            temperature=0.8,  # Increased for more creative, varied output
+            temperature=0.7,  # Lower temp for more controlled output
             timeout=25
         )
         
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content.strip()
         
         # Split and clean tweets
         lines = content.split('\n')
@@ -6568,9 +6572,17 @@ Number each tweet 1-{count}."""
             if not line:
                 continue
             
+            # Skip lines that look like commentary (not numbered tweets)
+            if not any(line.startswith(str(i)) or line.startswith(f"{i}.") or line.startswith(f"{i})") 
+                      for i in range(1, 16)):
+                continue
+            
             # Remove numbering
             import re
             cleaned = re.sub(r'^[\[\(]?\d+[\.\)\]:\-\s]+', '', line)
+            
+            # Remove bullet points if present
+            cleaned = cleaned.lstrip('*•-').strip()
             
             if cleaned and len(cleaned) > 10:
                 tweets.append(cleaned)
@@ -6581,10 +6593,10 @@ Number each tweet 1-{count}."""
         return tweets[:count]
         
     except TimeoutError:
-        return [f"Request timed out. Try generating fewer tweets (max 10 at once)."]
+        return ["Request timed out. Try generating fewer tweets."]
     except Exception as e:
         print(f"OpenAI API error: {str(e)}")
-        return [f"Error generating tweets. Please try again in a moment."]
+        return ["Error generating tweets. Please try again."]
 
 @app.get("/complete-onboarding", response_class=HTMLResponse)
 def complete_onboarding_get(request: Request, user: User = Depends(get_current_user)):
