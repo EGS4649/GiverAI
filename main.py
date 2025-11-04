@@ -5,6 +5,8 @@ import re
 import secrets
 import requests 
 import hashlib
+import time
+from functools import lru_cache
 from typing import Optional, List
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header, Query, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse, FileResponse
@@ -1752,28 +1754,51 @@ def get_client_ip(request: Request) -> str:
     
     # Fallback to direct client IP
     return request.client.host if request.client else "Unknown"
+# IP ban cache - stores (is_banned, timestamp) tuples
+ip_ban_cache = {}
+CACHE_TTL = 300  # 5 minutes
 
 def is_ip_banned(ip_address: str, db: Session) -> bool:
-    """Check if an IP address is banned"""
+    """Check if an IP address is banned, with caching and error handling"""
     if not ip_address or ip_address == "Unknown":
         return False
     
-    # Check for exact IP match
-    ban = db.query(IPban).filter(
-        IPban.ip_address == ip_address,
-        IPban.is_active == True
-    ).first()
-    
-    if ban:
-        # Check if ban has expired
-        if ban.expires_at and ban.expires_at < datetime.utcnow():
-            ban.is_active = False
-            db.commit()
-            return False
-        return True
-    
-    # TODO: Add subnet/range checking if needed
-    return False
+    try:
+        # Check cache first
+        if ip_address in ip_ban_cache:
+            result, timestamp = ip_ban_cache[ip_address]
+            if time.time() - timestamp < CACHE_TTL:
+                return result
+        
+        # Not in cache, check database
+        ban = db.query(IPban).filter(
+            IPban.ip_address == ip_address,
+            IPban.is_active == True
+        ).first()
+        
+        if ban:
+            # Check if ban has expired
+            if ban.expires_at and ban.expires_at < datetime.utcnow():
+                ban.is_active = False
+                db.commit()
+                # Cache the "not banned" result
+                ip_ban_cache[ip_address] = (False, time.time())
+                return False
+            
+            # Cache the "banned" result
+            ip_ban_cache[ip_address] = (True, time.time())
+            return True
+        
+        # Not banned, cache the result
+        ip_ban_cache[ip_address] = (False, time.time())
+        return False
+        
+    except Exception as e:
+        # Log the error but DON'T block the user
+        print(f"Error checking IP ban for {ip_address}: {e}")
+        # If database check fails, assume not banned (fail open)
+        return False
+
 
 def ban_ip_address(ip_address: str, reason: str, banned_by: str, db: Session, expires_hours: int = None):
     """Ban an IP address"""
@@ -1811,6 +1836,10 @@ def ban_ip_address(ip_address: str, reason: str, banned_by: str, db: Session, ex
     
     db.commit()
     
+    # Clear cache for this IP so ban takes effect immediately
+    if ip_address in ip_ban_cache:
+        del ip_ban_cache[ip_address]
+    
     # Also mark any users with this IP as IP banned
     users_with_ip = db.query(User).filter(
         (User.last_known_ip == ip_address) | (User.registration_ip == ip_address)
@@ -1822,6 +1851,7 @@ def ban_ip_address(ip_address: str, reason: str, banned_by: str, db: Session, ex
     db.commit()
     return True
 
+
 def unban_ip_address(ip_address: str, db: Session):
     """Unban an IP address"""
     bans = db.query(IPban).filter(
@@ -1831,6 +1861,10 @@ def unban_ip_address(ip_address: str, db: Session):
     
     for ban in bans:
         ban.is_active = False
+    
+    # Clear cache for this IP so unban takes effect immediately
+    if ip_address in ip_ban_cache:
+        del ip_ban_cache[ip_address]
     
     # Unmark users with this IP
     users_with_ip = db.query(User).filter(
@@ -1843,32 +1877,25 @@ def unban_ip_address(ip_address: str, db: Session):
     db.commit()
     return True
 
+
 # Middleware to check IP bans
-async def check_ip_ban(request: Request, db: Session):
+async def check_ip_ban_middleware(request: Request, db: Session):
     """Check if the requesting IP is banned"""
-    client_ip = get_client_ip(request)
+    try:
+        client_ip = get_client_ip(request)
+        if is_ip_banned(client_ip, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: IP address is banned"
+            )
+    except HTTPException:
+        # Re-raise HTTPException (this is the banned case)
+        raise
+    except Exception as e:
+        # Any other error - log but don't block
+        print(f"IP ban check failed, allowing through: {e}")
+        pass  # Continue with the request
     
-    if is_ip_banned(client_ip, db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: IP address is banned"
-        )
-    
-def check_ip_ban(ip_address: str, db) -> bool:
-    """Check if an IP address is banned"""
-    ban = db.query(IPban).filter(  # Make sure this matches your model name
-        IPban.ip_address == ip_address,
-        IPban.is_active == True
-    ).first()
-    
-    if ban:
-        # Check if ban has expired
-        if ban.expires_at and ban.expires_at < datetime.utcnow():
-            ban.is_active = False
-            db.commit()
-            return False
-        return True
-    return False
 # Add this helper function to safely handle user data in templates
 def safe_user_data(user):
     """Safely return user data for templates, handling None values"""
@@ -2979,6 +3006,28 @@ async def logo_cache_middleware(request: Request, call_next):
     
     return response
 
+@app.middleware("http")
+async def ip_ban_check_middleware(request: Request, call_next):
+    """Global middleware to check IP bans"""
+    try:
+        db = SessionLocal()
+        try:
+            client_ip = get_client_ip(request)
+            if check_ip_ban_middleware(client_ip, db):
+                return Response(
+                    content="Access denied: IP address is banned",
+                    status_code=403
+                )
+        finally:
+            db.close()
+    except Exception as e:
+        # If check fails, log but continue
+        print(f"IP ban middleware error: {e}")
+    
+    # Continue with the request
+    response = await call_next(request)
+    return response
+
 @app.get("/_health")
 def health_check():
     try:
@@ -3919,16 +3968,6 @@ def validate_ip_address(ip_str: str) -> bool:
     except ValueError:
         return False
 
-def is_ip_banned(ip_address: str, db: Session) -> bool:
-    """Check if an IP address is currently banned"""
-    active_ban = db.query(IPban).filter(
-        IPban.ip_address == ip_address,
-        IPban.is_active == True,
-        (IPban.expires_at.is_(None)) | (IPban.expires_at > datetime.utcnow())
-    ).first()
-    
-    return active_ban is not None
-
 def get_db():
     db = SessionLocal()
     try:
@@ -4693,20 +4732,6 @@ def validate_ip_address(ip_str: str) -> bool:
         ipaddress.ip_address(ip_str.strip())
         return True
     except ValueError:
-        return False
-
-def is_ip_banned(ip_address: str, db) -> bool:
-    """Check if an IP address is currently banned"""
-    try:
-        active_ban = db.query(IPban).filter(
-            IPban.ip_address == ip_address,
-            IPban.is_active == True,
-            (IPban.expires_at.is_(None)) | (IPban.expires_at > datetime.utcnow())
-        ).first()
-        
-        return active_ban is not None
-    except Exception as e:
-        print(f"Error checking IP ban: {str(e)}")
         return False
 
 # Add dependency to get database session (if you don't have it already)
