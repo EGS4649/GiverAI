@@ -5039,20 +5039,20 @@ async def unlock_account_request(
             })
     finally:
         db.close
-        
+
 @app.get("/logout")
 def logout(request: Request):
     print("The user is logging out!")
     
-    # Create response
-    response = templates.TemplateResponse("logout.html", {"request": request})
+    # Create redirect response directly to /home
+    response = RedirectResponse(url="/home", status_code=303)
     
     # Delete cookies with ALL matching parameters
     response.delete_cookie(
         "access_token",
         path="/",
-        domain=".giverai.me",  # ← Must match login!
-        secure=IS_PRODUCTION,   # ← Must match login!
+        domain=".giverai.me",
+        secure=IS_PRODUCTION,
         httponly=True,
         samesite="lax"
     )
@@ -5060,7 +5060,7 @@ def logout(request: Request):
     response.delete_cookie(
         "playground_count",
         path="/",
-        domain=".giverai.me",  # ← Match this too if it uses the same domain
+        domain=".giverai.me",
         secure=IS_PRODUCTION,
         httponly=True,
         samesite="lax"
