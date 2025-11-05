@@ -5043,12 +5043,17 @@ async def unlock_account_request(
 @app.get("/logout")
 def logout(request: Request):
     print("The user is logging out!")
-    response = RedirectResponse(url="/home", status_code=302)  # Redirect to homepage
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("playground_count", path="/")
+    response = templates.TemplateResponse("logout.html", {"request": request})
+    
+    # Delete cookies with proper settings
+    response.delete_cookie("access_token", path="/", domain=None, secure=False, httponly=True, samesite="lax")
+    response.delete_cookie("playground_count", path="/", domain=None, secure=False, httponly=True, samesite="lax")
+    
+    # Prevent caching
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    
     return response
 
 @app.get("/contact", response_class=HTMLResponse)
