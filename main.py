@@ -7717,7 +7717,7 @@ async def stripe_webhook(request: Request):
         print(f"Webhook error: {str(e)}")
         import traceback
         traceback.print_exc()
-        return JSONResponse(content={"error": str(e)}, status_code=400)
+        return JSONResponse(content={"status": "received"}, status_code=200)  # ✅ Changed to 200
     finally:
         db.close()
 
