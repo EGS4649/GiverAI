@@ -5,27 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Logout - Giver.ai</title>
   <link rel="stylesheet" href="/static/style.css">
-  <script>
-    // Aggressively clear ALL cookies
-    document.cookie.split(";").forEach(function(c) { 
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-    });
-    
-    // Also explicitly clear the specific cookies
-    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    document.cookie = "playground_count=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    
-    // Clear session storage and local storage too (just in case)
-    if (typeof(Storage) !== "undefined") {
-      sessionStorage.clear();
-      localStorage.clear();
-    }
-    
-    // Redirect to /home (NOT /) to avoid the root redirect middleware
-    setTimeout(() => {
-      window.location.replace("/home");  // Using replace to prevent back button issues
-    }, 1500);
-  </script>
 </head>
 <body>
   <!-- Navigation Bar -->
