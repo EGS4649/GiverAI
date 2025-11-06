@@ -70,9 +70,8 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "false").lower() == "true"
 
-# Configure structured logging
-logging.basicConfig(level=logging.INFO)
-logger = structlog.get_logger()
+logging.basicConfig(level=logging.WARNING)  # Only log warnings and errors
+logger = logging.getLogger(__name__)
 
 try:
     import bcrypt
@@ -5405,7 +5404,6 @@ async def account_page(
     request: Request,
     user: User = Depends(get_current_user)  # ← Use the dependency directly
 ):
-    print("the user is looking at their account!")
     """Account page with Stripe billing portal"""
     
     # Get Stripe billing portal URL for paid users
@@ -5435,7 +5433,6 @@ async def account_page(
 # Fix history route
 @app.get("/history", response_class=HTMLResponse)
 def tweet_history(request: Request, user: User = Depends(get_current_user)):
-    print("the user is looking at their history!")
     db = SessionLocal()
     try:
         days = 90
@@ -5962,19 +5959,16 @@ async def generate_tweetgiver(request: Request):
 
 @app.get("/pricing", response_class=HTMLResponse)
 def pricing(request: Request):
-    print("the user is looking at the pricing!")
     user = get_optional_user(request)
     return templates.TemplateResponse("pricing.html", {"request": request, "user": user})
 
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy_policy(request: Request):
-    print("the user is looking at the privacy terms!")
     user = get_optional_user(request)
     return templates.TemplateResponse("privacy.html", {"request": request, "user": user})
 
 @app.get("/terms", response_class=HTMLResponse)
 def terms_of_service(request: Request):
-    print("the user is looking at the overall terms!")
     user = get_optional_user(request)
     return templates.TemplateResponse("terms.html", {"request": request, "user": user})
 
@@ -6596,7 +6590,6 @@ def user_dashboard(
     db: Session = Depends(get_db),
     csrf_protect: CsrfProtect = Depends()
 ):
-    print("the user is looking at the dashboard!")
     # Get user without requiring authentication
     current_user = get_optional_user(request)
     
