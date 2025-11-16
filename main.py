@@ -2978,6 +2978,16 @@ async def security_headers_middleware(request: Request, call_next):
     return response
 
 @app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    # Skip auth for webhook endpoint
+    if request.url.path == "/stripe-webhook":
+        return await call_next(request)
+    
+    # Continue with normal auth logic for other routes
+    response = await call_next(request)
+    return response
+
+@app.middleware("http")
 async def maintenance_mode_middleware(request: Request, call_next):
     # Allow admin access during maintenance
     if MAINTENANCE_MODE:
