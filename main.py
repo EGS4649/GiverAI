@@ -7556,8 +7556,12 @@ def complete_onboarding_post(request: Request,
         return RedirectResponse("/dashboard", status_code=302)
     finally:
         db.close()
+        
+@app.get("/stripe-webhook")
+async def stripe_webhook_health():
+    return {"status": "Webhook endpoint active"}
 
-@app.post("/stripe-webhook")
+@app.api_route("/stripe-webhook", methods=["POST"])
 async def stripe_webhook(request: Request):
     db = SessionLocal()
     try:
