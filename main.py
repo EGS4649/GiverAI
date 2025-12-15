@@ -5927,14 +5927,22 @@ async def generate_tweetgiver(request: Request):
     
     # Check playground usage count
     playground_count = int(request.cookies.get("playground_count", "0"))
-    
     if playground_count >= 5:
-        # Redirect to registration after 5 tweets
-        return RedirectResponse("/register?message=You've reached the free limit! Sign up for unlimited tweets.", status_code=302)
+        return RedirectResponse(
+            "/register?message=You've reached the free limit! Sign up for unlimited tweets.", 
+            status_code=302
+        )
     
     form = await request.form()
     job = form.get("job", "").strip()
     goal = form.get("goal", "").strip()
+    tone = form.get("tone", "balanced")  # ← NEW: Get tone from form
+    
+    # Sanitize and validate tone
+    tone = sanitize_input(tone, max_length=20)
+    valid_tones = ['casual', 'professional', 'refined', 'balanced']
+    if tone not in valid_tones:
+        tone = 'balanced'
     
     if not job or not goal:
         return templates.TemplateResponse("tweetgiver.html", {
@@ -5945,26 +5953,25 @@ async def generate_tweetgiver(request: Request):
             "tweets_remaining": 5 - playground_count
         })
     
-    # Generate single tweet for playground
-    prompt = f"As a {job}, suggest 1 engaging tweet to achieve: {goal}."
-    tweets = await get_ai_tweets(prompt, 1)
+    # Generate single tweet for playground WITH TONE
+    prompt = f"As a {job}, suggest an engaging tweet to achieve: {goal}."
+    tweets = await get_ai_tweets(prompt, count=1, tone=tone)  # ← PASS TONE
     
     # Increment counter
     new_count = playground_count + 1
-    
     response = templates.TemplateResponse("tweetgiver.html", {
         "request": request, 
         "tweets": tweets, 
         "user": user,
         "tweets_remaining": 5 - new_count,
-        "show_signup_prompt": new_count >= 3  # Show after 3 tweets
+        "show_signup_prompt": new_count >= 3
     })
     
     # Update cookie
     response.set_cookie(
         key="playground_count",
         value=str(new_count),
-        max_age=86400,  # 24 hours
+        max_age=86400,
         httponly=True
     )
     
@@ -6175,6 +6182,7 @@ async def verify_cancellation(stripe_customer_id: str):
         print(f"Verification failed: {str(e)}")
     finally:
         db.close()
+        
 @app.post("/checkout/{plan_type}")
 async def create_checkout_session(request: Request, plan_type: str):
     # Use get_optional_user instead of try/except
@@ -6291,10 +6299,13 @@ async def generate_tweet_api(
     request: Request,
     job: str = Form(...),
     goal: str = Form(...),
+    tone: str = Form('balanced'),  # Add tone with default
     api_key: str = Header(None)
 ):
+    """API endpoint for generating tweets with tone control"""
     db = SessionLocal()
     try:
+        # Validate API key
         if not api_key:
             raise HTTPException(status_code=401, detail="API key required")
         
@@ -6302,28 +6313,80 @@ async def generate_tweet_api(
         if not user:
             raise HTTPException(status_code=401, detail="Invalid API key")
         
+        # Check plan features
         features = get_plan_features(user.plan)
         if not features["api_access"]:
-            raise HTTPException(status_code=403, detail="API access not available for your plan")
+            raise HTTPException(
+                status_code=403, 
+                detail="API access not available for your plan"
+            )
         
-        # Generate tweet using existing logic
+        # Sanitize and validate inputs
+        job = sanitize_input(job, max_length=200)
+        goal = sanitize_input(goal, max_length=500)
+        tone = sanitize_input(tone, max_length=20)
+        
+        # Validate tone
+        valid_tones = ['casual', 'professional', 'refined', 'balanced']
+        if tone not in valid_tones:
+            tone = 'balanced'  # Default fallback
+        
+        # Check daily usage limits
+        today = str(date.today())
+        usage = db.query(Usage).filter(
+            Usage.user_id == user.id,
+            Usage.date == today
+        ).first()
+        
+        daily_limit = features["daily_limit"]
+        if usage and daily_limit != float("inf") and usage.count >= daily_limit:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Daily limit of {daily_limit} tweets reached"
+            )
+        
+        # Generate tweet with tone
         prompt = f"As a {job}, suggest an engaging tweet to achieve: {goal}."
-        tweets = await get_ai_tweets(prompt, 1)
+        tweets = await get_ai_tweets(prompt, count=1, tone=tone)
+        
+        if not tweets or not tweets[0]:
+            raise HTTPException(
+                status_code=500, 
+                detail="Failed to generate tweet"
+            )
         
         # Save to history
-        if tweets:
-            generated_tweet = GeneratedTweet(
-                user_id=user.id,
-                tweet_text=tweets[0],
-                generated_at=datetime.utcnow()
-            )
-            db.add(generated_tweet)
-            db.commit()
-            
-            return {"tweet": tweets[0]}
+        generated_tweet = GeneratedTweet(
+            user_id=user.id,
+            tweet_text=tweets[0],
+            generated_at=datetime.utcnow()
+        )
+        db.add(generated_tweet)
         
-        logger.error(f"Database error: {str(e)}")
-        return {"error": "An error occurred. Please try again."}
+        # Update usage
+        if not usage:
+            usage = Usage(user_id=user.id, date=today, count=1)
+            db.add(usage)
+        else:
+            usage.count += 1
+        
+        db.commit()
+        
+        return {
+            "tweet": tweets[0],
+            "tone": tone,
+            "remaining": daily_limit - usage.count if daily_limit != float("inf") else "unlimited"
+        }
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
+    except Exception as e:
+        logger.error(f"API error: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail="An error occurred. Please try again."
+        )
     finally:
         db.close()
 
@@ -6506,58 +6569,107 @@ async def checkout_success(request: Request, session_id: str = None):
         "user": current_user,
         "plan": display_name
     })
-async def get_ai_tweets(prompt, count=5):
-    """Generate tweets with timeout protection and better performance"""
+
+def build_system_prompt(tone: str) -> str:
+    """Build adaptive system prompt based on selected tone"""
+    
+    base = "You are a social media copywriter who creates engaging tweets."
+    
+    if tone == 'casual':
+        style_guide = """
+STYLE: Conversational, authentic, lowercase-friendly
+- Short, punchy sentences
+- Real opinions, not platitudes
+- Specific details and anecdotes
+- Occasional humor or sarcasm
+- Like talking to a friend
+
+AVOID: Corporate speak, motivational clichés, "Ever feel stuck...", "Just reminded myself..."
+
+EXAMPLES:
+"anyone else tired all the time?"
+"turns out the hardest part isn't the code, it's getting people to actually care"
+"""
+    
+    elif tone == 'professional':
+        style_guide = """
+STYLE: Professional but approachable, industry-aware
+- Clear, confident statements
+- Industry-relevant insights
+- Professional terminology (not jargon-heavy)
+- Balanced between authoritative and accessible
+- Proper capitalization and punctuation
+
+AVOID: Overly casual slang, excessive emoji, unprofessional humor
+
+EXAMPLES:
+"Launching our new cake decorating service this month. Specializing in custom designs for weddings and corporate events."
+"Quality ingredients make all the difference. Our bakery sources organic flour and fair-trade chocolate for every order."
+"""
+    
+    elif tone == 'refined':
+        style_guide = """
+STYLE: Elegant, sophisticated, attention to craft
+- Thoughtful, well-constructed sentences
+- Emphasize quality, artistry, attention to detail
+- Evocative language without being flowery
+- Convey expertise through specificity
+- Polished presentation
+
+AVOID: Casual abbreviations, all-lowercase style, generic marketing speak
+
+EXAMPLES:
+"Each cake is a canvas. We hand-paint botanicals with edible gold leaf, creating bespoke designs that reflect your celebration."
+"Artisan techniques passed through generations. Our pastry chefs train for years to master the delicate balance of flavor and form."
+"""
+    
+    else:  # balanced
+        style_guide = """
+STYLE: Professional yet personable
+- Clear, engaging sentences
+- Mix of insights and personality
+- Appropriate for broad audience
+- Natural voice without being too casual or stiff
+- Proper grammar with occasional relaxed phrasing
+
+AVOID: Extreme casualness or corporate jargon, clichéd motivational language
+
+EXAMPLES:
+"Working on some exciting new designs for our spring collection. Can't wait to share what we've been creating!"
+"Behind every cake is a story. We love hearing what our customers are celebrating and bringing their vision to life."
+"""
+    
+    return f"""{base}
+
+{style_guide}
+
+GOOD TWEET STRUCTURE:
+- Lead with a hook or specific observation
+- Include concrete details or examples
+- End with insight, question, or call to curiosity
+- Keep under 280 characters when possible
+
+Output ONLY numbered tweets (1. 2. 3. etc). No introduction, no commentary."""
+
+async def get_ai_tweets(prompt, count=5, tone='balanced'):
+    """Generate tweets with adaptive tone and timeout protection"""
     try:
         count = min(count, 15)
+        
+        # Build system prompt based on selected tone
+        system_prompt = build_system_prompt(tone)
         
         response = client.chat.completions.create(
             model="openai/gpt-4o-mini",
             messages=[{
                 "role": "system",
-                "content": """You are a social media copywriter who writes like a real person on Twitter, not a corporate LinkedIn coach.
-
-BANNED PHRASES (never use these):
-- "Ever feel stuck..."
-- "The best part about..."
-- "I used to think... Now I know..."
-- "Reflecting on my journey..."
-- "Never underestimate..."
-- "Don't be afraid to..."
-- "Just reminded myself..."
-- "Anyone else find..."
-- "It's amazing what happens when..."
-- Any motivational clichés
-
-WRITE LIKE THIS INSTEAD:
-- Short, punchy sentences
-- Lowercase is fine
-- Actual opinions, not platitudes
-- Specific details, not vague inspiration
-- Occasional dry humor or sarcasm
-- Real problems and solutions
-- Personal anecdotes that are SPECIFIC
-- Questions that aren't rhetorical fluff
-
-GOOD EXAMPLES:
-"built an AI tweet generator because I was tired of staring at a blank text box for 20 minutes"
-
-"turns out the hardest part of launching isn't the code, it's getting the first 10 people to actually care"
-
-"GiverAI does one thing: helps you not sound like a robot when you tweet. ironic, I know"
-
-BAD EXAMPLES (never do this):
-"Just reminded myself that progress isn't linear! 💪"
-"Ever wonder how successful people stay consistent?"
-"The journey of entrepreneurship teaches us so much!"
-
-Output ONLY numbered tweets (1. 2. 3. etc). No intro, no outro, no commentary."""
+                "content": system_prompt
             }, {
                 "role": "user",
-                "content": f"{prompt}\n\nGenerate {count} tweets. Be specific and real, not inspirational."
+                "content": f"{prompt}\n\nGenerate {count} tweets that match the tone and context."
             }],
             max_tokens=200 + (count * 80),
-            temperature=0.75,
+            temperature=0.85,  # Increased for more variety
             timeout=25
         )
         
@@ -6567,18 +6679,15 @@ Output ONLY numbered tweets (1. 2. 3. etc). No intro, no outro, no commentary.""
         import re
         lines = content.split('\n')
         tweets = []
-        
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-            
             # Only process lines that start with a number
             if re.match(r'^\d+[\.\)]\s', line):
                 # Remove numbering
                 cleaned = re.sub(r'^[\[\(]?\d+[\.\)\]:\-\s]+', '', line)
                 cleaned = cleaned.lstrip('*•-').strip()
-                
                 if cleaned and len(cleaned) > 10:
                     tweets.append(cleaned)
         
@@ -6683,29 +6792,20 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         # Get form data
         form = await request.form()
         
-        # ✅ VALIDATE CSRF MANUALLY (more reliable)
+        # ✅ VALIDATE CSRF MANUALLY
         csrf_token_from_form = form.get("csrf_token")
         csrf_token_from_cookie = request.cookies.get("fastapi-csrf-token")
         
-        print(f"Form CSRF token: {csrf_token_from_form}")
-        print(f"Cookie CSRF token: {csrf_token_from_cookie}")
-        
         if not csrf_token_from_cookie or not csrf_token_from_form:
-            print("CSRF validation failed: Missing token")
-            
             existing_token = csrf_token_from_cookie or csrf_token_from_form or csrf_protect.generate_csrf()
             if isinstance(existing_token, tuple):
                 existing_token = existing_token[0]
             
-            # Get usage info
             today = str(date.today())
             usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
             
             daily_limit = user.features["daily_limit"]
-            if daily_limit == float('inf'):
-                tweets_left = "Unlimited"
-            else:
-                tweets_left = max(0, daily_limit - (usage.count if usage else 0))
+            tweets_left = "Unlimited" if daily_limit == float('inf') else max(0, daily_limit - (usage.count if usage else 0))
             
             return templates.TemplateResponse("dashboard.html", {
                 "request": request,
@@ -6720,22 +6820,12 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
             })
         
         if csrf_token_from_cookie != csrf_token_from_form:
-            print(f"CSRF validation failed: Token mismatch")
-            print(f"Expected: {csrf_token_from_cookie}")
-            print(f"Got: {csrf_token_from_form}")
-            
-            # Get existing token for reuse
             existing_token = request.cookies.get("fastapi-csrf-token")
-            
-            # Get usage info
             today = str(date.today())
             usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
             
             daily_limit = user.features["daily_limit"]
-            if daily_limit == float('inf'):
-                tweets_left = "Unlimited"
-            else:
-                tweets_left = max(0, daily_limit - (usage.count if usage else 0))
+            tweets_left = "Unlimited" if daily_limit == float('inf') else max(0, daily_limit - (usage.count if usage else 0))
             
             return templates.TemplateResponse("dashboard.html", {
                 "request": request,
@@ -6749,10 +6839,17 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
 
-        # Get form fields
+        # Get form fields - ADD TONE HERE
         job = form.get("job")
         goal = form.get("goal")
+        tone = form.get("tone", "balanced")  # ← NEW: Get tone, default to balanced
         tweet_count_str = form.get("tweet_count", "1")
+        
+        # Sanitize tone input
+        tone = sanitize_input(tone, max_length=20)
+        valid_tones = ['casual', 'professional', 'refined', 'balanced']
+        if tone not in valid_tones:
+            tone = 'balanced'
         
         try:
             tweet_count = int(tweet_count_str)
@@ -6763,15 +6860,11 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         g_recaptcha_response = form.get("g-recaptcha-response", "")
         if not verify_recaptcha(g_recaptcha_response):
             existing_token = request.cookies.get("fastapi-csrf-token")
-            
             today = str(date.today())
             usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
             
             daily_limit = user.features["daily_limit"]
-            if daily_limit == float('inf'):
-                tweets_left = "Unlimited"
-            else:
-                tweets_left = max(0, daily_limit - (usage.count if usage else 0))
+            tweets_left = "Unlimited" if daily_limit == float('inf') else max(0, daily_limit - (usage.count if usage else 0))
             
             return templates.TemplateResponse("dashboard.html", {
                 "request": request,
@@ -6793,16 +6886,14 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
             db.add(usage)
             db.commit()
 
-        # Calculate tweets left - proper unlimited handling
+        # Calculate tweets left
         daily_limit = user.features["daily_limit"]
         
         if daily_limit == float('inf'):
             tweets_left = "Unlimited"
-            # No limit check needed for unlimited plans
         else:
             tweets_left = max(0, daily_limit - usage.count)
             
-            # Only check limit for non-unlimited plans
             if tweets_left <= 0:
                 existing_token = request.cookies.get("fastapi-csrf-token")
                 
@@ -6818,24 +6909,12 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
                     "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
                 })
             
-            # Cap tweet count at remaining limit for non-unlimited users
             if tweet_count > tweets_left:
                 tweet_count = tweets_left
 
-        # Generate tweets
-        prompt = f"""I'm a {job} trying to {goal}.
-
-        Write {tweet_count} tweets that:
-        - Sound like a real person, not a motivational account
-        - Include specific details or experiences
-        - Avoid generic entrepreneur clichés
-        - Feel authentic and conversational
-        - NO phrases like "just reminded myself" or "the best part about"
-        - Can be casual (lowercase is fine)
-        - Mix insights, observations, and real problems
-        Be direct. Skip the inspirational fluff."""
-
-        tweets = await get_ai_tweets(prompt, count=tweet_count)
+        # Generate tweets WITH TONE
+        prompt = f"I'm a {job} trying to {goal}."
+        tweets = await get_ai_tweets(prompt, count=tweet_count, tone=tone)  # ← PASS TONE
 
         # Save to history
         for tweet_text in tweets:
@@ -6851,12 +6930,7 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         db.commit()
 
         # Calculate remaining
-        if daily_limit == float('inf'):
-            new_tweets_left = "Unlimited"
-        else:
-            new_tweets_left = max(0, daily_limit - usage.count)
-
-        # Use existing token
+        new_tweets_left = "Unlimited" if daily_limit == float('inf') else max(0, daily_limit - usage.count)
         existing_token = request.cookies.get("fastapi-csrf-token")
 
         return templates.TemplateResponse("dashboard.html", {
