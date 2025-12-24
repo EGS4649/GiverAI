@@ -1,27 +1,102 @@
-
 <!DOCTYPE html>
 <html lang="en">
-<div style="background: #00eaff; color: #000; padding: 10px; text-align: center; font-weight: 600;">
-    🚀 We're in BETA - early users get priority support
-</div>  
+<!-- Beta Banner -->
+<div style="background: linear-gradient(45deg, #00ffff, #ff00ff); color: #000; padding: 12px; text-align: center; font-weight: 600; position: sticky; top: 0; z-index: 1000;">
+    🎁 BETA ACCESS: Get 15 FREE tweets daily - No credit card required! <a href="/register" style="color: #000; text-decoration: underline; margin-left: 10px; font-weight: bold;">Start Now →</a>
+</div>
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Giver.ai - AI-Powered Social Media Content Generator | Tweet Generator & Post Creator</title>
-  <meta name="description" content="Generate engaging tweets and social media posts with AI. Boost your social media presence with our AI tweet generator, content creator tools, and social media automation platform.">
-  <meta name="keywords" content="AI tweet generator, social media content creator, AI social media posts, tweet automation, content generation, social media marketing, AI writing tool">
+  <title>Giver.ai - Free AI Tweet Generator | Create Viral Content in Seconds</title>
+  <meta name="description" content="Generate engaging tweets instantly with AI. Free forever - 15 tweets daily, no credit card required. Join our beta and save hours on content creation.">
+  <meta name="keywords" content="AI tweet generator, free tweet creator, social media content, AI writing tool, twitter content generator">
   <link rel="stylesheet" href="/static/style.css">
+  
+  <style>
+    /* Mobile-first optimizations */
+    @media (max-width: 768px) {
+      .hero h1 {
+        font-size: 1.8em !important;
+        line-height: 1.2;
+        margin-bottom: 15px;
+      }
+      
+      .hero-cta .cta-primary {
+        width: 90%;
+        font-size: 1.2em !important;
+        padding: 18px 20px !important;
+        display: block;
+        margin: 20px auto;
+      }
+      
+      .features-grid {
+        grid-template-columns: 1fr !important;
+        gap: 15px;
+      }
+      
+      .feature-card {
+        padding: 20px !important;
+      }
+      
+      .hero-subtitle {
+        font-size: 1.1em;
+        margin-bottom: 30px;
+      }
+    }
+    
+    .hero-cta {
+      margin: 40px 0;
+      text-align: center;
+    }
+    
+    .cta-primary {
+      background: linear-gradient(45deg, #00ffff, #ff00ff);
+      color: #000;
+      padding: 20px 40px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 1.3em;
+      display: inline-block;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 255, 255, 0.3);
+    }
+    
+    .cta-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 255, 255, 0.5);
+    }
+    
+    .trust-badge {
+      display: inline-block;
+      background: rgba(0, 255, 0, 0.1);
+      border: 1px solid rgba(0, 255, 0, 0.3);
+      padding: 8px 15px;
+      border-radius: 20px;
+      color: #00ff88;
+      font-size: 0.9em;
+      margin: 0 5px;
+    }
+    
+    .beta-badge {
+      background: rgba(255, 0, 255, 0.1);
+      border: 1px solid rgba(255, 0, 255, 0.3);
+      color: #ff00ff;
+    }
+  </style>
 </head>
+
 <body>
   <!-- Navigation Bar -->
-   <nav class="navbar" style="align-items: center; min-height: 60px;">
-  <div class="brand" style="display: flex; align-items: center; gap: 12px;">
-   <a href="/home" style=": white; text-decoration: none; display: flex; align-items: center; gap: 12px;">
-      <img src="/static/logo.png" alt="Giver.ai Logo" class="brand-logo" style="height: 40px !important; width: auto !important; vertical-align: middle;">
-      <span class="brand-text" style="line-height: 1;">Giver.ai</span>
-    </a>
-  </div>
-  <ul class="nav-links" style="align-items: center;">
+  <nav class="navbar" style="align-items: center; min-height: 60px;">
+    <div class="brand" style="display: flex; align-items: center; gap: 12px;">
+      <a href="/" style="color: white; text-decoration: none; display: flex; align-items: center; gap: 12px;">
+        <img src="/static/logo.png" alt="Giver.ai Logo" class="brand-logo" style="height: 40px !important; width: auto !important; vertical-align: middle;">
+        <span class="brand-text" style="line-height: 1;">Giver.ai</span>
+      </a>
+    </div>
+    <ul class="nav-links" style="align-items: center;">
       <li class="dropdown">
         <a href="#" class="dropbtn">Features ▼</a>
         <div class="dropdown-content">
@@ -29,134 +104,118 @@
           <a href="#">More Soon...</a>
         </div>
       </li>
-       {% if user %}
-    <li><a href="/dashboard">Dashboard</a></li>
-    <li><a href="/account">Account</a></li>
-    <li><a href="/pricing">Pricing</a></li>
-    <li><a href="/logout">Logout</a></li>
-  {% else %}
-    <li><a href="/login">Login</a></li>
-    <li><a href="/register">Register</a></li>
-  {% endif %}
-</ul>
+      {% if user %}
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/account">Account</a></li>
+        <li><a href="/pricing">Pricing</a></li>
+        <li><a href="/logout">Logout</a></li>
+      {% else %}
+        <li><a href="/login">Login</a></li>
+        <li><a href="/register" style="background: linear-gradient(45deg, #00ffff, #ff00ff); padding: 8px 15px; border-radius: 5px; color: #000; font-weight: bold;">Start Free</a></li>
+      {% endif %}
     </ul>
   </nav>
 
   <main>
     <section class="hero">
-      <h1>AI-Powered Social Media Content Generator</h1>
-      <p class="hero-subtitle">Create engaging tweets, posts, and social media content in seconds with our advanced AI technology</p>
+      <h1>Generate Viral Tweets in Seconds with AI</h1>
+      <p class="hero-subtitle">Free forever. No credit card required. Start creating engaging content instantly.</p>
       
-      <div class="features-grid">
+      <!-- ⭐ IMMEDIATE CTA - Above the fold -->
+      <div class="hero-cta">
+        <a href="/register" class="cta-primary">
+          🚀 Start Free - No Credit Card
+        </a>
+        
+        <div style="margin-top: 20px;">
+          <span class="trust-badge">✨ 15 tweets daily</span>
+          <span class="trust-badge">⚡ Takes 10 seconds</span>
+          <span class="trust-badge beta-badge">🎯 Beta Access</span>
+        </div>
+        
+        <p style="color: #adc2ff; font-size: 0.95em; margin-top: 15px; max-width: 600px; margin-left: auto; margin-right: auto;">
+          Powered by GPT-4 • Join our beta program and get priority support • Early adopters get lifetime discounts
+        </p>
+      </div>
+
+      <!-- Features AFTER CTA -->
+      <div class="features-grid" style="margin-top: 60px;">
         <div class="feature-card">
-          <h3>🚀 AI Tweet Generator</h3>
-          <p>Generate viral-worthy tweets tailored to your niche and goals. Perfect for influencers, businesses, and content creators.</p>
+          <h3>⚡ Instant Results</h3>
+          <p>Generate 5 tweet variations in under 10 seconds. No brainstorming, no writer's block.</p>
         </div>
         
         <div class="feature-card">
-          <h3>📝 Content Creation</h3>
-          <p>Automated social media post generation that saves hours of brainstorming. Get fresh content ideas instantly.</p>
+          <h3>🎯 Niche-Specific</h3>
+          <p>Tailored to your audience and goals. Perfect for creators, marketers, and businesses.</p>
         </div>
         
         <div class="feature-card">
-          <h3>🎯 SEO Optimized</h3>
-          <p>Content optimized for maximum engagement and reach. Boost your social media presence with AI-driven insights.</p>
+          <h3>💯 Always Free</h3>
+          <p>15 tweets per day, free forever. Upgrade anytime for unlimited generations.</p>
         </div>
       </div>
 
-      <div class="cta-section">
-        <h2>Ready to Transform Your Social Media Strategy?</h2>
-        <p>Join our community of content creators who trust Giver.ai for their social media success</p>
+      <!-- Social Proof Section -->
+        <p style="color: #adc2ff; font-size: 1em;">
+          Join our growing community on <a href="https://x.com/Giver_AI" style="color: #ff00ff; font-weight: bold; text-decoration: none;" target="_blank" rel="noopener noreferrer">X/Twitter →</a>
+        </p>
+      </div>
+
+      <!-- Secondary CTA -->
+      <div class="cta-section" style="margin-top: 60px;">
+        <h2>Ready to Transform Your Content Strategy?</h2>
+        <p>Get started in less than 30 seconds. No commitment, no credit card.</p>
         <div class="cta-buttons">
-          <a href="/tweetgiver" class="cta-primary">Start Generating Tweets</a>
-          <a href="/pricing" class="cta-secondary">View Pricing Plans</a>
+          <a href="/register" class="cta-primary">Start Generating Free Tweets</a>
+          <a href="/pricing" class="cta-secondary">View All Features</a>
         </div>
       </div>
     </section>
 
-    <section class="benefits">
-      <h2>Why Choose Giver.ai?</h2>
+    <!-- Benefits Section -->
+    <section class="benefits" style="margin-top: 80px;">
+      <h2>Why Giver.ai?</h2>
       <ul class="benefits-list">
-        <li>✨ AI-powered content generation for maximum engagement</li>
-        <li>⚡ Generate 5+ tweet variations in seconds</li>
-        <li>🎯 Niche-specific content tailored to your audience</li>
-        <li>📈 Boost your social media reach and follower growth</li>
-        <li>💰 Save time and money on content creation</li>
-        <li>🔄 Unlimited revisions and customizations</li>
+        <li>✨ GPT-4 powered content generation</li>
+        <li>⚡ Generate 5+ tweet variations instantly</li>
+        <li>🎯 Customized to your niche and audience</li>
+        <li>📈 Boost engagement and grow your following</li>
+        <li>💰 Save 10+ hours per week on content creation</li>
+        <li>🔄 Unlimited revisions and customization</li>
+        <li>🚀 Beta access - get lifetime discounts</li>
       </ul>
     </section>
   </main>
 
- <!-- Enhanced Footer with Social Media -->
-<footer>
+  <!-- Enhanced Footer with Social Media -->
+  <footer>
     <div class="footer-container">
-        <div class="footer-left">
-            <strong>Giver.ai</strong> - AI-Powered Social Media Content Generator
-            <div class="social-links" style="margin-top: 10px;">
-                <a href="https://x.com/Giver_AI" target="_blank" rel="noopener noreferrer" 
-                   style="color: #00ffff; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: all 0.3s ease;"
-                   onmouseover="this.style.color='#ff00ff'" 
-                   onmouseout="this.style.color='#00ffff'">
-                    <svg style="width: 20px; height: 20px; fill: currentColor;" viewBox="0 0 24 24">
-                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                    </svg>
-                    Follow us on X
-                </a>
-            </div>
+      <div class="footer-left">
+        <strong>Giver.ai</strong> - AI-Powered Tweet Generator
+        <div class="social-links" style="margin-top: 10px;">
+          <a href="https://x.com/Giver_AI" target="_blank" rel="noopener noreferrer" 
+             style="color: #00ffff; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: all 0.3s ease;"
+             onmouseover="this.style.color='#ff00ff'" 
+             onmouseout="this.style.color='#00ffff'">
+            <svg style="width: 20px; height: 20px; fill: currentColor;" viewBox="0 0 24 24">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+            Follow us on X
+          </a>
         </div>
-        <div class="footer-links">
-            <a href="/tweetgiver">TweetGiver</a> |
-            <a href="/pricing">Pricing</a> |
-            <a href="/privacy">Privacy Policy</a> |
-            <a href="/terms">Terms of Service</a> |
-            <a href="/contact">Contact</a>
-        </div>
-        <div class="footer-right">
-            &copy; Copyright Giver.ai
-        </div>
+      </div>
+      <div class="footer-links">
+        <a href="/tweetgiver">TweetGiver</a> |
+        <a href="/pricing">Pricing</a> |
+        <a href="/privacy">Privacy Policy</a> |
+        <a href="/terms">Terms of Service</a> |
+        <a href="/contact">Contact</a>
+      </div>
+      <div class="footer-right">
+        &copy; 2024 Giver.ai
+      </div>
     </div>
-</footer>
-
-<style>
-/* Enhanced Footer Styles */
-.footer-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    padding: 20px;
-    gap: 20px;
-}
-
-.footer-left, .footer-links, .footer-right {
-    flex: 1;
-    min-width: 200px;
-}
-
-.social-links {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-}
-
-.social-links a {
-    transition: transform 0.3s ease;
-}
-
-.social-links a:hover {
-    transform: translateY(-2px);
-}
-
-@media (max-width: 768px) {
-    .footer-container {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .social-links {
-        justify-content: center;
-    }
-}
-</style>
+  </footer>
 </body>
 </html>
