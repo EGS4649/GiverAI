@@ -1,7 +1,7 @@
 # setup_blog.py
 # Run this script once to set up your blog
 
-from main.py import engine, SessionLocal, create_blog_table, create_blog_post, BlogPost, Base
+from main import engine, SessionLocal, create_blog_table, create_blog_post, BlogPost, Base
 
 def setup_blog_and_add_first_post():
     """
