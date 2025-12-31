@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog - Free AI Tweet Generator Tips & Guides | Giver.ai</title>
+  <meta name="description" content="Learn how to create viral tweets with AI. Expert guides, tips, and strategies for Twitter content creation using free AI tools.">
+  <meta name="keywords" content="ai tweet generator, twitter content, viral tweets, free ai tools, social media marketing">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+  <!-- Navigation (reuse your existing nav) -->
+  <nav class="navbar">
+    <div class="brand">
+      <a href="/" style="color: white; text-decoration: none; display: flex; align-items: center; gap: 12px;">
+        <img src="/static/logo.png" alt="Giver.ai Logo" style="height: 40px;">
+        <span>Giver.ai</span>
+      </a>
+    </div>
+    <ul class="nav-links">
+      <li><a href="/blog" style="color: #00ffff;">Blog</a></li>
+      <li><a href="/tweetgiver">TweetGiver</a></li>
+      {% if user %}
+        <li><a href="/dashboard">Dashboard</a></li>
+      {% else %}
+        <li><a href="/login">Login</a></li>
+        <li><a href="/register" style="background: linear-gradient(45deg, #00ffff, #ff00ff); padding: 8px 15px; border-radius: 5px; color: #000;">Start Free</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+
+  <main style="max-width: 1200px; margin: 60px auto; padding: 0 20px;">
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 60px;">
+      <h1 style="font-size: 3em; margin-bottom: 15px; background: linear-gradient(45deg, #00ffff, #ff00ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        GiverAI Blog
+      </h1>
+      <p style="font-size: 1.3em; color: #adc2ff;">
+        Master the art of viral Twitter content with AI
+      </p>
+    </div>
+
+    <!-- Blog Posts Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 30px;">
+      {% for post in posts %}
+      <article style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1); transition: transform 0.3s ease;">
+        <a href="/blog/{{ post.slug }}" style="text-decoration: none; color: inherit; display: block;">
+          <!-- Post Content -->
+          <div style="padding: 25px;">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; color: #adc2ff; font-size: 0.9em;">
+              <span>📅 {{ post.created_at.strftime('%B %d, %Y') }}</span>
+              <span>•</span>
+              <span>⏱️ {{ post.read_time }} min read</span>
+              <span>•</span>
+              <span>👁️ {{ post.views }} views</span>
+            </div>
+            
+            <h2 style="font-size: 1.5em; margin-bottom: 15px; color: white;">
+              {{ post.title }}
+            </h2>
+            
+            <p style="color: #adc2ff; line-height: 1.6; margin-bottom: 20px;">
+              {{ post.excerpt }}
+            </p>
+            
+            <span style="color: #00ffff; font-weight: bold;">
+              Read More →
+            </span>
+          </div>
+        </a>
+      </article>
+      {% endfor %}
+    </div>
+
+    {% if not posts %}
+    <div style="text-align: center; padding: 60px 20px;">
+      <p style="font-size: 1.2em; color: #adc2ff;">
+        No blog posts yet. Check back soon!
+      </p>
+    </div>
+    {% endif %}
+  </main>
+
+  <!-- Footer-->
+  <footer>
+    <div class="footer-container">
+      <div class="footer-left">
+        <strong>Giver.ai</strong> - AI-Powered Tweet Generator
+      </div>
+      <div class="footer-links">
+        <a href="/blog">Blog</a> |
+        <a href="/pricing">Pricing</a> |
+        <a href="/contact">Contact</a>
+      </div>
+      <div class="footer-right">
+        &copy; 2025 Giver.ai
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

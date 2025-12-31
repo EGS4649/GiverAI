@@ -46,17 +46,70 @@
       <p style="color: #00ffff; margin: 0;">🎯 <strong>Free Trial:</strong> Generate 5 tweets once, then <a href="/register" style="color: #ff00ff; text-decoration: underline;">create an account</a> for 15 tweets daily!</p>
     </div>
     
-    <form method="post" action="/tweetgiver">
-       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label>Your job/niche:</label><br />
-      <input type="text" name="job" placeholder="e.g., Digital Marketing Expert, Fitness Coach, Tech Entrepreneur" required /><br />
-      <label>Your goal for today's tweets:</label><br />
-      <input type="text" name="goal" placeholder="e.g., Increase engagement, Drive traffic to blog, Build thought leadership" required /><br />
-      <div class="g-recaptcha" 
-           data-sitekey="{{ recaptcha_site_key }}"
-           style="margin: 20px 0;"></div>
-      <button type="submit">Generate Tweets</button>
-    </form>
+    <form method="POST" action="/tweetgiver">
+    
+    <!-- ✨ NEW: Tone Selector for Playground -->
+    <div class="form-group" style="margin-bottom: 20px;">
+        <label for="tone" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+            Tone & Style
+        </label>
+        <select 
+            id="tone" 
+            name="tone" 
+            class="form-control"
+            style="padding: 12px; border: 2px solid #69f0ff; border-radius: 8px; width: 100%; font-size: 15px; color: #000000; background: white; cursor: pointer; transition: all 0.2s;">
+            <option value="balanced" selected>Balanced - Professional yet personable</option>
+            <option value="casual">Casual - Conversational and authentic</option>
+            <option value="professional">Professional - Polished and business-like</option>
+            <option value="refined">Refined - Elegant and sophisticated</option>
+        </select>
+        <small style="color: #666; font-size: 13px; margin-top: 6px; display: block;">
+            💡 Try different tones to see what matches your style!
+        </small>
+    </div>
+
+    <!-- Job field -->
+    <div class="form-group" style="margin-bottom: 20px;">
+        <label for="job" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+            What do you do?
+        </label>
+        <input 
+            type="text" 
+            id="job" 
+            name="job" 
+            required
+            placeholder="e.g., cake decorator, software developer, fitness coach"
+            style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px;">
+    </div>
+
+    <!-- Goal field -->
+    <div class="form-group" style="margin-bottom: 20px;">
+        <label for="goal" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+            What's your goal?
+        </label>
+        <input 
+            type="text" 
+            id="goal" 
+            name="goal" 
+            required
+            placeholder="e.g., promote my new service, share tips, attract clients"
+            style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px;">
+    </div>
+
+    <!-- Submit button -->
+    <button 
+        type="submit" 
+        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 28px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; transition: transform 0.2s;">
+        Generate Tweet ✨
+    </button>
+
+    <!-- Remaining tweets counter -->
+    {% if tweets_remaining is defined %}
+    <div style="text-align: center; margin-top: 15px; color: #666; font-size: 14px;">
+        {{ tweets_remaining }} free tweets remaining
+    </div>
+    {% endif %}
+</form>
 
     <!-- Generated Tweets -->
     {% if tweets %}
