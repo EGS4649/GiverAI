@@ -234,6 +234,22 @@ class TeamMember(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User")
 
+class BlogPost(Base):
+    __tablename__ = "blog_posts"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    slug = Column(String, unique=True, index=True)
+    content = Column(Text, nullable=False)
+    excerpt = Column(String, nullable=False)
+    author = Column(String, default="GiverAI Team")
+    meta_description = Column(String)
+    meta_keywords = Column(String)
+    published = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    views = Column(Integer, default=0)
+    read_time = Column(Integer, default=5)
+
 # Security Headers Middleware
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -2663,7 +2679,6 @@ def log_user_activity(
             db.close()
 
 # ---- ROUTES ----
-
 @app.get("/")
 def root_redirect(request: Request):
     access_token = request.cookies.get("access_token")
@@ -6704,6 +6719,56 @@ async def get_ai_tweets(prompt, count=5, tone='balanced'):
 def complete_onboarding_get(request: Request, user: User = Depends(get_current_user)):
     return templates.TemplateResponse("onboarding.html", {"request": request, "user": user})
 
+@app.get("/blog", response_class=HTMLResponse)
+async def blog_index(request: Request, db: Session = Depends(get_db_session)):
+    """Blog listing page"""
+    posts = db.query(BlogPost).filter(BlogPost.published == True).order_by(BlogPost.created_at.desc()).all()
+    
+    user = None
+    token = request.cookies.get("access_token")
+    if token:
+        try:
+            user = get_current_user(token.replace("Bearer ", ""), db)
+        except:
+            pass
+    
+    return templates.TemplateResponse("blog_index.html", {
+        "request": request,
+        "posts": posts,
+        "user": user
+    })
+
+@app.get("/blog/{slug}", response_class=HTMLResponse)
+async def blog_post(slug: str, request: Request, db: Session = Depends(get_db_session)):
+    """Individual blog post page"""
+    post = db.query(BlogPost).filter(BlogPost.slug == slug, BlogPost.published == True).first()
+    
+    if not post:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    
+    post.views += 1
+    db.commit()
+    
+    related_posts = db.query(BlogPost).filter(
+        BlogPost.published == True,
+        BlogPost.id != post.id
+    ).order_by(BlogPost.created_at.desc()).limit(3).all()
+    
+    user = None
+    token = request.cookies.get("access_token")
+    if token:
+        try:
+            user = get_current_user(token.replace("Bearer ", ""), db)
+        except:
+            pass
+    
+    return templates.TemplateResponse("blog_post.html", {
+        "request": request,
+        "post": post,
+        "related_posts": related_posts,
+        "user": user
+    })
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def user_dashboard(
     request: Request,
@@ -7804,6 +7869,37 @@ async def stripe_webhook(request: Request):
         return JSONResponse(content={"status": "received"}, status_code=200)  # ✅ Changed to 200
     finally:
         db.close()
+        
+def create_blog_post(db: Session, title: str, content: str, excerpt: str, 
+                     meta_description: str, meta_keywords: str, read_time: int = 5):
+    """Helper function to create blog posts"""
+    slug = title.lower()
+    slug = re.sub(r'[^\w\s-]', '', slug)
+    slug = re.sub(r'[-\s]+', '-', slug)
+    
+    post = BlogPost(
+        title=title,
+        slug=slug,
+        content=content,
+        excerpt=excerpt,
+        meta_description=meta_description,
+        meta_keywords=meta_keywords,
+        read_time=read_time,
+        published=True
+    )
+    
+    db.add(post)
+    db.commit()
+    return post
+
+
+def create_blog_table():
+    """Create blog_posts table"""
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Blog posts table created/verified")
+    except Exception as e:
+        print(f"❌ Error creating blog posts table: {e}")
 
 def get_plan_price(plan):
     """Get plan price for emails"""
