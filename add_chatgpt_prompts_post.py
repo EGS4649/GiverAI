@@ -1,7 +1,7 @@
 # add_chatgpt_prompts_post.py
 # Run this to add your fourth SEO-optimized blog post
 
-from your_app_file import SessionLocal, create_blog_post
+from main import SessionLocal, create_blog_post
 
 def add_chatgpt_prompts_post():
     """Add blog post targeting 'chatgpt prompts for twitter'"""
