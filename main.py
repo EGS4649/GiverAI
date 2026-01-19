@@ -209,7 +209,7 @@ class UserActivity(Base):
     description = Column(String, nullable=True)
     ip_address = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, nullable=True)
     user_metadata = Column(String, nullable=True) 
     user = relationship("User")
     
@@ -3326,48 +3326,6 @@ async def resend_verification_post(
 
     finally:
         db.close()
-
-# Also add a quick resend route for already logged-in users who aren't verified
-@app.post("/quick-resend-verification")
-@limiter.limit("30/hour")
-async def quick_resend_verification(request: Request):
-    """Quick resend for logged-in users (if they somehow bypassed verification)"""
-    try:
-        # Try to get current user, but don't fail if not authenticated
-        token = request.cookies.get("access_token")
-        if not token:
-            return JSONResponse({"success": False, "error": "Not authenticated"})
-        
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        
-        db = SessionLocal()
-        try:
-            user = db.query(User).filter(User.username == username).first()
-            
-            if not user:
-                return JSONResponse({"success": False, "error": "User not found"})
-            
-            if user.is_active:
-                return JSONResponse({"success": False, "error": "Already verified"})
-            
-            # Create new verification
-            verification = create_verification_record(user.id, db)
-            
-            # Send email
-            await email_service.send_verification_email(user, verification.token)
-            
-            return JSONResponse({
-                "success": True, 
-                "message": f"Verification email sent to {user.email}"
-            })
-            
-        finally:
-            db.close()
-            
-    except Exception as e:
-        print(f"Quick resend error: {str(e)}")
-        return JSONResponse({"success": False, "error": "Failed to resend verification"})
         
 # Reset Password Form
 @app.get("/reset-password", response_class=HTMLResponse)
@@ -4821,7 +4779,7 @@ async def admin_user_activity(
                     "id": 1,
                     "type": "login",
                     "description": "User logged in",
-                    "timestamp": user.last_login or datetime.utcnow(),
+                    "timestamp": user.last_login,
                     "ip_address": getattr(user, 'last_known_ip', None) or "Unknown",  # REAL IP
                     "metadata": {"user_agent": "Unknown"}
                 },
@@ -4894,8 +4852,8 @@ async def login_post(
         
         # Check if account is temporarily locked
         if user_record and user_record.account_locked_until:
-            if user_record.account_locked_until > datetime.utcnow():
-                time_remaining = user_record.account_locked_until - datetime.utcnow()
+            if user_record.account_locked_until > datetime.timezone.utc():
+                time_remaining = user_record.account_locked_until - datetime.timezone.utc()
                 hours_remaining = int(time_remaining.total_seconds() / 3600) + 1
                 response = templates.TemplateResponse("login.html", {
                     "request": request,
@@ -4914,18 +4872,18 @@ async def login_post(
         
         if user:  # successful login
             user.last_known_ip = client_ip
-            user.last_login = datetime.utcnow()
+            user.last_login = datetime.timezone.utc()
             db.commit()
             
         if not user:
             # Track failed login attempts
             if user_record:
                 user_record.failed_login_attempts = (user_record.failed_login_attempts or 0) + 1
-                user_record.last_failed_login = datetime.utcnow()
+                user_record.last_failed_login = datetime.timezone.utc()
                 
                 # Lock account after 4 failed attempts
                 if user_record.failed_login_attempts >= 4:
-                    user_record.account_locked_until = datetime.utcnow() + timedelta(hours=24)
+                    user_record.account_locked_until = datetime.timezone.utc() + timedelta(hours=24)
                     db.commit()
                     
                     try:
