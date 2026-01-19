@@ -1,5 +1,4 @@
-from main import User
-from database import SessionLocal
+from main import User, SessionLocal
 
 db = SessionLocal()
 user = db.query(User).filter(User.email == "irtan16@mail.ru").first()
