@@ -4798,27 +4798,27 @@ async def admin_user_activity(
         
         # Convert timestamps to Eastern Time
         for activity in activities_to_use:
-            activity["timestamp_eastern"] = convert_to_eastern(activity["timestamp"])
-            activity["timestamp"] = activity["timestamp"].isoformat()
+            ts = activity["timestamp"]
+            activity["timestamp_eastern"] = convert_to_eastern(ts) if ts else None
+            activity["timestamp"] = ts.isoformat() if ts else None
         
         return {
             "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "created_at": user.created_at.isoformat() if user.created_at else None,
-                "created_at_eastern": convert_to_eastern(user.created_at),
-                "last_login": convert_to_eastern(user.last_login)
-            },
-            "activities": activities_to_use,
-            "pagination": {
-                "page": page,
-                "pages": 1,
-                "total": len(activities_to_use)
-            },
-            "timezone": "America/New_York" if TIMEZONE_AVAILABLE else "UTC"
-        }
-        
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "created_at_eastern": convert_to_eastern(user.created_at) if user.created_at else None,
+            "last_login": convert_to_eastern(user.last_login) if user.last_login else None,
+    },
+    "activities": activities_to_use,
+    "pagination": {
+        "page": page,
+        "pages": 1,
+        "total": len(activities_to_use),
+    },
+    "timezone": "America/New_York" if TIMEZONE_AVAILABLE else "UTC",
+}
     finally:
         db.close()
 
