@@ -4852,8 +4852,8 @@ async def login_post(
         
         # Check if account is temporarily locked
         if user_record and user_record.account_locked_until:
-            if user_record.account_locked_until > datetime.timezone.utc():
-                time_remaining = user_record.account_locked_until - datetime.timezone.utc()
+            if user_record.account_locked_until > datetime.now(timezone.utc):
+                time_remaining = user_record.account_locked_until - datetime.now(timezone.utc)
                 hours_remaining = int(time_remaining.total_seconds() / 3600) + 1
                 response = templates.TemplateResponse("login.html", {
                     "request": request,
@@ -4872,18 +4872,18 @@ async def login_post(
         
         if user:  # successful login
             user.last_known_ip = client_ip
-            user.last_login = datetime.timezone.utc()
+            user.last_login = datetime.now(timezone.utc)
             db.commit()
             
         if not user:
             # Track failed login attempts
             if user_record:
                 user_record.failed_login_attempts = (user_record.failed_login_attempts or 0) + 1
-                user_record.last_failed_login = datetime.timezone.utc()
+                user_record.last_failed_login = datetime.now(timezone.utc)
                 
                 # Lock account after 4 failed attempts
                 if user_record.failed_login_attempts >= 4:
-                    user_record.account_locked_until = datetime.timezone.utc() + timedelta(hours=24)
+                    user_record.account_locked_until = datetime.now(timezone.utc) + timedelta(hours=24)
                     db.commit()
                     
                     try:
