@@ -1,4 +1,4 @@
-from models import User
+from main import User
 from database import SessionLocal
 
 db = SessionLocal()
