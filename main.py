@@ -7060,6 +7060,13 @@ EMAIL_TEMPLATES = {
                 </div>
                 <div class="content">
                     <h2>Hi {username}! 👋</h2>
+                    <div class="feature-box">
+                    <h3>📧 Your Account Details</h3>
+                    <p><strong>👤 Username:</strong> {username}</p>
+                    <p><strong>📧 Email:</strong> {email}</p>
+                    <p>Use either to log in anytime!</p>
+                </div>
+
                     <p>We're thrilled to have you join our community of content creators who are transforming their Twitter presence with AI.</p>
                     
                     <div class="feature-box">
