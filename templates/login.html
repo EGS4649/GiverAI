@@ -59,8 +59,9 @@
     
 <form method="post" action="/login">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <label>Username:</label><br />
-  <input type="text" name="username" placeholder="Enter your username" required /><br />
+  <p><strong>💡 You can use either your username or email to login</strong></p>
+  <label>Username or Email:</label><br />
+  <input type="text" name="username" placeholder="Enter your username or email" required /><br />
   <label>Password:</label><br />
   <input type="password" name="password" placeholder="Enter your password" required /><br />
   <button type="submit">Login</button>
