@@ -545,9 +545,9 @@ def add_ai_vs_manual_tweets_post():
 )
 
  print(f"✅ AI Writing Tools blog post created!")
-        print(f"   Title: {post.title}")
-        print(f"   Slug: {post.slug}")
-        print(f"   URL: https://giverai.me/blog/{post.slug}")
+ print(f"   Title: {post.title}")
+ print(f"   Slug: {post.slug}")
+ print(f"   URL: https://giverai.me/blog/{post.slug}")
 
   except Exception as e:
         print(f"❌ Error: {e}")
