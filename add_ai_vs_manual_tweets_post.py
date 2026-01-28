@@ -1,5 +1,5 @@
 # add_ai_vs_manual_tweets_post.py
-from your_app_file import SessionLocal, create_blog_post
+from main import SessionLocal, create_blog_post
 
 def add_ai_vs_manual_tweets_post():
     """Add blog post targeting 'ai tweet generator vs writing manually'"""
