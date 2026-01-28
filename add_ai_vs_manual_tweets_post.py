@@ -521,35 +521,24 @@ def add_ai_vs_manual_tweets_post():
 
 <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 40px 0;">
 
-<p><em>This experiment was conducted January 2026. Your results may vary based on your writing speed, audience, and editing style. The key is finding what works for YOU.</em></p>"""
+<p><em>This experiment was conducted January 2026. Your results may vary based on your writing speed, audience, and editing style. The key is finding what works for YOU.</em></p>
+"""
 
         post = create_blog_post(
-    db=db,
-    title="AI Tweet Generator vs Writing Tweets Manually In 2026: Which is Faster?",
-    content=content,
-    excerpt=(
-        "I ran a 30-day experiment: 15 days of fully manual tweets vs 15 days using an AI "
-        "tweet generator. Here’s how speed, quality, and engagement actually compared."
-    ),
-    meta_description=(
-        "AI tweet generator vs writing tweets manually in 2026: a 30-day experiment "
-        "comparing speed, quality, engagement, and burnout. See why a hybrid workflow "
-        "beats pure manual or pure AI tweeting."
-    ),
-    meta_keywords=(
-        "ai tweet generator vs writing manually, ai tweet generator, ai tweets, "
-        "twitter ai tools, write tweets with ai, manual tweeting, ai vs human writing, "
-        "twitter content workflow 2026, GiverAI"
-    ),
-    read_time=10
-)
+            db=db,
+            title="AI Tweet Generator vs Writing Tweets Manually In 2026: Which is Faster?",
+            content=content,
+            excerpt="I ran a 30-day experiment: 15 days of fully manual tweets vs 15 days using an AI tweet generator. Here’s how speed, quality, and engagement actually compared.",
+            meta_description="AI tweet generator vs writing tweets manually in 2026: a 30-day experiment comparing speed, quality, engagement, and burnout. See why a hybrid workflow beats pure manual or pure AI tweeting.",
+            meta_keywords="ai tweet generator vs writing manually, ai tweet generator, ai tweets, twitter ai tools, write tweets with ai, manual tweeting, ai vs human writing, twitter content workflow 2026, GiverAI,",
+            read_time=10
+        )
+        print(f"✅ AI Writing Tools blog post created!")
+        print(f"   Title: {post.title}")
+        print(f"   Slug: {post.slug}")
+        print(f"   URL: https://giverai.me/blog/{post.slug}")
 
- print(f"✅ AI Writing Tools blog post created!")
- print(f"   Title: {post.title}")
- print(f"   Slug: {post.slug}")
- print(f"   URL: https://giverai.me/blog/{post.slug}")
-
-  except Exception as e:
+    except Exception as e:
         print(f"❌ Error: {e}")
         db.rollback()
     finally:
