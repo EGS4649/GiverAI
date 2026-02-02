@@ -571,3 +571,12 @@ def add_thread_ideas_post():
         print(f"   Title: {post.title}")
         print(f"   Slug: {post.slug}")
         print(f"   URL: https://giverai.me/blog/{post.slug}")
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+if __name__ == "__main__":
+    add_thread_ideas_post()
