@@ -2893,6 +2893,7 @@ async def register_post(
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
                 "csrf_token": new_csrf_token
             })
+            response = RedirectResponse(url="/dashboard", status_code=303)
             response.set_cookie(
                 key="fastapi-csrf-token",
                 value=new_csrf_token,
@@ -2962,7 +2963,6 @@ async def register_post(
             "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
             "csrf_token": new_csrf_token
         })
-        response = RedirectResponse(url="/dashboard", status_code=303)
         response.set_cookie(
             key="fastapi-csrf-token",
             value=new_csrf_token,
