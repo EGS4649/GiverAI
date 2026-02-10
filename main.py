@@ -3602,6 +3602,7 @@ def verify_email(request: Request, token: str = Query(...)):
         user.is_active = True
         db.commit()
         
+        
         return templates.TemplateResponse("verification_success.html", {
             "request": request
         })
@@ -6765,6 +6766,8 @@ def user_dashboard(
 ):
     # Get user without requiring authentication
     current_user = get_optional_user(request)
+
+    show_verification_banner = not current_user.is_active
     
     # Redirect to 404 if not authenticated
     if not current_user:
@@ -6814,7 +6817,8 @@ def user_dashboard(
         "success": success,
         "error": error,
         "csrf_token": csrf_token,
-        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+        "show_banner": show_verification_banner
     })
     
     # Set CSRF cookie with dynamic secure flag
@@ -6914,8 +6918,12 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
             today = str(date.today())
             usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
             
-            daily_limit = user.features["daily_limit"]
-            tweets_left = "Unlimited" if daily_limit == float('inf') else max(0, daily_limit - (usage.count if usage else 0))
+            if not user.is_active:
+                daily_limit = 5
+                tweets_left = "Unlimited" if daily_limit == float('inf') else max(0, daily_limit - (usage.count if usage else 0))
+            else:
+                daily_limit = user.features["daily_limit"]
+                tweets_left = "Unlimited" if daily_limit == float('inf') else max(0, daily_limit - (usage.count if usage else 0))
             
             return templates.TemplateResponse("dashboard.html", {
                 "request": request,
