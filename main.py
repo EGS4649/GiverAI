@@ -509,7 +509,12 @@ class EmailService:
               We're thrilled to have you join our community of content creators
               who are transforming their Twitter presence with AI.
             </p>
-
+            <div class="feature-box">
+                <h3>📧 Your Account Details</h3>
+                <p><strong>👤 Username:</strong> {user.username}</p>
+                <p><strong>📧 Email:</strong> {user.email}</p>
+                <p>Use either to log in anytime!</p>
+                </div>
             <div style="background: #f8f9fa; padding: 15px; margin: 15px 0;
                         border-radius: 6px; border-left: 4px solid #667eea;">
               <h3 style="margin-top: 0; color: #333;">✨ Your Free Plan Includes:</h3>
