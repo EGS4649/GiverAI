@@ -194,6 +194,7 @@
     </style>
 </head>
 <body>
+    
     <div class="container">
         <h1>Join GiverAI</h1>
         
@@ -247,7 +248,20 @@
         <div class="login-link">
             Already have an account? <a href="/login">Sign in here</a>
         </div>
+          <nav>
+  <a href="/">Home</a>
+  <a href="/blog">Blog</a>
+  {% if user %}
+    <a href="/dashboard">Dashboard</a>
+    <a href="/logout">Logout</a>
+  {% else %}
+    <a href="/login" style="color: #00ffff; font-weight: bold;">Login</a>
+    <a href="/register" style="background: linear-gradient(45deg, #00ffff, #ff00ff); padding: 8px 15px; border-radius: 5px; color: #000;">Sign Up Free</a>
+  {% endif %}
+</nav>
     </div>
+
+  
 
     <script>
         let captchaCompleted = false;
