@@ -3602,10 +3602,10 @@ def verify_email(request: Request, token: str = Query(...)):
         user.is_active = True
         db.commit()
         
-        
-        return templates.TemplateResponse("verification_success.html", {
-            "request": request
-        })
+        return RedirectResponse(
+            url="/dashboard",
+            status_code=302, 
+        )
     finally:
         db.close()
 
