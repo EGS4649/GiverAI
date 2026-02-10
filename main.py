@@ -522,7 +522,7 @@ class EmailService:
 
             <p>Ready to create your first viral tweet?</p>
             <p style="text-align: center;">
-              <a href="https://giverai.me/dashboard"
+              <a href="https://giverai.me/login"
                  style="display: inline-block; background: #667eea;
                         color: white; padding: 12px 24px;
                         text-decoration: none; border-radius: 6px;">
@@ -3032,6 +3032,30 @@ async def logo_cache_middleware(request: Request, call_next):
             response.headers["Cache-Control"] = "public, max-age=86400"
     
     return response
+
+@app.get("/wp-admin/admin.php")
+@app.get("/wp-login.php")
+@app.get("/xmlrpc.php")
+async def honeypot(request: Request):
+    """Honeypot for bot detection"""
+    client_ip = get_real_client_ip(request)
+    
+    print(f"🍯 Honeypot triggered by {client_ip}")
+    
+    
+    # Log to database for analysis
+    # log_bot_attempt(client_ip, request.url.path)
+    
+    # Return fake WordPress login page to waste bot's time
+    return HTMLResponse("""
+    <html>
+    <head><title>WordPress Login</title></head>
+    <body>
+        <h1>Please enable JavaScript to continue.</h1>
+        <!-- Bot will get stuck here -->
+    </body>
+    </html>
+    """)
 
 # TEMPORARILY DISABLED - This was causing database connection exhaustion
 # @app.middleware("http")
@@ -7084,7 +7108,7 @@ EMAIL_TEMPLATES = {
                     </div>
                     
                     <p>Ready to create your first viral tweet?</p>
-                    <a href="{dashboard_url}" class="button">Start Creating Tweets</a>
+                    <a href="{login_url}" class="button">Start Creating Tweets</a>
                     
                     <p>Need help getting started? Check out our <a href="{help_url}">quick start guide</a> or reply to this email with any questions.</p>
                     
