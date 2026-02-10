@@ -4193,11 +4193,9 @@ def get_real_client_ip(request: Request) -> str:
                 ip_list = [ip.strip() for ip in ip_value.split(',')]
                 for ip in ip_list:
                     if is_valid_public_ip(ip):
-                        print(f"✅ Found real client IP from {header}: {ip}")
                         return ip
             else:
                 if is_valid_public_ip(ip_value.strip()):
-                    print(f"✅ Found real client IP from {header}: {ip_value}")
                     return ip_value.strip()
     
     # Fallback to request.client.host
