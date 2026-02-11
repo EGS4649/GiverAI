@@ -1780,8 +1780,6 @@ CACHE_TTL = 300  # 5 minutes
 
 def is_ip_banned(ip_address: str, db: Session) -> bool:
     """Check if an IP address is banned, with caching and error handling"""
-    return False  # ← ADD THIS LINE - completely disabled
-    
     # Everything below is now unreachable
     if not ip_address or ip_address == "Unknown":
         return False
