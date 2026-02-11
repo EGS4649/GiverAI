@@ -3747,20 +3747,10 @@ async def ip_ban_check_middleware(request: Request, call_next):
     if request.url.path == '/health':
         return await call_next(request)
     
+    cleanup_expired_bans()
+    
     db = SessionLocal()
     try:
-        # Cleanup expired bans first
-        db.execute("""
-            UPDATE ip_bans 
-            SET is_active = false, 
-                unbanned_at = NOW(), 
-                unbanned_by = 'auto_expire'
-            WHERE is_active = true 
-            AND expires_at IS NOT NULL 
-            AND expires_at <= NOW()
-        """)
-        db.commit()
-        
         # Check if IP is banned
         active_ban = db.query(IPban).filter(
             IPban.ip_address == client_ip,
