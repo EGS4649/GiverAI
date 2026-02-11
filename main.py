@@ -2758,7 +2758,14 @@ def register(request: Request, csrf_protect: CsrfProtect = Depends(), success: s
     success_message = None
     if success == "registration_complete":
         success_message = "Registration successful! Please check your email to verify your account."
-    
+
+    error_message = None
+    error = request.query_params.get("error")
+    if error == "email_exists":
+        error_message = "Email already registered"
+    elif error == "username_exists":  # Optional, for consistency
+        error_message = "Username already exists"
+
     response = templates.TemplateResponse("register.html", {
         "request": request, 
         "user": user,
@@ -2886,22 +2893,15 @@ async def register_post(
             csrf_response = csrf_protect.generate_csrf()
             new_csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
             
-            response = templates.TemplateResponse("register.html", {
-                "request": request, 
-                "user": None,
-                "error": "Email already registered",
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
-                "csrf_token": new_csrf_token
-            })
-            response = RedirectResponse(url="/dashboard", status_code=303)
+            response = RedirectResponse(url="/register?error=email_exists", status_code=303)
             response.set_cookie(
-                key="fastapi-csrf-token",
-                value=new_csrf_token,
-                max_age=3600,
-                path="/",
-                secure=True,
-                httponly=True,
-                samesite="lax"
+            key="fastapi-csrf-token",
+            value=new_csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
             )
             return response
         
@@ -2939,13 +2939,19 @@ async def register_post(
             print(f"❌ Failed to send welcome email: {str(e)}")
         
         print(f"User registered successfully with ID: {user_id}")
-        
-        return templates.TemplateResponse("register_success.html", {
-            "request": request,
-            "user": None,
-            "username": username,
-            "email": email
-        })
+        csrf_response = csrf_protect.generate_csrf()
+        csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response
+        response = RedirectResponse(url="/dashboard", status_code=303)
+        response.set_cookie(
+            key="fastapi-csrf-token",
+            value=csrf_token,
+            max_age=3600,
+            path="/",
+            secure=True,
+            httponly=True,
+            samesite="lax"
+            )
+        return response
         
     except Exception as e:
         db.rollback()
@@ -6918,12 +6924,8 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
             today = str(date.today())
             usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
             
-            if not user.is_active:
-                daily_limit = 5
-                tweets_left = "Unlimited" if daily_limit == float('inf') else max(0, daily_limit - (usage.count if usage else 0))
-            else:
-                daily_limit = user.features["daily_limit"]
-                tweets_left = "Unlimited" if daily_limit == float('inf') else max(0, daily_limit - (usage.count if usage else 0))
+            daily_limit = user.features["daily_limit"]
+            tweets_left = "Unlimited" if daily_limit == float('inf') else max(0, daily_limit - (usage.count if usage else 0))
             
             return templates.TemplateResponse("dashboard.html", {
                 "request": request,
