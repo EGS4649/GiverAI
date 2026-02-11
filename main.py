@@ -3740,23 +3740,49 @@ async def ip_ban_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def ip_ban_check_middleware(request: Request, call_next):
-    """Global middleware to check IP bans"""
+    """Check if IP is banned"""
+    client_ip = get_real_client_ip(request)
+    
+    # Skip for health check
+    if request.url.path == '/health':
+        return await call_next(request)
+    
+    db = SessionLocal()
     try:
-        db = SessionLocal()
-        try:
-             client_ip = get_client_ip(request)
-             if is_ip_banned(client_ip, db):
-               return Response(
-                   content="Access denied: IP address is banned",
-                    status_code=403
-               )
-        finally:
-             db.close()
+        # Cleanup expired bans first
+        db.execute("""
+            UPDATE ip_bans 
+            SET is_active = false, 
+                unbanned_at = NOW(), 
+                unbanned_by = 'auto_expire'
+            WHERE is_active = true 
+            AND expires_at IS NOT NULL 
+            AND expires_at <= NOW()
+        """)
+        db.commit()
+        
+        # Check if IP is banned
+        active_ban = db.query(IPban).filter(
+            IPban.ip_address == client_ip,
+            IPban.is_active == True,
+            (IPban.expires_at.is_(None)) | (IPban.expires_at > datetime.utcnow())
+        ).first()
+        
+        if active_ban:
+            print(f"🚫 BLOCKED: {client_ip} - {active_ban.reason}")
+            return templates.TemplateResponse("ip_banned.html", {
+                    "request": request,
+                    "ip_address": client_ip
+                }, status_code=403)
+        
     except Exception as e:
-        print(f"IP ban middleware error: {e}")
-     
-    response = await call_next(request)
-    return response
+        print(f"IP ban check error: {e}")
+    finally:
+        db.close()
+    
+    # IP not banned, continue
+    return await call_next(request)
+
 
 # Middleware to track user IPs and check bans
 @app.middleware("http") 
