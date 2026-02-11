@@ -6848,6 +6848,9 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
     try:
         # Get user first
         user = get_current_user(request)
+        if user is None:
+            return RedirectResponse(url="/login?next=/dashboard", status_code=303)
+        
         user = apply_plan_features(user)
         
         # Get form data
