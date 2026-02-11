@@ -6773,6 +6773,9 @@ def user_dashboard(
     # Get user without requiring authentication
     current_user = get_optional_user(request)
 
+    if current_user is None:
+        return RedirectResponse(url="/login", status_code=303)
+    
     show_verification_banner = not current_user.is_active
     
     # Redirect to 404 if not authenticated
