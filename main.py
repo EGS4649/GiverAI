@@ -3069,26 +3069,26 @@ async def honeypot(request: Request):
     </html>
     """)
 
-# TEMPORARILY DISABLED - This was causing database connection exhaustion
-# @app.middleware("http")
-# async def ip_ban_check_middleware(request: Request, call_next):
-#     """Global middleware to check IP bans"""
-#     try:
-#         db = SessionLocal()
-#         try:
-#             client_ip = get_client_ip(request)
-#             if is_ip_banned(client_ip, db):
-#                 return Response(
-#                     content="Access denied: IP address is banned",
-#                     status_code=403
-#                 )
-#         finally:
-#             db.close()
-#     except Exception as e:
-#         print(f"IP ban middleware error: {e}")
-#     
-#     response = await call_next(request)
-#     return response
+
+@app.middleware("http")
+async def ip_ban_check_middleware(request: Request, call_next):
+    """Global middleware to check IP bans"""
+    try:
+        db = SessionLocal()
+        try:
+             client_ip = get_client_ip(request)
+             if is_ip_banned(client_ip, db):
+               return Response(
+                   content="Access denied: IP address is banned",
+                    status_code=403
+               )
+        finally:
+             db.close()
+    except Exception as e:
+        print(f"IP ban middleware error: {e}")
+     
+    response = await call_next(request)
+    return response
 
 @app.get("/_health")
 def health_check():
