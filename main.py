@@ -1774,6 +1774,7 @@ def get_client_ip(request: Request) -> str:
     
     # Fallback to direct client IP
     return request.client.host if request.client else "Unknown"
+
 # IP ban cache - stores (is_banned, timestamp) tuples
 ip_ban_cache = {}
 CACHE_TTL = 300  # 5 minutes
@@ -1819,84 +1820,6 @@ def is_ip_banned(ip_address: str, db: Session) -> bool:
         print(f"Error checking IP ban for {ip_address}: {e}")
         # If database check fails, assume not banned (fail open)
         return False
-
-def ban_ip_address(ip_address: str, reason: str, banned_by: str, db: Session, expires_hours: int = None):
-    """Ban an IP address"""
-    if not ip_address or ip_address == "Unknown":
-        return False
-    
-    # Check if IP is already banned
-    existing_ban = db.query(IPban).filter(
-        IPban.ip_address == ip_address,
-        IPban.is_active == True
-    ).first()
-    
-    if existing_ban:
-        # Update existing ban
-        existing_ban.reason = reason
-        existing_ban.banned_by = banned_by
-        existing_ban.banned_at = datetime.utcnow()
-        if expires_hours:
-            existing_ban.expires_at = datetime.utcnow() + timedelta(hours=expires_hours)
-        else:
-            existing_ban.expires_at = None  # Permanent
-    else:
-        # Create new ban
-        expires_at = None
-        if expires_hours:
-            expires_at = datetime.utcnow() + timedelta(hours=expires_hours)
-        
-        ban = IPban(
-            ip_address=ip_address,
-            reason=reason,
-            banned_by=banned_by,
-            expires_at=expires_at
-        )
-        db.add(ban)
-    
-    db.commit()
-    
-    # Clear cache for this IP so ban takes effect immediately
-    if ip_address in ip_ban_cache:
-        del ip_ban_cache[ip_address]
-    
-    # Also mark any users with this IP as IP banned
-    users_with_ip = db.query(User).filter(
-        (User.last_known_ip == ip_address) | (User.registration_ip == ip_address)
-    ).all()
-    
-    for user in users_with_ip:
-        user.is_ip_banned = True
-    
-    db.commit()
-    return True
-
-
-def unban_ip_address(ip_address: str, db: Session):
-    """Unban an IP address"""
-    bans = db.query(IPban).filter(
-        IPban.ip_address == ip_address,
-        IPban.is_active == True
-    ).all()
-    
-    for ban in bans:
-        ban.is_active = False
-    
-    # Clear cache for this IP so unban takes effect immediately
-    if ip_address in ip_ban_cache:
-        del ip_ban_cache[ip_address]
-    
-    # Unmark users with this IP
-    users_with_ip = db.query(User).filter(
-        (User.last_known_ip == ip_address) | (User.registration_ip == ip_address)
-    ).all()
-    
-    for user in users_with_ip:
-        user.is_ip_banned = False
-    
-    db.commit()
-    return True
-
 
 # Middleware to check IP bans
 def check_ip_ban_middleware(request: Request, db: Session):
@@ -4108,26 +4031,22 @@ async def ban_ip_address(
         # Calculate expiry time
         expires_at = None
         if duration_hours:
-            cache_expiry = time.time() + min(duration_hours * 3600, CACHETTL)  # Respect ban duration
-        else:
-            cache_expiry = float('inf')  # Permanent
-            ip_ban_cache[clean_ip] = (True, cache_expiry)  # Use clean_ip
-            print(f"🚫 CACHED BAN: {clean_ip} until {cache_expiry}")
-            
-        # Create ban record
-        ip_ban = IPban(
-            ip_address=clean_ip,
-            reason=reason.strip(),
-            banned_by=admin.email,
-            expires_at=expires_at
-        )
-        
+            expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
+
+        ip_ban = IPban(ip_address=clean_ip, reason=reason.strip(), banned_by=admin.email, expires_at=expires_at)
         db.add(ip_ban)
         db.commit()
+
+        if expires_at:
+            cache_duration = min((expires_at - datetime.utcnow()).total_seconds(), CACHETTL)
+        else:
+            cache_duration = float('inf')
+        cache_expiry = time.time() + cache_duration
+        ip_ban_cache[clean_ip] = (True, cache_expiry)
+        print(f"🚫 CACHED BAN: {clean_ip} for {cache_duration/3600:.1f}h")
         
-        # Log the ban
         ban_type = f"for {duration_hours} hours" if duration_hours else "permanently"
-        print(f"🚫 IP {clean_ip} banned {ban_type} by {admin.email}: {reason}")
+        print(f"🚫 IP {clean_ip} banned {ban_type} by {admin.email}")
         
         return RedirectResponse("/admin/ban-ip?success=banned", status_code=302)
         
@@ -4165,12 +4084,13 @@ async def unban_ip_address(
         ip_ban.is_active = False
         ip_ban.unbanned_at = datetime.utcnow()
         ip_ban.unbanned_by = admin.email
-        
         db.commit()
+
+        if ip_ban.ip_address in ip_ban_cache:
+            del ip_ban_cache[ip_ban.ip_address]
+            print(f"✅ CACHE CLEARED: {ip_ban.ip_address}")
         
-        # Log the unban
         print(f"✅ IP {ip_ban.ip_address} unbanned by {admin.email}")
-        
         return RedirectResponse("/admin/ban-ip?success=unbanned", status_code=302)
         
     except Exception as e:
