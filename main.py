@@ -3755,6 +3755,9 @@ async def auto_ban_wordpress_scanners(request: Request, call_next):
     
     return await call_next(request)
 
+ip_ban_cache = {}  # {ip: (banned, expiry_timestamp)}
+CACHETTL = 300  # 5min
+
 @app.middleware("http")
 async def ip_ban_middleware(request: Request, call_next):
     """Single middleware for IP bans - checks + cleanup"""
@@ -3768,29 +3771,18 @@ async def ip_ban_middleware(request: Request, call_next):
     if not client_ip:
         return await call_next(request)
     
-    # SINGLE SESSION for everything
-    db = SessionLocal()
-    try:
-        # Cleanup expired (shared session version)
-        cleanup_expired_bans(db)
-        
-        # Check ban (your existing logic)
-        active_ban = db.query(IPban).filter(
-            IPban.ip_address == client_ip,
-            IPban.is_active == True,
-            (IPban.expires_at.is_(None)) | (IPban.expires_at > datetime.utcnow())
-        ).first()
-        
-        if active_ban:
-            print(f"🚫 BLOCKED: {client_ip} - {active_ban.reason}")
+    # CACHE ONLY - NO DB!
+    now = time.time()
+    if client_ip in ip_ban_cache:
+        banned, expiry = ip_ban_cache[client_ip]
+        if now < expiry:
+            print(f"🚫 CACHE BLOCKED: {client_ip}")
             return templates.TemplateResponse("ip_banned.html", {
-                "request": request, "ip_address": client_ip
-            }, status_code=403)
-            
-    except Exception as e:
-        print(f"IP ban check error: {e}")
-    finally:
-        db.close()
+                "request": request,
+                "ip_address": client_ip  # Full context
+            }, 403)
+        else:
+            del ip_ban_cache[client_ip]  # Expired
     
     return await call_next(request)
 
@@ -4115,9 +4107,13 @@ async def ban_ip_address(
         
         # Calculate expiry time
         expires_at = None
-        if duration_hours and duration_hours > 0:
-            expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
-        
+        if duration_hours:
+            cache_expiry = time.time() + min(duration_hours * 3600, CACHETTL)  # Respect ban duration
+        else:
+            cache_expiry = float('inf')  # Permanent
+            ip_ban_cache[clean_ip] = (True, cache_expiry)  # Use clean_ip
+            print(f"🚫 CACHED BAN: {clean_ip} until {cache_expiry}")
+            
         # Create ban record
         ip_ban = IPban(
             ip_address=clean_ip,
