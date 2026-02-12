@@ -1820,7 +1820,6 @@ def is_ip_banned(ip_address: str, db: Session) -> bool:
         # If database check fails, assume not banned (fail open)
         return False
 
-
 def ban_ip_address(ip_address: str, reason: str, banned_by: str, db: Session, expires_hours: int = None):
     """Ban an IP address"""
     if not ip_address or ip_address == "Unknown":
@@ -3706,50 +3705,24 @@ def get_regular_user(request: Request):
 
 @app.middleware("http")
 async def ip_ban_middleware(request: Request, call_next):
-    """Middleware to check for IP bans"""
-    # Skip IP ban check for admin routes (so admins can unban themselves)
-    if request.url.path.startswith("/admin"):
-        response = await call_next(request)
-        return response
+    """Single middleware for IP bans - checks + cleanup"""
     
-    # Skip for static files and health checks
-    skip_routes = ["/static", "/favicon.ico", "/_health"]
-    if any(request.url.path.startswith(route) for route in skip_routes):
-        response = await call_next(request)
-        return response
-    
-    # Get client IP
-    ip_address = get_real_client_ip(request) if request.client else None
-    
-    if ip_address:
-        db = SessionLocal()
-        try:
-            if is_ip_banned(ip_address, db):
-                # Use the styled template instead of inline HTML
-                return templates.TemplateResponse("ip_banned.html", {
-                    "request": request,
-                    "ip_address": ip_address
-                }, status_code=403)
-        finally:
-            db.close()
-    
-    response = await call_next(request)
-    return response
-
-@app.middleware("http")
-async def ip_ban_check_middleware(request: Request, call_next):
-    """Check if IP is banned"""
-    client_ip = get_real_client_ip(request)
-    
-    # Skip for health check
-    if request.url.path == '/health':
+    # Skip admin, static, health
+    skip_paths = ["/admin", "/static", "/favicon.ico", "/health"]
+    if any(request.url.path.startswith(path) for path in skip_paths):
         return await call_next(request)
     
-    cleanup_expired_bans()
+    client_ip = get_real_client_ip(request)
+    if not client_ip:
+        return await call_next(request)
     
+    # SINGLE SESSION for everything
     db = SessionLocal()
     try:
-        # Check if IP is banned
+        # Cleanup expired (shared session version)
+        cleanup_expired_bans(db)
+        
+        # Check ban (your existing logic)
         active_ban = db.query(IPban).filter(
             IPban.ip_address == client_ip,
             IPban.is_active == True,
@@ -3759,18 +3732,15 @@ async def ip_ban_check_middleware(request: Request, call_next):
         if active_ban:
             print(f"🚫 BLOCKED: {client_ip} - {active_ban.reason}")
             return templates.TemplateResponse("ip_banned.html", {
-                    "request": request,
-                    "ip_address": client_ip
-                }, status_code=403)
-        
+                "request": request, "ip_address": client_ip
+            }, status_code=403)
+            
     except Exception as e:
         print(f"IP ban check error: {e}")
     finally:
         db.close()
     
-    # IP not banned, continue
     return await call_next(request)
-
 
 # Middleware to track user IPs and check bans
 @app.middleware("http") 
