@@ -1779,66 +1779,6 @@ def get_client_ip(request: Request) -> str:
 ip_ban_cache = {}
 CACHE_TTL = 300  # 5 minutes
 
-def is_ip_banned(ip_address: str, db: Session) -> bool:
-    """Check if an IP address is banned, with caching and error handling"""
-    # Everything below is now unreachable
-    if not ip_address or ip_address == "Unknown":
-        return False
-    
-    try:
-        # Check cache first
-        if ip_address in ip_ban_cache:
-            result, timestamp = ip_ban_cache[ip_address]
-            if time.time() - timestamp < CACHE_TTL:
-                return result
-        
-        # Not in cache, check database
-        ban = db.query(IPban).filter(
-            IPban.ip_address == ip_address,
-            IPban.is_active == True
-        ).first()
-        
-        if ban:
-            # Check if ban has expired
-            if ban.expires_at and ban.expires_at < datetime.utcnow():
-                ban.is_active = False
-                db.commit()
-                # Cache the "not banned" result
-                ip_ban_cache[ip_address] = (False, time.time())
-                return False
-            
-            # Cache the "banned" result
-            ip_ban_cache[ip_address] = (True, time.time())
-            return True
-        
-        # Not banned, cache the result
-        ip_ban_cache[ip_address] = (False, time.time())
-        return False
-        
-    except Exception as e:
-        # Log the error but DON'T block the user
-        print(f"Error checking IP ban for {ip_address}: {e}")
-        # If database check fails, assume not banned (fail open)
-        return False
-
-# Middleware to check IP bans
-def check_ip_ban_middleware(request: Request, db: Session):
-    """Check if the requesting IP is banned"""
-    try:
-        client_ip = get_client_ip(request)
-        if is_ip_banned(client_ip, db):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied: IP address is banned"
-            )
-    except HTTPException:
-        # Re-raise HTTPException (this is the banned case)
-        raise
-    except Exception as e:
-        # Any other error - log but don't block
-        print(f"IP ban check failed, allowing through: {e}")
-        pass  # Continue with the request
-    
 # Add this helper function to safely handle user data in templates
 def safe_user_data(user):
     """Safely return user data for templates, handling None values"""
@@ -3708,47 +3648,6 @@ async def ip_ban_middleware(request: Request, call_next):
             del ip_ban_cache[client_ip]  # Expired
     
     return await call_next(request)
-
-# Middleware to track user IPs and check bans
-@app.middleware("http") 
-async def ip_tracking_middleware(request: Request, call_next):
-    """Track user IPs and check for IP bans"""
-    client_ip = get_client_ip(request)
-    
-    # Skip IP checking for certain routes
-    skip_routes = ["/static", "/favicon.ico", "/_health"]
-    if any(request.url.path.startswith(route) for route in skip_routes):
-        return await call_next(request)
-    
-    # Check IP ban for all routes except suspended page and admin
-    if not request.url.path.startswith(("/suspended", "/admin")):
-        db = SessionLocal()
-        try:
-            if is_ip_banned(client_ip, db):
-                # Use styled template instead of basic HTML
-                return templates.TemplateResponse("ip_banned.html", {
-                    "request": request,
-                    "ip_address": client_ip
-                }, status_code=403)
-        finally:
-            db.close()
-    
-    response = await call_next(request)
-    
-    # Track IP for logged-in users
-    if hasattr(request.state, 'user'):
-        db = SessionLocal()
-        try:
-            user = db.query(User).filter(User.id == request.state.user.id).first()
-            if user:
-                user.last_known_ip = client_ip
-                db.commit()
-        except Exception as e:
-            print(f"Error tracking IP: {e}")
-        finally:
-            db.close()
-    
-    return response
 
 @app.get("/admin")
 async def admin_dashboard(
