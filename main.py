@@ -3703,6 +3703,58 @@ def get_regular_user(request: Request):
     """Get current user for regular dashboard - NOT for admin routes"""
     return get_current_user(request)
 
+WORDPRESS_PATHS = [
+    '/wp-admin', '/wp-content', '/wp-includes', 
+    '/wp-login.php', '/wp-cron.php', '/xmlrpc.php',
+    'wp-', '.php'
+]
+
+@app.middleware("http")
+async def auto_ban_wordpress_scanners(request: Request, call_next):
+    """Auto-ban WordPress vulnerability scanners"""
+    path = request.url.path.lower()
+    
+    # Check if it's a WordPress scan
+    if any(wp_path in path for wp_path in WORDPRESS_PATHS):
+        client_ip = get_real_client_ip(request)
+        
+        print(f"🍯 WordPress scanner detected: {client_ip} → {path}")
+        
+        db = SessionLocal()
+        try:
+            # Check if already banned
+            existing_ban = db.query(IPban).filter(
+                IPban.ip_address == client_ip,
+                IPban.is_active == True
+            ).first()
+            
+            if not existing_ban:
+                # Auto-ban for 24 hours
+                auto_ban = IPban(
+                    ip_address=client_ip,
+                    reason=f"Auto-banned: WordPress scanner detected ({path})",
+                    banned_by="system_auto_ban",
+                    expires_at=datetime.utcnow() + timedelta(hours=24)
+                )
+                db.add(auto_ban)
+                db.commit()
+                
+                print(f"🚫 AUTO-BANNED: {client_ip} for 24 hours")
+        
+        except Exception as e:
+            print(f"Auto-ban error: {e}")
+            db.rollback()
+        finally:
+            db.close()
+        
+        # Return 404 to not reveal it's blocked
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Not found"}
+        )
+    
+    return await call_next(request)
+
 @app.middleware("http")
 async def ip_ban_middleware(request: Request, call_next):
     """Single middleware for IP bans - checks + cleanup"""
