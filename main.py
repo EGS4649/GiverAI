@@ -4135,9 +4135,14 @@ async def unban_ip_address(
             "admin": admin
         })
     
-def cleanup_expired_bans():
+def cleanup_expired_bans(db: Session = None):
     """Mark expired bans as inactive"""
-    db = SessionLocal()
+    if db is None:  # Use own session only if none passed
+        db = SessionLocal()
+        own_session = True
+    else:
+        own_session = False
+    
     try:
         expired_bans = db.query(IPban).filter(
             IPban.is_active == True,
@@ -4158,7 +4163,8 @@ def cleanup_expired_bans():
         print(f"Error cleaning up expired bans: {str(e)}")
         db.rollback()
     finally:
-        db.close()
+        if own_session:  
+            db.close()
 
 def get_real_client_ip(request: Request) -> str:
     """
