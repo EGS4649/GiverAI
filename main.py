@@ -100,7 +100,7 @@ Base = declarative_base()
 engine = create_engine(
     DATABASE_URL,
     poolclass=QueuePool,
-    pool_size=3,                    # Number of permanent connections
+    pool_size=5,                    # Number of permanent connections
     max_overflow=10,                # Max connections beyond pool_size
     pool_pre_ping=True,             # ← THE MOST IMPORTANT ONE - checks connection before using
     pool_recycle=3600,              # Recycle connections after 1 hour
