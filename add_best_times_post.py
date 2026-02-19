@@ -1,3 +1,6 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
 from main import SessionLocal, create_blog_post
 
 def add_best_times_post():
