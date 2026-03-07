@@ -292,6 +292,11 @@ class EmailService:
             msg['From'] = "noreply@giverai.me"
             msg['To'] = to_email
             msg['Subject'] = subject
+
+            # ADD THESE HEADERS FOR HIGH PRIORITY AND SPAM PREVENTION
+            msg["X-Priority"] = "1"  # 1 = High, 3 = Normal, 5 = Low
+            msg["Importance"] = "High"
+            msg["X-MSMail-Priority"] = "High"
             
             # Add body
             msg.attach(MIMEText(body, 'plain'))
