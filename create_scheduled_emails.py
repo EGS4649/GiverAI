@@ -8,7 +8,7 @@ from main import app, Base, ScheduledEmail  # Import directly from main
 if __name__ == "__main__":
     print("Creating scheduled emails table...")
     try:
-            Base.metadata.create_all(bind=app.extensions['migrate'].db.engine, checkfirst=True)
+            Base.metadata.create_all(bind=engine)
             print("✅ Scheduled emails table created!")
     except Exception as e:
         print(f"❌ Failed to create table: {e}")
