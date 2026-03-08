@@ -2517,7 +2517,13 @@ def migrate_database_suspension():
             print("✅ suspension_appeals table created")
         except Exception as e:
             print(f"❌ Error creating suspension_appeals table: {e}")
-    
+    if 'scheduled_emails' not in existing_tables:
+        try:
+            Base.metadata.tables['scheduled_emails'].create(bind=engine)
+            print("✅ scheduled_emails table created")
+        except Exception as e:
+            print(f"❌ Error creating scheduled_emails table: {e}")
+
     # Add new columns to users table
     if 'users' in existing_tables:
         columns = [col['name'] for col in inspector.get_columns('users')]
