@@ -1517,6 +1517,92 @@ def send_appeal_confirmation_email(self, user, appeal):
 # Initialize email service
 email_service = EmailService()
 
+class ScheduledEmail(Base):
+    __tablename__ = "scheduled_emails"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    email_type = Column(String)  # 'day1_followup', 'day3_nudge', 'day7_reengagement', 'power_user_reward'
+    scheduled_for = Column(DateTime)
+    sent = Column(Boolean, default=False)
+    sent_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User")
+
+async def send_scheduled_emails():
+    """Background task to send scheduled emails"""
+    while True:
+        try:
+            db = SessionLocal()
+            now = datetime.utcnow()
+            
+            # Get emails that need to be sent
+            emails_to_send = db.query(ScheduledEmail).filter(
+                ScheduledEmail.sent == False,
+                ScheduledEmail.scheduled_for <= now
+            ).all()
+            
+            for scheduled_email in emails_to_send:
+                user = db.query(User).filter(User.id == scheduled_email.user_id).first()
+                if not user:
+                    continue
+                
+                try:
+                    if scheduled_email.email_type == 'day1_followup':
+                        # Calculate user's usage today
+                        today = datetime.utcnow().strftime("%Y-%m-%d")
+                        usage = db.query(Usage).filter(
+                            Usage.user_id == user.id,
+                            Usage.date == today
+                        ).first()
+                        
+                        tweets_created = usage.count if usage else 0
+                        tweets_remaining = max(0, 15 - tweets_created)
+                        hours_until_reset = 24 - datetime.utcnow().hour
+                        
+                        await email_service.send_day1_followup_email(
+                            user, tweets_created, tweets_remaining, hours_until_reset
+                        )
+                    
+                    elif scheduled_email.email_type == 'day3_nudge':
+                        last_login = user.last_login.strftime('%B %d') if user.last_login else 'a few days ago'
+                        missed_tweets = 15 * 3  # 3 days worth
+                        
+                        await email_service.send_day3_nudge_email(
+                            user, last_login, missed_tweets
+                        )
+                    
+                    elif scheduled_email.email_type == 'day7_reengagement':
+                        await email_service.send_day7_reengagement_email(user)
+                    
+                    elif scheduled_email.email_type == 'power_user_reward':
+                        today = datetime.utcnow().strftime("%Y-%m-%d")
+                        usage = db.query(Usage).filter(
+                            Usage.user_id == user.id,
+                            Usage.date == today
+                        ).first()
+                        tweets_remaining = max(0, 15 - (usage.count if usage else 0))
+                        
+                        await email_service.send_power_user_reward_email(user, tweets_remaining)
+                    
+                    # Mark as sent
+                    scheduled_email.sent = True
+                    scheduled_email.sent_at = datetime.utcnow()
+                    db.commit()
+                    
+                    print(f"✅ Sent {scheduled_email.email_type} to {user.email}")
+                    
+                except Exception as e:
+                    print(f"❌ Failed to send {scheduled_email.email_type} to {user.email}: {e}")
+                    db.rollback()
+            
+            db.close()
+            
+        except Exception as e:
+            print(f"❌ Email scheduler error: {e}")
+        
+        # Check every 5 minutes
+        await asyncio.sleep(300)
+
 # Security middleware to check for suspended accounts (STANDALONE FUNCTION)
 async def check_user_status(user: User):
     """Check if user account is in good standing"""
@@ -2189,6 +2275,11 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     # Let other HTTP exceptions pass through
     raise exc
 
+# Start the background task when app starts
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(send_scheduled_emails())
+    
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -2371,6 +2462,36 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def schedule_day1_followup(user_id: int, db: Session):
+    """Schedule Day 1 follow-up email 24hrs after first tweet"""
+    scheduled_email = ScheduledEmail(
+        user_id=user_id,
+        email_type='day1_followup',
+        scheduled_for=datetime.utcnow() + timedelta(hours=24)
+    )
+    db.add(scheduled_email)
+    db.commit()
+
+def schedule_day3_nudge(user_id: int, db: Session):
+    """Schedule Day 3 nudge if user hasn't logged in"""
+    scheduled_email = ScheduledEmail(
+        user_id=user_id,
+        email_type='day3_nudge',
+        scheduled_for=datetime.utcnow() + timedelta(days=3)
+    )
+    db.add(scheduled_email)
+    db.commit()
+
+def schedule_day7_reengagement(user_id: int, db: Session):
+    """Schedule Day 7 re-engagement email"""
+    scheduled_email = ScheduledEmail(
+        user_id=user_id,
+        email_type='day7_reengagement',
+        scheduled_for=datetime.utcnow() + timedelta(days=7)
+    )
+    db.add(scheduled_email)
+    db.commit()
 
 def migrate_database_suspension():
     """Add suspension-related database updates"""
@@ -4771,7 +4892,26 @@ async def login_post(
             user.last_known_ip = client_ip
             user.last_login = datetime.now(timezone.utc)
             db.commit()
+
+        if user.last_login:
+            days_since_signup = (datetime.utcnow() - user.created_at).days
+            days_since_last_login = (datetime.utcnow() - user.last_login).days
+            if days_since_signup >= 1 and days_since_signup <= 2 and days_since_last_login >= 1:
+                # They came back on Day 2! Send reward email
+                scheduled_email = ScheduledEmail(
+                    user_id=user.id,
+                    email_type='power_user_reward',
+                    scheduled_for=datetime.utcnow() + timedelta(minutes=5)  # Send in 5 minutes
+                )
+                db.add(scheduled_email)
             
+                # Cancel Day 3 nudge since they're active
+                db.query(ScheduledEmail).filter(
+                    ScheduledEmail.user_id == user.id,
+                    ScheduledEmail.email_type == 'day3_nudge',
+                    ScheduledEmail.sent == False
+                ).delete()
+                db.commit()
         if not user:
             # Track failed login attempts
             if user_record:
@@ -6676,7 +6816,18 @@ def user_dashboard(
     recent_tweets = db.query(GeneratedTweet).filter(
         GeneratedTweet.user_id == current_user.id
     ).order_by(GeneratedTweet.generated_at.desc()).limit(10).all()
-    
+
+    # Check if this is their first tweet ever
+    total_usage = db.query(Usage).filter(Usage.user_id == current_user.id).all()
+    total_tweets = sum([u.count for u in total_usage])
+
+    if total_tweets == 1:  # Just generated their first tweet
+        # Schedule Day 1 follow-up
+        schedule_day1_followup(current_user.id, db)
+        # Also schedule Day 3 and Day 7 (will be cancelled if they stay active)
+        schedule_day3_nudge(current_user.id, db)
+        schedule_day7_reengagement(current_user.id, db)
+
     response = templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": current_user,
