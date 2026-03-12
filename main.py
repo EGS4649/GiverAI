@@ -5433,6 +5433,12 @@ async def account_page(
     request: Request,
     user: User = Depends(get_current_user)  # ← Use the dependency directly
 ):
+    if not user:
+        return templates.TemplateResponse("404.html", {
+            "request": request,
+            "user": None
+        }, status_code=404)
+    
     """Account page with Stripe billing portal"""
     
     # Get Stripe billing portal URL for paid users
