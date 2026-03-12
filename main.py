@@ -2225,7 +2225,7 @@ def get_optional_user(request: Request, allow_suspended: bool = False):
 def get_suspended_user(request: Request):
     """Special function to get user for suspended routes - allows suspended users"""
     return get_current_user(request, allow_suspended=True)
-
+    
 def get_optional_suspended_user(request: Request):
     """Special function to get optional user for suspended routes - allows suspended users"""
     return get_optional_user(request, allow_suspended=True)
@@ -5431,7 +5431,8 @@ def update_database_for_suspension_appeals():
 @app.get("/account", response_class=HTMLResponse)
 async def account_page(
     request: Request,
-    user: User = Depends(get_current_user)  # ← Use the dependency directly
+    user: Optional[User] = Depends(get_current_user_or_none)
+    #user: User = Depends(get_current_user)  
 ):
     if user is None:
         return templates.TemplateResponse("404.html", {
