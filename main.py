@@ -5433,7 +5433,7 @@ async def account_page(
     request: Request,
     user: User = Depends(get_current_user)  # ← Use the dependency directly
 ):
-    if not user:
+    if user is None:
         return templates.TemplateResponse("404.html", {
             "request": request,
             "user": None
