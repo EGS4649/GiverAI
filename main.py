@@ -70,6 +70,9 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "false").lower() == "true"
 
+#Email
+TRUSTPILOT_EMAIL = os.getenv("TRUSTPILOT")
+
 logging.basicConfig(level=logging.WARNING)  # Only log warnings and errors
 logger = logging.getLogger(__name__)
 
@@ -324,7 +327,7 @@ class EmailService:
             print(f"❌ Full traceback: {traceback.format_exc()}")
             raise e
 
-    def send_simple_email(self, to_email: str, subject: str, html_body: str) -> bool:
+    def send_simple_email(self, to_email: str, subject: str, html_body: str,bcc: list[str] | None = None, ) -> bool:
         """Send an email with simple HTML"""
         try:
             if not all([self.smtp_server, self.smtp_username, self.smtp_password]):
@@ -340,13 +343,17 @@ class EmailService:
             html_part = MIMEText(html_body, "html")
             msg.attach(html_part)
 
+            recipients = [to_email]
+            if bcc:
+                recipients.extend(bcc)
+
             # Send email
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()
                 server.login(self.smtp_username, self.smtp_password)
-                server.send_message(msg)
+                server.sendmail(self.from_email, recipients, msg.as_string())
 
-            print(f"✅ Email sent to {to_email}")
+            print(f"✅ Email sent to {to_email} (bcc={bcc})")
             return True
 
         except Exception as e:
@@ -648,6 +655,7 @@ class EmailService:
             user.email,
             f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
             html_body,
+            bcc=[TRUSTPILOT_EMAIL] 
         )
 
     def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
