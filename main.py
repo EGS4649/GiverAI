@@ -565,6 +565,7 @@ class EmailService:
             user.email,
             "Welcome to GiverAI! Your Twitter Content Creation Journey Starts Now 🚀",
             html_body,
+            bcc=[TRUSTPILOT_EMAIL] 
         )
         
     async def send_subscription_upgrade_email(self, user, old_plan, new_plan, amount, next_billing_date):
@@ -655,7 +656,6 @@ class EmailService:
             user.email,
             f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
             html_body,
-            bcc=[TRUSTPILOT_EMAIL] 
         )
 
     def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
