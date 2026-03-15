@@ -5852,10 +5852,9 @@ Sitemap: https://giverai.me/sitemap.xml
 
 @app.get("/llms.txt")
 async def llms():
-    """Serve LLMS.txt for search engines"""
-    llms_txt = """# LLMS.txt
-"""
-    return Response(content=llms_txt, media_type="text/plain")
+    """Serve llms.txt for search engines"""
+    file_path = "static/llms.txt"  
+    return FileResponse(file_path, media_type="text/plain")
 
 @app.get("/export-tweets")
 def export_tweets(user: User = Depends(get_current_user)):
