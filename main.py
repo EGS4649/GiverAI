@@ -656,6 +656,7 @@ class EmailService:
             user.email,
             f"Welcome to {new_plan.replace('_', ' ').title()}! Your GiverAI Upgrade is Active 🚀",
             html_body,
+            bcc=[TRUSTPILOT_EMAIL] 
         )
 
     def send_subscription_cancellation_email(self, user, original_plan, cancellation_date):
@@ -5848,6 +5849,13 @@ Disallow: /api
 Sitemap: https://giverai.me/sitemap.xml
 """
     return Response(content=robots_txt, media_type="text/plain")
+
+@app.get("/llms.txt")
+async def llms():
+    """Serve LLMS.txt for search engines"""
+    llms_txt = """# LLMS.txt
+"""
+    return Response(content=llms_txt, media_type="text/plain")
 
 @app.get("/export-tweets")
 def export_tweets(user: User = Depends(get_current_user)):
