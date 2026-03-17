@@ -9,7 +9,7 @@ GiverAI generates individual tweets, Twitter threads, and tweet variations from 
 Core features:
 - AI tweet generation with 4 tone options (Casual, Balanced, Professional, Refined)
 - Twitter thread generation from a single topic or outline
-- 5 tweet variations per generation for A/B testing
+- 1/5/10 tweet variations per generation for A/B testing
 - Free tier: 15 tweets per day, no credit card required
 - Creator tier: unlimited generations, $9/month (currently 40% off with code FLASH40 until August 2026, bringing it to $5.40/month)
 
