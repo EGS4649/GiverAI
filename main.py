@@ -3046,6 +3046,14 @@ async def logo_cache_middleware(request: Request, call_next):
     
     return response
 
+@app.middleware("http")
+async def redirect_2025_slugs(request: Request, call_next):
+    path = request.url.path
+    if "/blog/" in path and "2025" in path:
+        new_path = path.replace("2025", "2026")
+        return RedirectResponse(url=new_path, status_code=301)
+    return await call_next(request)
+
 @app.get("/wp-admin/admin.php")
 @app.get("/wp-login.php")
 @app.get("/xmlrpc.php")
