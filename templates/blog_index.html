@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" translate="yes">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -71,7 +71,12 @@
           <!-- Post Content -->
           <div style="padding: 25px;">
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; color: #adc2ff; font-size: 0.9em;">
-              <span>📅 {{ (post.updated_at or post.created_at).strftime('%B %d, %Y') }}</span>
+             <span>📅 
+  {{ post.created_at.strftime('%B %d, %Y') }}
+  {% if post.updated_at and (post.updated_at - post.created_at).days > 30 %}
+    <span style="color: #00ffff; font-size: 0.85em;">(Updated {{ post.updated_at.strftime('%B %Y') }})</span>
+  {% endif %}
+</span>
               <span>•</span>
               <span>⏱️ {{ post.read_time }} min read</span>
               <span>•</span>
