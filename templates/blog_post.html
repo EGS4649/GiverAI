@@ -166,7 +166,7 @@
     <h1>{{ post.title }}</h1>
     
     <div class="blog-meta">
-      <span>📅 {{ post.created_at.strftime('%B %d, %Y') }}</span>
+     <span>📅 {{ (post.updated_at or post.created_at).strftime('%B %d, %Y') }}</span>
       <span>•</span>
       <span>⏱️ {{ post.read_time }} min read</span>
       <span>•</span>
