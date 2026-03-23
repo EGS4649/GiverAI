@@ -4907,8 +4907,7 @@ async def login_post(
             user.last_known_ip = client_ip
             user.last_login = datetime.now(timezone.utc)
             db.commit()
-
-        if user.last_login:
+            
             days_since_signup = (datetime.utcnow() - user.created_at).days
             days_since_last_login = (datetime.utcnow() - user.last_login).days
             if days_since_signup >= 1 and days_since_signup <= 2 and days_since_last_login >= 1:
