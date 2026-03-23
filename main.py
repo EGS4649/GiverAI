@@ -6695,32 +6695,38 @@ GOOD TWEET STRUCTURE:
 - Keep under 280 characters when possible
 
 Output ONLY numbered tweets (1. 2. 3. etc). No introduction, no commentary."""
-
 async def get_ai_tweets(prompt, count=5, tone='balanced'):
-    """Generate tweets with adaptive tone and timeout protection"""
+    """Generate tweets with adaptive tone, timeout protection, and automatic language matching"""
     try:
         count = min(count, 15)
         
-        # Build system prompt based on selected tone
         system_prompt = build_system_prompt(tone)
         
+        language_instruction = """
+
+LANGUAGE RULE (overrides everything else):
+Detect the language of the user's input and generate ALL tweets in that same language.
+Do not translate to English. Do not explain. Just match the language exactly."""
+
         response = client.chat.completions.create(
             model="openai/gpt-4o-mini",
-            messages=[{
-                "role": "system",
-                "content": system_prompt
-            }, {
-                "role": "user",
-                "content": f"{prompt}\n\nGenerate {count} tweets that match the tone and context."
-            }],
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt + language_instruction
+                },
+                {
+                    "role": "user",
+                    "content": f"{prompt}\n\nGenerate {count} tweets that match the tone and context."
+                }
+            ],
             max_tokens=200 + (count * 80),
-            temperature=0.85,  # Increased for more variety
+            temperature=0.85,
             timeout=25
         )
         
         content = response.choices[0].message.content.strip()
         
-        # Extract only numbered tweets
         import re
         lines = content.split('\n')
         tweets = []
@@ -6728,9 +6734,7 @@ async def get_ai_tweets(prompt, count=5, tone='balanced'):
             line = line.strip()
             if not line:
                 continue
-            # Only process lines that start with a number
             if re.match(r'^\d+[\.\)]\s', line):
-                # Remove numbering
                 cleaned = re.sub(r'^[\[\(]?\d+[\.\)\]:\-\s]+', '', line)
                 cleaned = cleaned.lstrip('*•-').strip()
                 if cleaned and len(cleaned) > 10:
