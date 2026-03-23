@@ -7934,7 +7934,8 @@ def create_blog_post(db: Session, title: str, content: str, excerpt: str,
         meta_description=meta_description,
         meta_keywords=meta_keywords,
         read_time=read_time,
-        published=True
+        published=True,
+        updated_at=datetime.utcnow() 
     )
     
     db.add(post)
