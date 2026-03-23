@@ -1,9 +1,6 @@
 
 <!DOCTYPE html>
 <html lang="en">
-  <div style="background: linear-gradient(45deg, #00ffff, #ff00ff); color: #000; padding: 12px; text-align: center; font-weight: 600; position: sticky; top: 0; z-index: 1000;">
-    🎁 FLASH40 → 40% off Creator Tier until August 31st! <a href="/register" style="color: #000; text-decoration: underline; margin-left: 10px; font-weight: bold;">Start Now →</a>
-</div>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -115,6 +112,9 @@
   </style>
 </head>
 <body>
+  <div style="background: linear-gradient(45deg, #00ffff, #ff00ff); color: #000; padding: 12px; text-align: center; font-weight: 600; position: sticky; top: 0; z-index: 1000;">
+    🎁 FLASH40 → 40% off Creator Tier until August 31st! <a href="/register" style="color: #000; text-decoration: underline; margin-left: 10px; font-weight: bold;">Start Now →</a>
+</div>
   <!-- Navigation Bar -->
   <nav class="navbar" style="align-items: center; min-height: 60px;">
   <div class="brand" style="display: flex; align-items: center; gap: 12px;">
@@ -291,10 +291,17 @@
 
     <!-- Submit button -->
     <button 
-        type="submit" 
-        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 28px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; transition: transform 0.2s;">
-        Generate Tweets ✨
-    </button>
+    type="submit"
+    id="generate-btn"
+    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 28px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; transition: transform 0.2s;">
+    <span id="btn-text">Generate Tweets ✨</span>
+    <span id="btn-throbber" style="display:none;">
+        <svg width="20" height="20" viewBox="0 0 50 50" style="vertical-align: middle; animation: spin 0.8s linear infinite;">
+            <circle cx="25" cy="25" r="20" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-dasharray="90 60"/>
+        </svg>
+        Generating...
+    </span>
+</button>
 </form>
 
       {% if tweets_left != 'Unlimited' and tweets_left > 0 %}
@@ -305,17 +312,20 @@
     </div>
 
     <!-- Generated Tweets -->
-    {% if tweets %}
-      <div style="background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(10px); border: 1px solid rgba(255, 0, 255, 0.3); border-radius: 10px; padding: 30px;">
-        <h2 style="color: #ff00ff;">Generated Tweets:</h2>
-        <ul style="background: none; border: none; padding: 0;">
-          {% for tweet in tweets %}
-          <li>{{ tweet }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
-  </main>
+  {% if tweets %}
+  <div id="tweet-results" style="background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(10px); border: 1px solid rgba(255, 0, 255, 0.3); border-radius: 10px; padding: 30px; scroll-margin-top: 20px;">
+    <h2 style="color: #ff00ff;">✅ Your Tweets Are Ready!</h2>
+    <p style="color: #adc2ff; margin-bottom: 20px; font-size: 0.95em;">Click any tweet to copy it to your clipboard.</p>
+    <ul style="background: none; border: none; padding: 0; list-style: none;">
+      {% for tweet in tweets %}
+      <li onclick="copyTweet(this)" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 8px; padding: 15px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; position: relative;">
+        {{ tweet }}
+        <span style="position: absolute; top: 8px; right: 10px; font-size: 0.75em; color: #adc2ff;">click to copy</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
 
   <!-- Footer -->
   <footer>
@@ -336,5 +346,90 @@
       </div>
     </div>
   </footer>
+ <script>
+  // --- Spin keyframe ---
+  const style = document.createElement('style');
+  style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(style);
+
+  // --- Throbber ---
+  document.querySelector('form').addEventListener('submit', function(e) {
+    const recaptchaResponse = grecaptcha.getResponse();
+    if (!recaptchaResponse) return;
+    document.getElementById('btn-text').style.display = 'none';
+    document.getElementById('btn-throbber').style.display = 'inline';
+    document.getElementById('generate-btn').disabled = true;
+  });
+
+  // --- Copy tweet ---
+  function copyTweet(el) {
+    const text = el.innerText.replace('click to copy', '').trim();
+    navigator.clipboard.writeText(text).then(() => {
+      const original = el.style.borderColor;
+      el.style.borderColor = '#00ffff';
+      el.style.background = 'rgba(0,255,255,0.1)';
+      const span = el.querySelector('span');
+      span.textContent = '✅ copied!';
+      setTimeout(() => {
+        el.style.borderColor = original;
+        el.style.background = 'rgba(255,255,255,0.05)';
+        span.textContent = 'click to copy';
+      }, 1500);
+    });
+  }
+
+  // --- Confetti + auto-scroll (only when tweets exist) ---
+  {% if tweets %}
+  (function() {
+    // Auto-scroll
+    const results = document.getElementById('tweet-results');
+    if (results) results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Confetti
+    const colors = ['#00ffff', '#ff00ff', '#667eea', '#ffffff', '#ffd700'];
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const pieces = Array.from({length: 120}, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * -canvas.height,
+      w: Math.random() * 10 + 5,
+      h: Math.random() * 6 + 3,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rot: Math.random() * Math.PI * 2,
+      vx: (Math.random() - 0.5) * 3,
+      vy: Math.random() * 3 + 2,
+      vr: (Math.random() - 0.5) * 0.15,
+      opacity: 1
+    }));
+
+    let frame = 0;
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      pieces.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vr;
+        if (frame > 90) p.opacity -= 0.012;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.opacity);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        ctx.restore();
+      });
+      frame++;
+      if (frame < 180) requestAnimationFrame(draw);
+      else canvas.remove();
+    }
+    draw();
+  })();
+  {% endif %}
+</script>
 </body>
 </html>
