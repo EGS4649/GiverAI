@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Moved - GiverAI</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Optional meta refresh as a fallback; server should still send HTTP 301 -->
+    {% if redirect_url %}
+    <meta http-equiv="refresh" content="3;url={{ redirect_url }}">
+    {% endif %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">
+            <a href="/home">GiverAI</a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/login">Login</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <div class="hero">
+            <h1>301 - Moved Permanently</h1>
+            <p class="page-description">
+                This page has been moved to a new location.
+                {% if redirect_url %}
+                    You will be redirected automatically in a few seconds.
+                {% else %}
+                    Please use the link below to continue.
+                {% endif %}
+            </p>
+        </div>
+
+        {% if redirect_url %}
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="{{ redirect_url }}" style="color: #00ffff; text-decoration: none; padding: 10px 20px; border: 1px solid #00ffff; border-radius: 5px;">
+                Go to New Page
+            </a>
+        </div>
+        {% else %}
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/" style="color: #00ffff; text-decoration: none; padding: 10px 20px; border: 1px solid #00ffff; border-radius: 5px;">
+                Go Back Home
+            </a>
+        </div>
+        {% endif %}
+    </main>
+</body>
+</html>

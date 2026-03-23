@@ -1,9 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- Beta Banner -->
-<div style="background: linear-gradient(45deg, #00ffff, #ff00ff); color: #000; padding: 12px; text-align: center; font-weight: 600; position: sticky; top: 0; z-index: 1000;">
-    🎁 FLASH40 → 40% off Creator Tier until August 31st! <a href="/register" style="color: #000; text-decoration: underline; margin-left: 10px; font-weight: bold;">Start Now →</a>
-</div>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,9 +7,31 @@
   <meta name="description" content="Learn how to create viral tweets with AI. Expert guides, tips, and strategies for Twitter content creation using free AI tools.">
   <meta name="keywords" content="ai tweet generator, twitter content, viral tweets, free ai tools, social media marketing">
   <link rel="stylesheet" href="/static/style.css">
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "GiverAI Blog",
+  "description": "Expert guides and strategies for Twitter content creation using AI tools.",
+  "url": "https://giverai.me/blog",
+  "publisher": {
+    "@type": "Organization",
+    "name": "GiverAI",
+    "url": "https://giverai.me",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://giverai.me/static/logo.png"
+    }
+  }
+}
+</script>
 </head>
 
 <body>
+    <!-- Beta Banner -->
+<div style="background: linear-gradient(45deg, #00ffff, #ff00ff); color: #000; padding: 12px; text-align: center; font-weight: 600; position: sticky; top: 0; z-index: 1000;">
+    🎁 FLASH40 → 40% off Creator Tier until August 31st! <a href="/register" style="color: #000; text-decoration: underline; margin-left: 10px; font-weight: bold;">Start Now →</a>
+</div>
   <!-- Navigation (reuse your existing nav) -->
   <nav class="navbar">
     <div class="brand">
@@ -53,7 +71,7 @@
           <!-- Post Content -->
           <div style="padding: 25px;">
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; color: #adc2ff; font-size: 0.9em;">
-              <span>📅 {{ post.created_at.strftime('%B %d, %Y') }}</span>
+              <span>📅 {{ (post.updated_at or post.created_at).strftime('%B %d, %Y') }}</span>
               <span>•</span>
               <span>⏱️ {{ post.read_time }} min read</span>
               <span>•</span>
