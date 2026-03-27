@@ -360,22 +360,25 @@
     document.getElementById('generate-btn').disabled = true;
   });
 
-  // --- Copy tweet ---
-  function copyTweet(el) {
-    const text = el.innerText.replace('click to copy', '').trim();
-    navigator.clipboard.writeText(text).then(() => {
-      const original = el.style.borderColor;
-      el.style.borderColor = '#00ffff';
-      el.style.background = 'rgba(0,255,255,0.1)';
-      const span = el.querySelector('span');
-      span.textContent = '✅ copied!';
-      setTimeout(() => {
-        el.style.borderColor = original;
-        el.style.background = 'rgba(255,255,255,0.05)';
-        span.textContent = 'click to copy';
-      }, 1500);
-    });
-  }
+   
+ function copyTweet(el) {
+  const text = el.innerText
+    .replace('click to copy', '')
+    .replace(/^["'"']+|["'"']+$/g, '')
+    .trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const original = el.style.borderColor;
+    el.style.borderColor = '#00ffff';
+    el.style.background = 'rgba(0,255,255,0.1)';
+    const span = el.querySelector('span');
+    span.textContent = '✅ copied!';
+    setTimeout(() => {
+      el.style.borderColor = original;
+      el.style.background = 'rgba(255,255,255,0.05)';
+      span.textContent = 'click to copy';
+    }, 1500);
+  });
+}
 
   // --- Confetti + auto-scroll (only when tweets exist) ---
   {% if tweets %}
