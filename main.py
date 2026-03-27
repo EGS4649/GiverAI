@@ -6,6 +6,8 @@ import secrets
 import requests 
 import hashlib
 import time
+from authlib.integrations.starlette_client import OAuth
+from starlette.config import Config
 from functools import lru_cache
 from typing import Optional, List
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, BackgroundTasks, Header, Query, Response
@@ -72,6 +74,17 @@ MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "false").lower() == "true"
 
 #Email
 TRUSTPILOT_EMAIL = os.getenv("TRUSTPILOT")
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
 
 logging.basicConfig(level=logging.WARNING)  # Only log warnings and errors
 logger = logging.getLogger(__name__)
@@ -4860,6 +4873,110 @@ async def admin_user_activity(
     },
     "timezone": "America/New_York" if TIMEZONE_AVAILABLE else "UTC",
 }
+    finally:
+        db.close()
+
+@app.get("/auth/google")
+async def google_login(request: Request):
+    redirect_uri = "https://giverai.me/auth/google/callback"
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth/google/callback")
+async def google_callback(request: Request):
+    db = SessionLocal()
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        userinfo = token.get('userinfo')
+        
+        if not userinfo:
+            return RedirectResponse("/login?error=google_failed", status_code=302)
+        
+        email = userinfo.get('email')
+        google_id = userinfo.get('sub')
+        name = userinfo.get('given_name') or userinfo.get('name', '').split()[0]
+        
+        if not email:
+            return RedirectResponse("/login?error=no_email", status_code=302)
+        
+        # Check if user already exists by email
+        user = db.query(User).filter(User.email == email).first()
+        
+        if not user:
+            # New user — create account
+            username = name.lower().replace(' ', '') + str(google_id)[-4:]
+            
+            # Make sure username is unique
+            base_username = username
+            counter = 1
+            while db.query(User).filter(User.username == username).first():
+                username = f"{base_username}{counter}"
+                counter += 1
+            
+            user = User(
+                username=username,
+                email=email,
+                hashed_password=b'google_oauth_no_password',
+                is_active=True,  # Google emails are pre-verified
+                plan='free',
+                created_at=datetime.utcnow(),
+                last_login=datetime.utcnow()
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            
+            # Send welcome email
+            try:
+                await email_service.send_welcome_email(user)
+            except Exception as e:
+                print(f"Welcome email failed: {e}")
+            
+            # Schedule onboarding emails
+            for email_type, delay_days in [
+                ('day1_followup', 1),
+                ('day3_nudge', 3),
+                ('day7_reengagement', 7)
+            ]:
+                scheduled = ScheduledEmail(
+                    user_id=user.id,
+                    email_type=email_type,
+                    scheduled_for=datetime.utcnow() + timedelta(days=delay_days)
+                )
+                db.add(scheduled)
+            db.commit()
+            
+            print(f"✅ New Google user registered: {email} (ID: {user.id})")
+        
+        else:
+            # Existing user — just log them in
+            user.last_login = datetime.utcnow()
+            db.commit()
+            print(f"✅ Google login for existing user: {email}")
+        
+        # Create session token
+        access_token = create_access_token(
+            data={"sub": user.username},
+            expires_delta=timedelta(days=2)
+        )
+        
+        response = RedirectResponse("/dashboard", status_code=302)
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=IS_PRODUCTION,
+            samesite='lax',
+            max_age=2*24*3600,
+            domain=".giverai.me"
+        )
+        return response
+        
+    except Exception as e:
+        print(f"Google OAuth error: {e}")
+        import traceback
+        traceback.print_exc()
+        return RedirectResponse("/login?error=google_failed", status_code=302)
     finally:
         db.close()
 
