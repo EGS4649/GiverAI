@@ -6,6 +6,7 @@ import secrets
 import requests 
 import hashlib
 import time
+from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
 from functools import lru_cache
@@ -56,7 +57,7 @@ import structlog
 import bleach
 
 IS_PRODUCTION = os.getenv("ENV", "development") == "production"
-
+SECRET_KEY = os.getenv("SECRET_KEY")
 # Add your reCAPTCHA variables here
 RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY")
 RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY")
@@ -2270,6 +2271,10 @@ app = FastAPI()
 # Add middlewares
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["giverai.me", "www.giverai.me", "localhost"])
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY
+)
 
 # Exception handler
 @app.exception_handler(CsrfProtectError)
