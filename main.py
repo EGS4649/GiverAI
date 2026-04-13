@@ -1711,59 +1711,56 @@ class ScheduledEmail(Base):
     sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User")
-
+    
 async def send_scheduled_emails():
     """Background task to send scheduled emails"""
     while True:
         try:
             db = SessionLocal()
             now = datetime.utcnow()
-            
-            # Get emails that need to be sent
-            emails_to_send = db.query(ScheduledEmail).filter(
-                ScheduledEmail.id == scheduled_email.id,
-                ScheduledEmail.sent == False
-                ).update({"sent": True, "sent_at": datetime.utcnow()})
-            db.commit()
 
-            if not updated:
-                print(f"⚠️ Skipped {scheduled_email.email_type} — already sent")
-                continue  # another process beat us to it
-            
-            
+            emails_to_send = db.query(ScheduledEmail).filter(
+                ScheduledEmail.sent == False,
+                ScheduledEmail.scheduled_for <= now
+            ).all()
+
             for scheduled_email in emails_to_send:
                 user = db.query(User).filter(User.id == scheduled_email.user_id).first()
                 if not user:
                     continue
-                
+
                 try:
+                    # Atomic update — mark sent FIRST to prevent double sends
+                    updated = db.query(ScheduledEmail).filter(
+                        ScheduledEmail.id == scheduled_email.id,
+                        ScheduledEmail.sent == False
+                    ).update({"sent": True, "sent_at": datetime.utcnow()})
+                    db.commit()
+
+                    if not updated:
+                        print(f"⚠️ Skipped {scheduled_email.email_type} — already sent")
+                        continue
+
                     if scheduled_email.email_type == 'day1_followup':
-                        # Calculate user's usage today
                         today = datetime.utcnow().strftime("%Y-%m-%d")
                         usage = db.query(Usage).filter(
                             Usage.user_id == user.id,
                             Usage.date == today
                         ).first()
-                        
                         tweets_created = usage.count if usage else 0
                         tweets_remaining = max(0, 15 - tweets_created)
                         hours_until_reset = 24 - datetime.utcnow().hour
-                        
                         await email_service.send_day1_followup_email(
                             user, tweets_created, tweets_remaining, hours_until_reset
                         )
-                    
                     elif scheduled_email.email_type == 'day3_nudge':
                         last_login = user.last_login.strftime('%B %d') if user.last_login else 'a few days ago'
-                        missed_tweets = 15 * 3  # 3 days worth
-                        
+                        missed_tweets = 15 * 3
                         await email_service.send_day3_nudge_email(
                             user, last_login, missed_tweets
                         )
-                    
                     elif scheduled_email.email_type == 'day7_reengagement':
                         await email_service.send_day7_reengagement_email(user)
-                    
                     elif scheduled_email.email_type == 'power_user_reward':
                         today = datetime.utcnow().strftime("%Y-%m-%d")
                         usage = db.query(Usage).filter(
@@ -1771,30 +1768,19 @@ async def send_scheduled_emails():
                             Usage.date == today
                         ).first()
                         tweets_remaining = max(0, 15 - (usage.count if usage else 0))
-                        
                         await email_service.send_power_user_reward_email(user, tweets_remaining)
-                    
-                    # Mark as sent
-                    updated = db.query(ScheduledEmail).filter(
-                        ScheduledEmail.id == scheduled_email.id
-                    ).update({
-                        ScheduledEmail.sent: True,
-                        ScheduledEmail.sent_at: datetime.utcnow()
-                    })
-                    db.commit()
-                    
+
                     print(f"✅ Sent {scheduled_email.email_type} to {user.email}")
-                    
+
                 except Exception as e:
                     print(f"❌ Failed to send {scheduled_email.email_type} to {user.email}: {e}")
                     db.rollback()
-            
+
             db.close()
-            
+
         except Exception as e:
             print(f"❌ Email scheduler error: {e}")
-        
-        # Check every 5 minutes
+
         await asyncio.sleep(300)
 
 # Security middleware to check for suspended accounts (STANDALONE FUNCTION)
