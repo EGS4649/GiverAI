@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What Type of Twitter Creator Are You? | GiverAI Quiz</title>
+  <meta name="description" content="5-question quiz to discover your Twitter creator type — and the exact strategy to grow faster in 2026. Take the quiz free.">
+  <meta property="og:title" content="What Type of Twitter Creator Are You?">
+  <meta property="og:description" content="5 questions. Instant result. Find your creator type and unlock your Twitter growth strategy.">
+  <meta property="og:url" content="https://giverai.me/quiz">
+  <meta property="og:type" content="website">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --cyan: #00ffff;
+      --magenta: #ff00ff;
+      --purple: #667eea;
+      --dark: #0a0a0f;
+      --card: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.1);
+      --text: #f0f0f0;
+      --muted: #8888aa;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--dark);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -40%;
+      left: -20%;
+      width: 70vw;
+      height: 70vw;
+      background: radial-gradient(circle, rgba(102,126,234,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      right: -10%;
+      width: 50vw;
+      height: 50vw;
+      background: radial-gradient(circle, rgba(0,255,255,0.05) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .flash-banner {
+      background: linear-gradient(90deg, #00ffff, #667eea, #ff00ff);
+      color: #000;
+      padding: 10px 20px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 500;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    .flash-banner a { color: #000; font-weight: 700; text-decoration: underline; margin-left: 8px; }
+
+    nav.navbar {
+      position: relative;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 40px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+    .brand img { height: 38px; width: auto; }
+    .brand span { font-family: 'DM Serif Display', serif; font-size: 20px; }
+
+    .nav-links { display: flex; align-items: center; gap: 24px; list-style: none; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links .nav-cta {
+      background: linear-gradient(135deg, #00ffff, #667eea);
+      color: #000 !important;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .hero {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 80px 20px 60px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .hero-eyebrow {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #00ffff;
+      border: 1px solid rgba(0,255,255,0.3);
+      padding: 5px 14px;
+      border-radius: 20px;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 1.15;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: #00ffff;
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      color: var(--muted);
+      margin-bottom: 40px;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-meta {
+      display: flex;
+      justify-content: center;
+      gap: 28px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .hero-meta span::before {
+      content: '—';
+      margin-right: 6px;
+      color: rgba(255,255,255,0.2);
+    }
+
+    .quiz-container {
+      position: relative;
+      z-index: 1;
+      max-width: 640px;
+      margin: 0 auto 100px;
+      padding: 0 20px;
+    }
+
+    .progress-track {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: 48px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #00ffff);
+      border-radius: 2px;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .q-screen { animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .q-counter {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .q-text {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(22px, 3.5vw, 30px);
+      color: #fff;
+      line-height: 1.3;
+      margin-bottom: 36px;
+    }
+
+    .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 500px) {
+      .options { grid-template-columns: 1fr; }
+      nav.navbar { padding: 14px 20px; }
+      .nav-links { gap: 14px; }
+    }
+
+    .opt {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 14px;
+      color: #ccc;
+      line-height: 1.55;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s, color 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .opt:hover {
+      border-color: rgba(0,255,255,0.5);
+      background: rgba(0,255,255,0.05);
+      color: #fff;
+      transform: translateY(-2px);
+    }
+
+    .opt.selected {
+      border-color: #00ffff;
+      background: rgba(0,255,255,0.08);
+      color: #fff;
+      transform: scale(0.98);
+    }
+
+    .result-screen { animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+    .confetti-stage {
+      position: relative;
+      height: 0;
+      overflow: visible;
+      margin-bottom: 8px;
+    }
+
+    .result-type-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #00ffff;
+      margin-bottom: 12px;
+    }
+
+    .result-headline {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(26px, 4vw, 40px);
+      color: #fff;
+      line-height: 1.2;
+      margin-bottom: 20px;
+    }
+
+    .result-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 16px;
+    }
+
+    .result-desc {
+      font-size: 15px;
+      color: #aaa;
+      line-height: 1.75;
+      margin-bottom: 20px;
+    }
+
+    .result-insight {
+      border-top: 1px solid var(--border);
+      padding-top: 18px;
+      font-size: 14px;
+      color: #888;
+      line-height: 1.7;
+    }
+
+    .result-insight strong {
+      color: #00ffff;
+      font-weight: 500;
+    }
+
+    .cta-card {
+      background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(0,255,255,0.08));
+      border: 1px solid rgba(0,255,255,0.25);
+      border-radius: 16px;
+      padding: 32px 28px;
+      text-align: center;
+      margin-top: 24px;
+    }
+
+    .cta-card h3 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .cta-card p {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .cta-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, #00ffff, #667eea);
+      color: #000;
+      padding: 14px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 15px;
+      transition: opacity 0.2s, transform 0.15s;
+      margin-bottom: 12px;
+    }
+    .cta-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .cta-sub-note {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 20px;
+    }
+
+    .share-row {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .share-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .share-btn:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+
+    .retake {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .retake:hover { color: #fff; }
+
+    .confetti-dot {
+      position: absolute;
+      border-radius: 2px;
+      animation: cfall linear forwards;
+      pointer-events: none;
+    }
+    @keyframes cfall {
+      0%   { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(400px) rotate(540deg); opacity: 0; }
+    }
+
+    footer {
+      position: relative;
+      z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 30px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: #fff; }
+    .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+
+<div class="flash-banner">
+  FLASH40 — 40% off Creator tier until August 31st
+  <a href="/register">Start free &rarr;</a>
+</div>
+
+<nav class="navbar">
+  <a href="/home" class="brand">
+    <img src="/static/logo.png" alt="GiverAI">
+    <span>Giver.ai</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="/blog">Blog</a></li>
+    <li><a href="/tweetgiver">TweetGiver</a></li>
+    {% if user %}
+      <li><a href="/dashboard">Dashboard</a></li>
+      <li><a href="/logout">Logout</a></li>
+    {% else %}
+      <li><a href="/login">Login</a></li>
+      <li><a href="/register" class="nav-cta">Start free</a></li>
+    {% endif %}
+  </ul>
+</nav>
+
+<section class="hero">
+  <div class="hero-eyebrow">2-minute quiz</div>
+  <h1>What type of Twitter creator<br><em>are you?</em></h1>
+  <p class="hero-sub">5 questions. No email required. Find your creator type and get a personalised growth strategy.</p>
+  <div class="hero-meta">
+    <span>5 questions</span>
+    <span>4 creator types</span>
+    <span>Free forever</span>
+  </div>
+</section>
+
+<div class="quiz-container">
+  <div class="progress-track">
+    <div class="progress-fill" id="prog" style="width:0%"></div>
+  </div>
+  <div id="screen"></div>
+</div>
+
+<footer>
+  <div>
+    <strong style="color:#fff;">Giver.ai</strong> &mdash; AI-Powered Tweet Generator
+  </div>
+  <div class="footer-links">
+    <a href="/blog">Blog</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+    <a href="/contact">Contact</a>
+  </div>
+  <div>&copy; 2026 Giver.ai</div>
+</footer>
+
+<script>
+const questions = [
+  {
+    q: "When you sit down to write a tweet, what usually happens?",
+    opts: [
+      { text: "I have an opinion ready — I just need help wording it", type: "opinionator" },
+      { text: "I know my topic but the blank page kills me", type: "educator" },
+      { text: "I want to share something personal but it sounds boring", type: "storyteller" },
+      { text: "I overthink it until I just close the tab", type: "overthinker" }
+    ]
+  },
+  {
+    q: "What kind of tweet gets the most engagement from your audience?",
+    opts: [
+      { text: "Hot takes and contrarian opinions", type: "opinionator" },
+      { text: "Tips, lists, and step-by-step threads", type: "educator" },
+      { text: "Behind-the-scenes and personal stories", type: "storyteller" },
+      { text: "Honestly? I don't post enough to know", type: "overthinker" }
+    ]
+  },
+  {
+    q: "If you could only tweet about one thing, what would it be?",
+    opts: [
+      { text: "What I think is wrong with my industry", type: "opinionator" },
+      { text: "What I know that most people don't", type: "educator" },
+      { text: "What I've been through and what I learned", type: "storyteller" },
+      { text: "I genuinely can't pick one — that's part of the problem", type: "overthinker" }
+    ]
+  },
+  {
+    q: "What does your current posting schedule look like?",
+    opts: [
+      { text: "Sporadic — I post when something irritates me", type: "opinionator" },
+      { text: "I batch-write then go quiet for weeks", type: "educator" },
+      { text: "Rarely — I take forever to feel good about a post", type: "storyteller" },
+      { text: "What schedule? I keep meaning to start one", type: "overthinker" }
+    ]
+  },
+  {
+    q: "What would make you feel like Twitter is actually working?",
+    opts: [
+      { text: "People sharing and arguing with my takes", type: "opinionator" },
+      { text: "Being seen as the go-to expert in my niche", type: "educator" },
+      { text: "Building a real community who gets me", type: "storyteller" },
+      { text: "Just consistently showing up without dreading it", type: "overthinker" }
+    ]
+  }
+];
+
+const results = {
+  opinionator: {
+    label: "The Opinionator",
+    headline: "You have the takes.\nYou need the output.",
+    desc: "Your instincts are sharp — you see things others miss and you're not afraid to say so. The problem isn't ideas, it's that turning a strong opinion into a tweet that lands takes energy you don't always have. You go quiet when you're busy, which means your audience hears from you in bursts.",
+    insight: "Your best tweets already exist in your head. The gap is capture and polish. GiverAI's Casual and Professional tones are built for this — you bring the angle, it finds the words.",
+    cta: "Turn your takes into tweets in 2 minutes",
+    shareText: "I got The Opinionator on the GiverAI Twitter quiz"
+  },
+  educator: {
+    label: "The Educator",
+    headline: "You know your stuff.\nYour audience just can't find you yet.",
+    desc: "You have real expertise and genuinely want to share it — but translating deep knowledge into digestible tweets is a different skill than having the knowledge itself. You probably draft more tweets than you post, and your threads take twice as long as they should.",
+    insight: "The best educators on Twitter aren't the smartest — they're the most consistent. GiverAI's Balanced tone is designed exactly for you: authoritative without being stiff, educational without being dry.",
+    cta: "Generate your next 5 educational tweets",
+    shareText: "I got The Educator on the GiverAI Twitter quiz"
+  },
+  storyteller: {
+    label: "The Storyteller",
+    headline: "Your experiences are the content.\nYou just need help framing them.",
+    desc: "You have a natural instinct for narrative — you notice things, feel things, live a life worth tweeting about. But turning lived experience into a tweet that connects with strangers requires a specific brevity that doesn't come naturally when you're close to the story.",
+    insight: "Personal brand accounts that share real stories consistently outperform every other format for follower growth. GiverAI's Casual tone is built for authentic voice — it drafts from your experience without making it sound like a press release.",
+    cta: "Start writing tweets that sound like you",
+    shareText: "I got The Storyteller on the GiverAI Twitter quiz"
+  },
+  overthinker: {
+    label: "The Overthinker",
+    headline: "You care about quality.\nThat's exactly why you never post.",
+    desc: "You're not lazy — you're a perfectionist in a medium that rewards volume. Every tweet feels like a permanent statement, so you either spend an hour on one post or abandon it entirely. The result is a mostly empty profile despite having plenty to say.",
+    insight: "The fix isn't lowering your standards — it's reducing the cost of a first draft. When GiverAI generates 5 variations in 30 seconds, you pick the best one and edit it, instead of staring at a blank box trying to write something perfect from scratch.",
+    cta: "Get unstuck — 5 free tweets right now",
+    shareText: "I got The Overthinker on the GiverAI Twitter quiz"
+  }
+};
+
+const scores = { opinionator:0, educator:0, storyteller:0, overthinker:0 };
+let current = 0;
+const answered = [];
+
+function topResult() {
+  return Object.entries(scores).sort((a,b)=>b[1]-a[1])[0][0];
+}
+
+function render(idx) {
+  const pct = Math.round((idx / questions.length) * 100);
+  document.getElementById('prog').style.width = pct + '%';
+  const q = questions[idx];
+  const sel = answered[idx];
+  document.getElementById('screen').innerHTML = `
+    <div class="q-screen">
+      <div class="q-counter">Question ${idx+1} of ${questions.length}</div>
+      <div class="q-text">${q.q}</div>
+      <div class="options">
+        ${q.opts.map((o,i) => `
+          <button class="opt${sel===i?' selected':''}" onclick="pick(${idx},${i},'${o.type}')">
+            ${o.text}
+          </button>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+function pick(qIdx, optIdx, type) {
+  if (answered[qIdx] !== undefined) scores[answered[qIdx+'_t']]--;
+  answered[qIdx] = optIdx;
+  answered[qIdx+'_t'] = type;
+  scores[type]++;
+  document.querySelectorAll('.opt').forEach((b,i)=>b.classList.toggle('selected',i===optIdx));
+  setTimeout(() => {
+    if (qIdx < questions.length-1) { current=qIdx+1; render(current); }
+    else showResult();
+  }, 300);
+}
+
+function showResult() {
+  document.getElementById('prog').style.width = '100%';
+  const key = topResult();
+  const r = results[key];
+  const hl = r.headline.replace('\n','<br>');
+  document.getElementById('screen').innerHTML = `
+    <div class="result-screen">
+      <div class="confetti-stage" id="cstage"></div>
+      <div class="result-type-label">${r.label}</div>
+      <div class="result-headline">${hl}</div>
+      <div class="result-card">
+        <div class="result-desc">${r.desc}</div>
+        <div class="result-insight"><strong>Your GiverAI match:</strong> ${r.insight}</div>
+      </div>
+      <div class="cta-card">
+        <h3>15 free tweets daily.<br>No credit card.</h3>
+        <p>Try GiverAI free and post your first tweet today.</p>
+        <a href="/register" class="cta-primary">${r.cta} &rarr;</a>
+        <span class="cta-sub-note">Free forever &middot; No credit card &middot; Code FLASH40 for 40% off Creator tier</span>
+        <div class="share-row">
+          <button class="share-btn" onclick="shareTwitter('${r.shareText}')">Share your result on X</button>
+          <button class="share-btn" onclick="copyResult('${r.shareText}')">Copy result</button>
+        </div>
+      </div>
+      <button class="retake" onclick="restart()">Retake the quiz</button>
+    </div>`;
+  launchConfetti();
+}
+
+function shareTwitter(text) {
+  const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text + ' — find yours at giverai.me/quiz');
+  window.open(url, '_blank');
+}
+
+function copyResult(text) {
+  navigator.clipboard.writeText(text + ' — giverai.me/quiz').then(() => {
+    const btns = document.querySelectorAll('.share-btn');
+    if (btns[1]) { btns[1].textContent = 'Copied!'; setTimeout(()=>btns[1].textContent='Copy result',2000); }
+  });
+}
+
+function launchConfetti() {
+  const stage = document.getElementById('cstage');
+  if (!stage) return;
+  const colors = ['#00ffff','#ff00ff','#667eea','#ffffff','#ffd700','#5DCAA5'];
+  for (let i=0;i<60;i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-dot';
+    el.style.cssText = `
+      left:${Math.random()*100}%;
+      top:0;
+      width:${5+Math.random()*7}px;
+      height:${5+Math.random()*7}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${0.8+Math.random()*1}s;
+      animation-delay:${Math.random()*0.5}s;
+    `;
+    stage.appendChild(el);
+  }
+}
+
+function restart() {
+  Object.keys(scores).forEach(k=>scores[k]=0);
+  answered.length=0;
+  current=0;
+  render(0);
+}
+
+render(0);
+</script>
+</body>
+</html>
