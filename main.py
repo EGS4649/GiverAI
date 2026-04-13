@@ -7369,6 +7369,21 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
     finally:
         db.close()
 
+@app.get("/quiz", response_class=HTMLResponse)
+async def quiz_page(request: Request):
+    db = SessionLocal()
+    user = None
+    token = request.cookies.get("access_token")
+    if token:
+        try:
+            user = get_current_user(token.replace("Bearer ", ""), db)
+        except:
+            pass
+    return templates.TemplateResponse("quiz.html", {
+        "request": request,
+        "user": user
+    })
+
 # Fixed Email Templates with simpler CSS
 EMAIL_TEMPLATES = {
     "welcome": {
