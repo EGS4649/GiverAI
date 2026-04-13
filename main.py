@@ -295,7 +295,7 @@ class EmailService:
         self.smtp_port = int(os.getenv("SMTP_PORT", 587))
         self.smtp_username = os.getenv("SMTP_USERNAME")
         self.smtp_password = os.getenv("SMTP_PASSWORD")
-        self.from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
+        self.from_email = os.getenv("EMAIL_FROM", "support@giverai.me")
         self.sender_name = os.getenv("EMAIL_SENDER_NAME", "GiverAI")
        
     async def send_email(self, to_email: str, subject: str, body: str):
@@ -452,7 +452,166 @@ class EmailService:
             "Account Suspended - GiverAI",
             html_body
         )
+    
+    async def send_day1_followup_email(self, user, tweets_created: int, tweets_remaining: int, hours_until_reset: int):
+        """Day 1 follow-up — sent after first day to nudge continued use"""
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; background: #f9f9f9;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 30px; background: white; border-radius: 8px;">
+            <h1 style="color: #667eea;">How did your first day go? 🚀</h1>
+            <p>Hey {user.username},</p>
+            <p>You generated <strong>{tweets_created} tweet{'s' if tweets_created != 1 else ''}</strong> today. 
+            {'Nice start!' if tweets_created > 0 else "Looks like you haven't tried it yet — here's what you're missing:"}</p>
+            
+            {'<p>You still have <strong>' + str(tweets_remaining) + ' free tweets</strong> left today. Your credits reset in ' + str(hours_until_reset) + ' hours.</p>' if tweets_remaining > 0 else '<p>Your daily credits reset in ' + str(hours_until_reset) + ' hours — come back tomorrow for 15 more free tweets.</p>'}
+            
+            <p style="margin: 30px 0;">
+                <a href="https://giverai.me/dashboard" 
+                style="background: linear-gradient(45deg, #00ffff, #667eea); color: #000; padding: 14px 28px;
+                        text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                Generate More Tweets →
+                </a>
+            </p>
+            
+            <p style="color: #666; font-size: 14px;">
+                💡 <strong>Pro tip:</strong> Try switching tones. Casual works great for personal takes, 
+                Professional for industry content, Refined for thought leadership.
+            </p>
+            
+            <p style="color: #666; font-size: 13px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                Want unlimited tweets? Use code <strong>FLASH40</strong> for 40% off Creator plan ($5.40/mo) — offer ends August 2026.
+            </p>
+            
+            <p>— The GiverAI Team</p>
+            </div>
+        </body>
+        </html>
+        """
+        return self.send_simple_email(
+            user.email,
+            "How did your first day with GiverAI go? 🚀",
+            html_body
+        )
         
+    
+    async def send_day3_nudge_email(self, user, last_login: str, missed_tweets: int):
+        """Day 3 nudge — sent if user hasn't returned"""
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; background: #f9f9f9;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 30px; background: white; border-radius: 8px;">
+            <h1 style="color: #667eea;">You've missed {missed_tweets} free tweets 👀</h1>
+            <p>Hey {user.username},</p>
+            <p>Since you last logged in on {last_login}, your free daily credits have been resetting 
+            — <strong>{missed_tweets} tweets you could have generated, free.</strong></p>
+            <p>Takes 2 minutes. No credit card. No catch.</p>
+            
+            <p style="margin: 30px 0;">
+                <a href="https://giverai.me/dashboard"
+                style="background: linear-gradient(45deg, #00ffff, #667eea); color: #000; padding: 14px 28px;
+                        text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                Claim Your Free Tweets →
+                </a>
+            </p>
+            
+            <p style="color: #666; font-size: 13px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                40% off Creator plan with code <strong>FLASH40</strong> — ends August 2026.
+            </p>
+            
+            <p>— The GiverAI Team</p>
+            </div>
+        </body>
+        </html>
+        """
+        return self.send_simple_email(
+            user.email,
+            "You've missed 45 free tweets (they don't roll over) 👀",
+            html_body
+        )
+
+
+    async def send_day7_reengagement_email(self, user):
+        """Day 7 re-engagement — last attempt before going quiet"""
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; background: #f9f9f9;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 30px; background: white; border-radius: 8px;">
+            <h1 style="color: #667eea;">Still there, {user.username}? 👋</h1>
+            <p>It's been a week since you signed up for GiverAI.</p>
+            <p>We won't keep nudging you after this — but before we go quiet, 
+            we wanted to make sure you actually got to try it properly.</p>
+            
+            <p>If something didn't work, or the output didn't sound like you — 
+            <strong>reply to this email and tell us.</strong> We read every reply.</p>
+            
+            <p style="margin: 30px 0;">
+                <a href="https://giverai.me/dashboard"
+                style="background: linear-gradient(45deg, #00ffff, #667eea); color: #000; padding: 14px 28px;
+                        text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                Give It One More Try →
+                </a>
+            </p>
+            
+            <p style="color: #666; font-size: 14px;">
+                15 free tweets every day. No credit card. Your account is still active.
+            </p>
+
+            <p style="color: #666; font-size: 13px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                40% off Creator plan with code <strong>FLASH40</strong> — ends August 2026.
+            </p>
+            
+            <p>— The GiverAI Team</p>
+            </div>
+        </body>
+        </html>
+        """
+        return self.send_simple_email(
+            user.email,
+            "Still there? (last email from us) 👋",
+            html_body
+        )
+
+
+    async def send_power_user_reward_email(self, user, tweets_remaining: int):
+        """Power user reward — sent when user returns on day 2"""
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; background: #f9f9f9;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 30px; background: white; border-radius: 8px;">
+            <h1 style="color: #667eea;">You came back 🔥</h1>
+            <p>Hey {user.username},</p>
+            <p>Day 2. You actually came back. That puts you ahead of most people who sign up for tools like this.</p>
+            <p>You've got <strong>{tweets_remaining} free tweets</strong> left today.</p>
+            
+            <p style="color: #444; background: #f0f0ff; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea;">
+                💡 <strong>The workflow that works:</strong> Generate 5 variations, pick the best hook, 
+                add one personal detail only you'd know, post. Takes under 3 minutes.
+            </p>
+            
+            <p style="margin: 30px 0;">
+                <a href="https://giverai.me/dashboard"
+                style="background: linear-gradient(45deg, #00ffff, #667eea); color: #000; padding: 14px 28px;
+                        text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                Keep Going →
+                </a>
+            </p>
+            
+            <p style="color: #666; font-size: 13px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                Ready to go unlimited? Code <strong>FLASH40</strong> → 40% off Creator plan ($5.40/mo). Ends August 2026.
+            </p>
+            
+            <p>— The GiverAI Team</p>
+            </div>
+        </body>
+        </html>
+        """
+        return self.send_simple_email(
+            user.email,
+            "You came back 🔥 here's the workflow that works",
+            html_body
+        )
+
     async def send_account_recovery_email(self, email: str):
         """Send account recovery instructions email"""
         html_body = f"""
