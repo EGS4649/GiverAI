@@ -7277,9 +7277,6 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
         except ValueError:
             tweet_count = 1
 
-        # Verify reCAPTCHA
-        g_recaptcha_response = form.get("g-recaptcha-response", "")
-        if not verify_recaptcha(g_recaptcha_response):
             existing_token = request.cookies.get("fastapi-csrf-token")
             today = str(date.today())
             usage = db.query(Usage).filter(Usage.user_id == user.id, Usage.date == today).first()
@@ -7294,9 +7291,7 @@ async def generate(request: Request, csrf_protect: CsrfProtect = Depends()):
                 "tweets_left": tweets_left,
                 "tweets_used": usage.count if usage else 0,
                 "tweets": [],
-                "error": "Please complete the reCAPTCHA verification",
                 "csrf_token": existing_token,
-                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
             })
 
         # Get usage for today
