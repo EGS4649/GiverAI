@@ -253,21 +253,66 @@
       margin-bottom: 8px;
     }
 
+    .result-reveal {
+      text-align: center;
+      padding: 48px 0 36px;
+    }
+
     .result-type-label {
       font-size: 11px;
       font-weight: 500;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
       color: #00ffff;
-      margin-bottom: 12px;
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeUp 0.5s 0.1s forwards;
+    }
+
+    .result-crown {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(52px, 10vw, 88px);
+      font-style: italic;
+      line-height: 1.05;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #ffffff 0%, #00ffff 50%, #667eea 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      opacity: 0;
+      animation: crownReveal 0.7s 0.25s cubic-bezier(0.2, 0, 0.2, 1) forwards;
+      letter-spacing: -0.02em;
+    }
+
+    @keyframes crownReveal {
+      from { opacity: 0; transform: scale(0.85) translateY(12px); filter: blur(4px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-divider {
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, #667eea, #00ffff);
+      margin: 0 auto 24px;
+      border-radius: 1px;
+      opacity: 0;
+      animation: fadeUp 0.5s 0.5s forwards;
     }
 
     .result-headline {
       font-family: 'DM Serif Display', serif;
-      font-size: clamp(26px, 4vw, 40px);
-      color: #fff;
-      line-height: 1.2;
-      margin-bottom: 20px;
+      font-size: clamp(18px, 2.8vw, 26px);
+      color: #aaa;
+      line-height: 1.4;
+      margin-bottom: 0;
+      font-weight: 400;
+      opacity: 0;
+      animation: fadeUp 0.5s 0.6s forwards;
     }
 
     .result-card {
@@ -276,6 +321,7 @@
       border-radius: 16px;
       padding: 28px;
       margin-bottom: 16px;
+      margin-top: 32px;
     }
 
     .result-desc {
@@ -593,8 +639,12 @@ function showResult() {
   document.getElementById('screen').innerHTML = `
     <div class="result-screen">
       <div class="confetti-stage" id="cstage"></div>
-      <div class="result-type-label">${r.label}</div>
-      <div class="result-headline">${hl}</div>
+      <div class="result-reveal">
+        <div class="result-type-label">Your creator type</div>
+        <div class="result-crown">${r.label}</div>
+        <div class="result-divider"></div>
+        <div class="result-headline">${hl}</div>
+      </div>
       <div class="result-card">
         <div class="result-desc">${r.desc}</div>
         <div class="result-insight"><strong>Your GiverAI match:</strong> ${r.insight}</div>
