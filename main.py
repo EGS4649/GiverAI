@@ -1719,9 +1719,15 @@ async def send_scheduled_emails():
             
             # Get emails that need to be sent
             emails_to_send = db.query(ScheduledEmail).filter(
-                ScheduledEmail.sent == False,
-                ScheduledEmail.scheduled_for <= now
-            ).all()
+                ScheduledEmail.id == scheduled_email.id,
+                ScheduledEmail.sent == False
+                ).update({"sent": True, "sent_at": datetime.utcnow()})
+            db.commit()
+
+            if not updated:
+                print(f"⚠️ Skipped {scheduled_email.email_type} — already sent")
+                continue  # another process beat us to it
+            
             
             for scheduled_email in emails_to_send:
                 user = db.query(User).filter(User.id == scheduled_email.user_id).first()
@@ -1767,8 +1773,12 @@ async def send_scheduled_emails():
                         await email_service.send_power_user_reward_email(user, tweets_remaining)
                     
                     # Mark as sent
-                    scheduled_email.sent = True
-                    scheduled_email.sent_at = datetime.utcnow()
+                    updated = db.query(ScheduledEmail).filter(
+                        ScheduledEmail.id == scheduled_email.id
+                    ).update({
+                        ScheduledEmail.sent: True,
+                        ScheduledEmail.sent_at: datetime.utcnow()
+                    })
                     db.commit()
                     
                     print(f"✅ Sent {scheduled_email.email_type} to {user.email}")
@@ -2461,10 +2471,18 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     # Let other HTTP exceptions pass through
     raise exc
 
+_scheduler_started = False
+
 # Start the background task when app starts
 @app.on_event("startup")
 async def startup_event():
-    asyncio.create_task(send_scheduled_emails())
+    global _scheduler_started
+    if not _scheduler_started:
+        _scheduler_started = True
+        asyncio.create_task(send_scheduled_emails())
+        print("✅ Email scheduler started")
+    else:
+        print("⚠️ Scheduler already running, skipping")
     
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
