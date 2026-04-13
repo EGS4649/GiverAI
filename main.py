@@ -131,6 +131,8 @@ engine = create_engine(
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+_scheduler_started = False
+
 def get_db_session():
     """Dependency for getting DB sessions."""
     db = SessionLocal()
@@ -2471,7 +2473,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     # Let other HTTP exceptions pass through
     raise exc
 
-_scheduler_started = False
+
 
 # Start the background task when app starts
 @app.on_event("startup")
