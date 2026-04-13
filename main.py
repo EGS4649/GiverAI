@@ -7004,18 +7004,13 @@ async def get_ai_tweets(prompt, count=5, tone='balanced'):
         
         system_prompt = build_system_prompt(tone)
         
-        language_instruction = """
-
-LANGUAGE RULE (overrides everything else):
-Detect the language of the user's input and generate ALL tweets in that same language.
-Do not translate to English. Do not explain. Just match the language exactly."""
 
         response = client.chat.completions.create(
             model="openai/gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
-                    "content": system_prompt + language_instruction
+                    "content": system_prompt 
                 },
                 {
                     "role": "user",
