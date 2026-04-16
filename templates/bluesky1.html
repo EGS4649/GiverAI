@@ -7,7 +7,7 @@
   <meta name="description" content="5-question quiz to discover your Bluesky creator type — and the exact strategy to grow faster in 2025. Take the quiz free.">
   <meta property="og:title" content="What Type of Bluesky Creator Are You?">
   <meta property="og:description" content="5 questions. Instant result. Find your creator type and unlock your Bluesky growth strategy.">
-  <meta property="og:url" content="https://giverai.me/quiz">
+  <meta property="og:url" content="https://giverai.me/what-type-of-bluesky-creator-are-you-quiz">
   <meta property="og:type" content="website">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
@@ -679,12 +679,12 @@ function showResult() {
 }
 
 function shareBluesky(text) {
-  const url = 'https://bsky.app/intent/compose?text=' + encodeURIComponent(text + ' — find yours at giverai.me/quiz');
+  const url = 'https://bsky.app/intent/compose?text=' + encodeURIComponent(text + ' — find yours at giverai.me/what-type-of-bluesky-creator-are-you-quiz');
   window.open(url, '_blank');
 }
 
 function copyResult(text) {
-  navigator.clipboard.writeText(text + ' — giverai.me/quiz').then(() => {
+  navigator.clipboard.writeText(text + ' — giverai.me/what-type-of-bluesky-creator-are-you-quiz').then(() => {
     const btns = document.querySelectorAll('.share-btn');
     if (btns[1]) { btns[1].textContent = 'Copied!'; setTimeout(()=>btns[1].textContent='Copy result',2000); }
   });
