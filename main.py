@@ -7383,6 +7383,36 @@ async def quiz_page(request: Request):
         "request": request,
         "user": user
     })
+    
+@app.get("/quiz", response_class=HTMLResponse)
+async def quiz_page(request: Request):
+    db = SessionLocal()
+    user = None
+    token = request.cookies.get("access_token")
+    if token:
+        try:
+            user = get_current_user(token.replace("Bearer ", ""), db)
+        except:
+            pass
+    return templates.TemplateResponse("quiz.html", {
+        "request": request,
+        "user": user
+    })
+
+@app.get("/what-type-of-bluesky-creator-are-you-quiz", response_class=HTMLResponse)
+async def quiz_page(request: Request):
+    db = SessionLocal()
+    user = None
+    token = request.cookies.get("access_token")
+    if token:
+        try:
+            user = get_current_user(token.replace("Bearer ", ""), db)
+        except:
+            pass
+    return templates.TemplateResponse("bluesky1.html", {
+        "request": request,
+        "user": user
+    })
 
 # Fixed Email Templates with simpler CSS
 EMAIL_TEMPLATES = {
