@@ -297,7 +297,7 @@ class EmailService:
         self.smtp_port = int(os.getenv("SMTP_PORT", 587))
         self.smtp_username = os.getenv("SMTP_USERNAME")
         self.smtp_password = os.getenv("SMTP_PASSWORD")
-        self.from_email = os.getenv("EMAIL_FROM", "support@giverai.me")
+        self.from_email = os.getenv("EMAIL_FROM", "noreply@giverai.me")
         self.sender_name = os.getenv("EMAIL_SENDER_NAME", "GiverAI")
        
     async def send_email(self, to_email: str, subject: str, body: str):
