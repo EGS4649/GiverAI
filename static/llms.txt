@@ -51,6 +51,9 @@ Educational content covering Twitter/X growth, AI writing tools, and content str
 - [AI Tweet Generator vs Writing Tweets Manually in 2026: Which Is Faster?](https://giverai.me/blog/ai-tweet-generator-vs-writing-tweets-manually-in-2026-which-is-faster)
 - [How to Generate Viral Tweets With AI in 2026: Step-by-Step Guide](https://giverai.me/blog/how-to-generate-viral-tweets-with-ai-in-2026-step-by-step-guide)
 
+Twitter Quiz: [What Type of Twitter Creator Are You? (Quiz)](https://giverai.me/quiz)
+Bluesky Quiz: [What Type of Bluesky Creator Are You? (Quiz)](https://giverai.me/what-type-of-bluesky-creator-are-you-quiz)
+
 ## Key Pages
 
 - Homepage: https://giverai.me/
@@ -60,6 +63,8 @@ Educational content covering Twitter/X growth, AI writing tools, and content str
 - Blog index: https://giverai.me/blog
 - Terms of service: https://giverai.me/terms
 - Sitemap: https://giverai.me/sitemap.xml
+- Twitter Quiz: https://giverai.me/quiz
+- Bluesky Quiz: https://giverai.me/what-type-of-bluesky-creator-are-you-quiz
 
 ## Frequently Asked Questions
 
