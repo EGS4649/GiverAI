@@ -58,7 +58,6 @@ import bleach
 
 IS_PRODUCTION = os.getenv("ENV", "development") == "production"
 SECRET_KEY = os.getenv("SECRET_KEY")
-# Add your reCAPTCHA variables here
 RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY")
 RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY")
 
@@ -5408,26 +5407,32 @@ def logout(request: Request):
 def contact_page(request: Request):
     print("The user is looking at the contact page!")
     user = get_optional_user(request)
-    # csrf_response = csrf_protect.generate_csrf()  ← COMMENT OUT
-    # csrf_token = csrf_response[0] if isinstance(csrf_response, tuple) else csrf_response  ← COMMENT OUT
-    
-    return templates.TemplateResponse("contact.html", {  # ← Changed to simple return
+    return templates.TemplateResponse("contact.html", {  
         "request": request,
         "user": user,
-        "form_data": {}
-        # "csrf_token": csrf_token  ← COMMENT OUT (remove from dict)
+        "form_data": {},
+        "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY")
     })
-    # response.set_cookie(...)  ← COMMENT OUT entire cookie section
 
 @app.post("/contact", response_class=HTMLResponse)
 @limiter.limit("10/minute")
-async def handle_contact_form(request: Request):  # ← Removed csrf_protect parameter
-    # await csrf_protect.validate_csrf(request)  ← COMMENT OUT
+async def handle_contact_form(request: Request,g_recaptcha_response: str = Form(alias="g-recaptcha-response", default=""),
+                              ): 
     user = get_optional_user(request)
     form_data = {}
-    
     try:
+        # Verify reCAPTCHA first, before any other processing
+        if not verify_recaptcha(g_recaptcha_response):
+            return templates.TemplateResponse("contact.html", {
+                "request": request,
+                "user": user,
+                "form_data": {},
+                "error": "Please complete the reCAPTCHA verification.",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+            })
+
         form = await request.form()
+        
         form_data = {
             "name": sanitize_input(form["name"]),
             "email": sanitize_input(form["email"]),
