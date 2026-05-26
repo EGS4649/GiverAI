@@ -10,7 +10,6 @@
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <meta name="description" content="Get in touch with the Giver.ai team. Contact us for support, questions, or feedback about our AI-powered social media content generation platform.">
   <link rel="stylesheet" href="/static/style.css">
-  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <style>
     .contact-container {
       max-width: 800px;
@@ -307,6 +306,10 @@
         {% endif %}
         
         <form method="post" action="/contact">
+        <!-- Honeypot - hidden from real users -->
+        <div style="display:none" aria-hidden="true">
+        <input type="text" name="website" tabindex="-1" autocomplete="off">
+        </div>
           <div class="form-group">
             <label for="name">Your Name *</label>
             <input type="text" id="name" name="name" required 
@@ -348,12 +351,21 @@
                      style="background: rgba(0, 0, 0, 0.3); color: #adc2ff;">
             </div>
           {% endif %}
-           <div class="g-recaptcha" 
-           data-sitekey="{{ recaptcha_site_key }}"
-           style="margin: 20px 0;">
-           </div>
-          <button type="submit">Send Message</button>
-        </form>
+
+          <div class="recaptcha-container" style="margin: 20px 0;">
+                <div class="g-recaptcha"
+                 data-sitekey="{{ recaptcha_site_key }}"
+                 data-callback="onCaptchaSuccess"
+                 data-expired-callback="onCaptchaExpired"
+             data-error-callback="onCaptchaError"></div>
+          </div>
+      
+      <div class="captcha-status" id="captchaStatus">
+        Please complete the reCAPTCHA verification above
+      </div>
+
+      <button type="submit" id="submitBtn">Send Message</button> 
+      </form>
       </div>
       
       <!-- Contact Information -->
