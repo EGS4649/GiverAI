@@ -5438,6 +5438,17 @@ async def handle_contact_form(
     user = get_optional_user(request)
     form_data = {}
 
+    honeypot = form.get("website", "")
+    if honeypot:
+    # Silently return success so bots don't know they were blocked
+        return templates.TemplateResponse("contact.html", {
+            "request": request,
+            "user": user,
+            "form_data": {},
+            "success": "Thank you! Your message has been sent successfully.",
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
+        })
+
     try:
         if not verify_recaptcha(g_recaptcha_response):
             return templates.TemplateResponse("contact.html", {
