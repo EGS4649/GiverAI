@@ -5450,6 +5450,7 @@ async def handle_contact_form(
         })
 
     try:
+        form = await request.form()
         if not verify_recaptcha(g_recaptcha_response):
             return templates.TemplateResponse("contact.html", {
                 "request": request,
@@ -5458,8 +5459,6 @@ async def handle_contact_form(
                 "error": "Please complete the reCAPTCHA verification.",
                 "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
             })
-
-        form = await request.form()
 
         if form.get("website"):
             raise ValueError("Spam detected")
