@@ -55,6 +55,7 @@ from slowapi.errors import RateLimitExceeded
 import logging
 import structlog
 import bleach
+import dns.resolver
 
 IS_PRODUCTION = os.getenv("ENV", "development") == "production"
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -289,6 +290,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
         return response
+
+def is_valid_email_domain(email: str) -> bool:
+    try:
+        if "@" not in email:
+            return False
+        domain = email.rsplit("@", 1)[1].strip().lower()
+        dns.resolver.resolve(domain, "MX", lifetime=3)
+        return True
+    except Exception:
+        return False
 
 class EmailService:
     def __init__(self):
@@ -5416,12 +5427,14 @@ def contact_page(request: Request):
 
 @app.post("/contact", response_class=HTMLResponse)
 @limiter.limit("10/minute")
-async def handle_contact_form(request: Request,g_recaptcha_response: str = Form(alias="g-recaptcha-response", default=""),
-                              ): 
+async def handle_contact_form(
+    request: Request,
+    g_recaptcha_response: str = Form(alias="g-recaptcha-response", default="")
+):
     user = get_optional_user(request)
     form_data = {}
+
     try:
-        # Verify reCAPTCHA first, before any other processing
         if not verify_recaptcha(g_recaptcha_response):
             return templates.TemplateResponse("contact.html", {
                 "request": request,
@@ -5432,60 +5445,81 @@ async def handle_contact_form(request: Request,g_recaptcha_response: str = Form(
             })
 
         form = await request.form()
-        
+
+        if form.get("website"):
+            raise ValueError("Spam detected")
+
         form_data = {
-            "name": sanitize_input(form["name"]),
-            "email": sanitize_input(form["email"]),
-            "subject": form["subject"],
-            "message": sanitize_input(form["message"])
+            "name": sanitize_input(form.get("name", "")),
+            "email": sanitize_input(form.get("email", "")),
+            "subject": form.get("subject", ""),
+            "message": sanitize_input(form.get("message", ""))
         }
-        
-        # Validation
+
         if not all([form_data["name"], form_data["email"], form_data["subject"], form_data["message"]]):
             raise ValueError("All required fields must be filled out")
-        
+
         if len(form_data["message"]) < 10:
             raise ValueError("Please provide a more detailed message")
-        
+
+        if "@" not in form_data["email"]:
+            raise ValueError("Please enter a valid email address")
+
+        if not is_valid_email_domain(form_data["email"]):
+            raise ValueError("Please enter a valid email address")
+
         user_info = None
         if user:
-            user_info = f"Username: {user.username} | Plan: {user.plan.replace('_', ' ').title()} | Member since: {user.created_at.strftime('%Y-%m-%d')}"
-        
-        # Send emails
+            user_info = (
+                f"Username: {user.username} | "
+                f"Plan: {user.plan.replace('_', ' ').title()} | "
+                f"Member since: {user.created_at.strftime('%Y-%m-%d')}"
+            )
+
         support_sent = email_service.send_contact_form_notification(
-            form_data["name"], form_data["email"], form_data["subject"], form_data["message"], user_info
+            form_data["name"],
+            form_data["email"],
+            form_data["subject"],
+            form_data["message"],
+            user_info
         )
-        
+
         confirmation_sent = email_service.send_contact_confirmation_email(
-            form_data["name"], form_data["email"], form_data["subject"]
+            form_data["name"],
+            form_data["email"],
+            form_data["subject"]
         )
-        
+
         if support_sent and confirmation_sent:
             return templates.TemplateResponse("contact.html", {
                 "request": request,
                 "user": user,
                 "form_data": {},
-                "success": "Thank you! Your message has been sent successfully. We'll get back to you within 24 hours."
+                "success": "Thank you! Your message has been sent successfully. We'll get back to you within 24 hours.",
+                "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
             })
-        else:
-            raise Exception("Failed to send email")
-            
+
+        raise Exception("Failed to send email")
+
     except ValueError as e:
         return templates.TemplateResponse("contact.html", {
             "request": request,
             "user": user,
             "form_data": form_data,
-            "error": str(e)
+            "error": str(e),
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
         })
+
     except Exception as e:
         print(f"Contact form error: {e}")
         return templates.TemplateResponse("contact.html", {
             "request": request,
             "user": user,
             "form_data": form_data,
-            "error": "Sorry, there was an issue sending your message. Please try again or email us directly at support@giverai.me"
+            "error": "Sorry, there was an issue sending your message. Please try again or email us directly at support@giverai.me",
+            "recaptcha_site_key": os.getenv("RECAPTCHA_SITE_KEY"),
         })
-        
+
 @app.get("/faq", response_class=HTMLResponse)
 def faq_page(request: Request):
     print("The user is looking at the faq page!")
