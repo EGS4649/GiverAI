@@ -351,17 +351,21 @@
                      style="background: rgba(0, 0, 0, 0.3); color: #adc2ff;">
             </div>
           {% endif %}
-           <div class="g-recaptcha" 
-                     data-callback="onCaptchaSuccess"
-                     data-expired-callback="onCaptchaExpired"
-                     data-error-callback="onCaptchaError">
-                </div>
-            </div>
-            <div class="captcha-status" id="captchaStatus">
-                Please complete the reCAPTCHA verification above
-            </div>
-          <button type="submit">Send Message</button>
-        </form>
+
+          <div class="recaptcha-container" style="margin: 20px 0;">
+                <div class="g-recaptcha"
+                 data-sitekey="{{ recaptcha_site_key }}"
+                 data-callback="onCaptchaSuccess"
+                 data-expired-callback="onCaptchaExpired"
+             data-error-callback="onCaptchaError"></div>
+          </div>
+      
+      <div class="captcha-status" id="captchaStatus">
+        Please complete the reCAPTCHA verification above
+      </div>
+
+      <button type="submit" id="submitBtn">Send Message</button> 
+      </form>
       </div>
       
       <!-- Contact Information -->
