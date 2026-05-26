@@ -1111,7 +1111,11 @@ class EmailService:
             "feedback": "Feedback",
             "other": "Other"
         }
+        VALID_SUBJECTS = set(subject_labels.keys())
     
+        if subject_category not in VALID_SUBJECTS:
+            raise ValueError("Please select a valid topic")
+
         subject_label = subject_labels.get(subject_category, subject_category)
         formatted_message = message.replace('\n', '<br>')
     
