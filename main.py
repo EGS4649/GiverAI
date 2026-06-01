@@ -6313,7 +6313,7 @@ async def generate_tweetgiver(request: Request):
     
     # Check playground usage count
     playground_count = int(request.cookies.get("playground_count", "0"))
-    if playground_count >= 5:
+    if playground_count >= 1:
         return RedirectResponse(
             "/register?message=You've reached the free limit! Sign up for unlimited tweets.", 
             status_code=302
