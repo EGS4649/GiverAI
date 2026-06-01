@@ -6659,6 +6659,9 @@ async def create_checkout_session(request: Request, plan_type: str):
             cancel_url=str(request.url_for('pricing')),
             customer=customer_id,
             client_reference_id=str(user.id),
+            discounts=[{
+                'coupon': 'FLASH40',
+            }],
             metadata={
                 "user_id": str(user.id), 
                 "plan": plan_type
