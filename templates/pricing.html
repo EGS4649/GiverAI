@@ -231,133 +231,75 @@
       </div>
     {% endif %}
 
-    <div class="pricing-container">
-      <!-- Free Plan -->
-      <div class="pricing-card">
-        <div class="plan-header">
-          <div class="plan-name">Free</div>
-          <div class="plan-price"><span class="currency">$</span>0<span class="currency">/month</span></div>
-        </div>
-        <ul class="features-list">
-          <li><span class="checkmark">✓</span> Up to 15 tweets/day</li>
-          <li><span class="checkmark">✓</span> Basic customization options</li>
-          <li><span class="checkmark">✓</span> Limited 24h tweet history</li>
-          <li><span class="crossmark">✘</span> Export/download tweets</li>
-          <li><span class="crossmark">✘</span> Priority support</li>
-          <li><span class="crossmark">✘</span> Team collaboration</li>
-          <li><span class="crossmark">✘</span> Scheduling & automation</li>
-        </ul>
-        <div class="plan-cta">
-          <a href="/register" style="text-decoration: none;">
-            <button class="plan-button">Start Free</button>
-          </a>
-        </div>
-      </div>
+    <div style="max-width: 720px; margin: 40px auto; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
 
-      <!-- Creator Plan -->
-      <div class="pricing-card featured">
-        <div class="featured-badge">Most Popular</div>
-        <div class="plan-header">
-          <div class="plan-name">Creator</div>
-          <div class="plan-price"><span class="currency">$</span>9<span class="currency">/month</span></div>
-        </div>
-        <ul class="features-list">
-          <li><span class="checkmark">✓</span> Unlimited tweet generations</li>
-          <li><span class="checkmark">✓</span> Advanced customization & templates</li>
-          <li><span class="checkmark">✓</span> 60-day tweet history</li>
-          <li><span class="checkmark">✓</span> Export/download tweets</li>
-          <li><span class="checkmark">✓</span> Priority email support</li>
-          <li><span class="crossmark">✘</span> Team collaboration</li>
-          <li><span class="crossmark">✘</span> Scheduling & automation</li>
-        </ul>
+  <!-- Free -->
+  <div class="pricing-card">
+    <div class="plan-header">
+      <div class="plan-name">Free</div>
+      <div class="plan-price"><span class="currency">$</span>0<span class="currency">/month</span></div>
+    </div>
+    <ul class="features-list">
+      <li><span class="checkmark">✓</span> 15 tweets per day</li>
+      <li><span class="checkmark">✓</span> All 4 tone modes</li>
+      <li><span class="checkmark">✓</span> 1, 5, or 10 variations</li>
+      <li><span class="checkmark">✓</span> Multilingual output</li>
+      <li><span class="crossmark">✘</span> Unlimited generations</li>
+      <li><span class="crossmark">✘</span> Tweet history</li>
+      <li><span class="crossmark">✘</span> Priority support</li>
+    </ul>
+    <div class="plan-cta">
+      <a href="/register" style="text-decoration: none;">
+        <button class="plan-button">Start Free</button>
+      </a>
+    </div>
+  </div>
 
-        <div class="plan-cta">
-        {% if user %}
-          {% if user.plan == 'free' %}
-            <form action="/checkout/creator" method="post">
-              <button class="plan-button" type="submit">Upgrade to Creator</button>
-            </form>
-          {% elif user.plan == 'creator' %}
-            <button class="plan-button" disabled>Current Plan</button>
-          {% else %}
-            <form action="/checkout/creator" method="post">
-              <button class="plan-button" type="submit">Switch to Creator</button>
-            </form>
-          {% endif %}
-        {% else %}
-          <a href="/register">
-            <button class="plan-button">Start Free</button>
-          </a>
-        {% endif %}
-        </div> 
+  <!-- Creator -->
+  <div class="pricing-card featured">
+    <div class="featured-badge">Most Popular</div>
+    <div class="plan-header">
+      <div class="plan-name">Creator</div>
+      <div style="margin-bottom: 4px;">
+        <span style="color: #adc2ff; font-size: 0.9em; text-decoration: line-through;">$9/month</span>
       </div>
-      
-      <!-- Small Team Plan - Coming Soon -->
-      <div class="pricing-card coming-soon">
-        <div class="coming-soon-badge">Coming Soon</div>
-        <div class="plan-header">
-          <div class="plan-name">Small Team</div>
-          <div class="plan-price"><span class="currency">$</span>25<span class="currency">/month</span></div>
-        </div>
-        <ul class="features-list">
-          <li><span class="checkmark">✓</span> Unlimited tweet generations</li>
-          <li><span class="checkmark">✓</span> Advanced & team settings</li>
-          <li><span class="checkmark">✓</span> 60+ days shared history</li>
-          <li><span class="checkmark">✓</span> Export/download tweets</li>
-          <li><span class="checkmark">✓</span> Priority support</li>
-          <li><span class="checkmark">✓</span> 3-5 team seats</li>
-          <li><span class="checkmark">✓</span> Standard scheduling</li>
-        </ul>
-        <div class="plan-cta">
-          <button class="coming-soon-button" disabled>Coming Soon</button>
-        </div>
+      <div class="plan-price">
+        <span class="currency">$</span>5.40<span class="currency">/month</span>
       </div>
-
-      <!-- Agency Plan - Coming Soon -->
-      <div class="pricing-card coming-soon">
-        <div class="coming-soon-badge">Coming Soon</div>
-        <div class="plan-header">
-          <div class="plan-name">Agency</div>
-          <div class="plan-price"><span class="currency">$</span>69<span class="currency">/month</span></div>
-        </div>
-        <ul class="features-list">
-          <li><span class="checkmark">✓</span> Unlimited tweet generations</li>
-          <li><span class="checkmark">✓</span> Advanced + analytics</li>
-          <li><span class="checkmark">✓</span> 90+ days + analytics</li>
-          <li><span class="checkmark">✓</span> Export/download tweets</li>
-          <li><span class="checkmark">✓</span> Dedicated support</li>
-          <li><span class="checkmark">✓</span> 10-15 team seats</li>
-          <li><span class="checkmark">✓</span> Advanced scheduling</li>
-          <li><span class="checkmark">✓</span> White labeling</li>
-        </ul>
-        <div class="plan-cta">
-          <button class="coming-soon-button" disabled>Coming Soon</button>
-        </div>
-      </div>
-
-      <!-- Enterprise Plan - Coming Soon -->
-      <div class="pricing-card coming-soon">
-        <div class="coming-soon-badge">Coming Soon</div>
-        <div class="plan-header">
-          <div class="plan-name">Enterprise</div>
-          <div class="plan-price"><span class="currency">$</span>199+<span class="currency">/month</span></div>
-        </div>
-        <ul class="features-list">
-          <li><span class="checkmark">✓</span> Unlimited everything</li>
-          <li><span class="checkmark">✓</span> Fully customizable</li>
-          <li><span class="checkmark">✓</span> Unlimited + archiving</li>
-          <li><span class="checkmark">✓</span> Export/download tweets</li>
-          <li><span class="checkmark">✓</span> 24/7 dedicated support</li>
-          <li><span class="checkmark">✓</span> Unlimited team seats</li>
-          <li><span class="checkmark">✓</span> Custom integrations</li>
-          <li><span class="checkmark">✓</span> API access</li>
-          <li><span class="checkmark">✓</span> Account manager</li>
-        </ul>
-        <div class="plan-cta">
-          <button class="coming-soon-button" disabled>Coming Soon</button>
-        </div>
+      <div style="color: #00ffff; font-size: 0.8em; margin-top: 6px;">
+        Code FLASH40 · Ends August 31st
       </div>
     </div>
+    <ul class="features-list">
+      <li><span class="checkmark">✓</span> Unlimited tweet generations</li>
+      <li><span class="checkmark">✓</span> All 4 tone modes</li>
+      <li><span class="checkmark">✓</span> 1, 5, or 10 variations</li>
+      <li><span class="checkmark">✓</span> Multilingual output</li>
+      <li><span class="checkmark">✓</span> 60-day tweet history</li>
+      <li><span class="checkmark">✓</span> Priority email support</li>
+      <li><span class="checkmark">✓</span> Early access to new features</li>
+    </ul>
+    <div class="plan-cta">
+      {% if user %}
+        {% if user.plan == 'free' %}
+          <form action="/checkout/creator" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="plan-button" type="submit">Upgrade Now →</button>
+          </form>
+        {% elif user.plan == 'creator' %}
+          <button class="plan-button" disabled style="opacity:0.6;">Current Plan ✓</button>
+        {% endif %}
+      {% else %}
+        <a href="/register" style="text-decoration: none;">
+          <button class="plan-button">Get Started →</button>
+        </a>
+      {% endif %}
+      <div style="color: #666; font-size: 0.75em; margin-top: 10px; text-align: center;">
+        No contracts · Cancel anytime
+      </div>
+    </div>
+  </div>
+</div>
   </main>
 
   <!-- Footer -->
