@@ -5437,7 +5437,8 @@ async def handle_contact_form(
 ):
     user = get_optional_user(request)
     form_data = {}
-
+    form = await request.form()
+    
     honeypot = form.get("website", "")
     if honeypot:
     # Silently return success so bots don't know they were blocked
@@ -5450,7 +5451,6 @@ async def handle_contact_form(
         })
 
     try:
-        form = await request.form()
         if not verify_recaptcha(g_recaptcha_response):
             return templates.TemplateResponse("contact.html", {
                 "request": request,
