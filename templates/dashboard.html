@@ -197,23 +197,45 @@
     </div>
     {% endif %}
 
-    {% if tweets_left == 0 %}
-    <div class="limit-warning">
-      <h3>Daily Limit Reached! 🎯</h3>
-      <p>You've used all your free tweets for today. Your credits will regenerate tomorrow at midnight.</p>
-      <p style="margin-top: 15px;">
-        <a href="/pricing" style="color: #00ffff; text-decoration: underline;">Upgrade to Creator Plan</a> for unlimited tweets!
-      </p>
-    </div>
-    {% endif %}
-    <div class="tweet-generator-section">
-      <h2 style="color: #00ffff; margin-bottom: 20px;">🎯 Tweet Generator</h2>
-      
-      {% if error %}
-        <div style="background: rgba(255, 0, 0, 0.2); border: 1px solid #ff4444; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #ff4444; text-align: center;">
-          {{ error }}
-        </div>
-      {% endif %}
+   {% if tweets_left == 0 %}
+<div style="
+  background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(255,0,255,0.15));
+  border: 2px solid rgba(255,0,255,0.5);
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 30px;
+  text-align: center;
+">
+  <div style="font-size: 2em; margin-bottom: 12px;">⚡</div>
+  <h2 style="color: #fff; font-size: 1.5em; margin-bottom: 8px;">You've hit your daily limit</h2>
+  <p style="color: #adc2ff; margin-bottom: 6px;">15 tweets used. Credits reset at midnight.</p>
+  <p style="color: #adc2ff; margin-bottom: 24px; font-size: 0.95em;">
+    Or skip the wait — go unlimited right now.
+  </p>
+  <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 16px; margin-bottom: 24px; display: inline-block;">
+    <div style="color: #adc2ff; font-size: 0.85em; text-decoration: line-through; margin-bottom: 2px;">$9/month</div>
+    <div style="color: #fff; font-size: 2em; font-weight: bold; line-height: 1;">$5.40<span style="font-size: 0.45em; color: #adc2ff;">/month</span></div>
+    <div style="color: #00ffff; font-size: 0.8em; margin-top: 4px;">Code FLASH40 · Ends August 31st</div>
+  </div>
+  <form action="/checkout/creator" method="post" style="margin-bottom: 12px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" style="
+      background: linear-gradient(135deg, #00ffff, #667eea);
+      color: #000;
+      border: none;
+      padding: 16px 40px;
+      border-radius: 10px;
+      font-size: 1.1em;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      max-width: 320px;
+      transition: opacity 0.2s;
+    ">Upgrade to Unlimited →</button>
+  </form>
+  <div style="color: #666; font-size: 0.8em;">No contracts · Cancel anytime</div>
+</div>
+{% endif %}
       
       <form method="POST" action="/dashboard">
     <!-- CSRF Token -->
