@@ -1,4 +1,4 @@
-import stripe
+from main import SessionLocal, stripe
 coupon = stripe.Coupon.create(
     percent_off=40,
     duration="once",
