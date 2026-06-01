@@ -6610,8 +6610,19 @@ async def create_checkout_session(request: Request, plan_type: str):
             # User already has a customer ID, verify it exists in Stripe
             try:
                 customer = stripe.Customer.retrieve(db_user.stripe_customer_id)
+                # Extra check — make sure it's not deleted
+                if getattr(customer, 'deleted', False):
+                    raise Exception("Customer deleted")
                 customer_id = customer.id
                 print(f"✅ Using existing customer {customer_id} for user {user.email}")
+                
+            except Exception:
+            # Any error — treat as invalid and create fresh
+                print(f"⚠️ Customer {db_user.stripe_customer_id} invalid, creating new one")
+                db_user.stripe_customer_id = None
+                db.commit()
+                customer_id = None
+
             except stripe.error.InvalidRequestError:
                 # Customer doesn't exist in Stripe anymore, create a new one
                 print(f"⚠️ Customer {db_user.stripe_customer_id} not found in Stripe, creating new one")
