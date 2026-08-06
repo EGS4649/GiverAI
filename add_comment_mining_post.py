@@ -1,5 +1,4 @@
 # add_comment_mining_post.py
-# Run this to add your next SEO-optimized blog post
 
 from main import SessionLocal, create_blog_post
 
