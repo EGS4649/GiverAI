@@ -9,6 +9,15 @@ def add_comment_mining_post():
 
     try:
         content = """
+<ul>
+<li>✅ Generate 15 tweets/day (free - no credit card)</li>
+<li>✅ Batch-create 30 days of content in 30 minutes</li>
+<li>✅ Schedule for your optimal times (more time to engage)</li>
+<li>✅ Never miss your engagement windows again</li>
+<li>✅ Works globally (no payment restrictions)</li>
+</ul>
+<p><a href="/register" style="display: inline-block; background: linear-gradient(45deg, #00ffff, #ff00ff); color: #000; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 20px 0;">Try GiverAI Free</a></p>
+
 <p>The best tweet ideas aren't in your head. They're in your audience's mouths.</p>
 
 <p>Every day, thousands of people in your niche leave comments on YouTube videos, Reddit threads, LinkedIn posts, and blog articles. They're expressing frustrations, asking questions, sharing opinions, and debating ideas — in their own words, without filters.</p>
